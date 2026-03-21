@@ -43,6 +43,10 @@ public class AudioPresenter implements MediaPresenter, AutoCloseable {
 
     protected AudioPresenter() {
         registerWithRuntime();
+        // DoJa titles often construct presenters during loading and expect the first MLD effect
+        // play to be low-latency. Create the long-lived MLD backend up front so menu input does
+        // not pay the handle/worker setup cost the first time a prepared effect is triggered.
+        mldPlayer = new MldPcmPlayer(new MldListener());
     }
 
     public Audio3D getAudio3D() {
@@ -103,11 +107,13 @@ public class AudioPresenter implements MediaPresenter, AutoCloseable {
                 if (mldPlayer == null) {
                     mldPlayer = new MldPcmPlayer(new MldListener());
                 }
+                mldPlayer.setVolumeLevel(currentVolumeLevel());
                 mldPlayer.start(prepared, loopCount);
             } else {
                 if (sampledPlayer == null) {
                     sampledPlayer = new SampledPcmPlayer(new SampledListener());
                 }
+                sampledPlayer.setVolumeLevel(currentVolumeLevel());
                 sampledPlayer.start(prepared, loopCount);
             }
             notifyListener(AUDIO_PLAYING, 0);
@@ -208,6 +214,15 @@ public class AudioPresenter implements MediaPresenter, AutoCloseable {
     @Override
     public void setAttribute(int key, int value) {
         attributes.put(key, value);
+        if (key == SET_VOLUME) {
+            int level = currentVolumeLevel();
+            if (sampledPlayer != null) {
+                sampledPlayer.setVolumeLevel(level);
+            }
+            if (mldPlayer != null) {
+                mldPlayer.setVolumeLevel(level);
+            }
+        }
     }
 
     @Override
@@ -226,6 +241,10 @@ public class AudioPresenter implements MediaPresenter, AutoCloseable {
         if (runtime != null) {
             runtime.registerShutdownResource(this);
         }
+    }
+
+    private int currentVolumeLevel() {
+        return Math.max(0, Math.min(100, attributes.getOrDefault(SET_VOLUME, 100)));
     }
 
     private final class MldListener implements MldPcmPlayer.Listener {
