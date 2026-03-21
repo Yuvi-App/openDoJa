@@ -263,14 +263,19 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         boolean outermostUnlock = runtime == null || runtime.surfaceLock().getHoldCount() == 1;
         if (flush) {
             presentedFrame = copyImage(surface.image());
+        } else if (outermostUnlock && surface.hasRepaintHook()) {
+            // Some games draw directly to Canvas.getGraphics() and finish the frame with unlock(false)
+            // rather than unlock(true). Canvas surfaces still need to present at the end of that
+            // outermost lock scope, while offscreen Image surfaces must remain offscreen.
+            presentedFrame = copyImage(surface.image());
         }
         if (runtime != null) {
             runtime.surfaceLock().unlock();
         }
-        if (outermostUnlock && !flush) {
+        if (outermostUnlock && presentedFrame == null) {
             surface.endDepthFrame();
         }
-        if (flush) {
+        if (presentedFrame != null) {
             surface.flush(presentedFrame);
         }
     }
@@ -367,17 +372,33 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
 
     private void drawSubImage(Image image, int dx, int dy, int sx, int sy, int sw, int sh, int dw, int dh) {
         BufferedImage source = image == null ? null : image.renderForDisplay();
-        if (source == null) {
+        if (source == null || sw <= 0 || sh <= 0 || dw == 0 || dh == 0) {
             return;
         }
-        BufferedImage region = source.getSubimage(Math.max(0, sx), Math.max(0, sy), Math.min(sw, source.getWidth() - sx), Math.min(sh, source.getHeight() - sy));
+        int srcX1 = sx;
+        int srcY1 = sy;
+        int srcX2 = sx + sw;
+        int srcY2 = sy + sh;
+        int clippedSrcX1 = Math.max(0, srcX1);
+        int clippedSrcY1 = Math.max(0, srcY1);
+        int clippedSrcX2 = Math.min(source.getWidth(), srcX2);
+        int clippedSrcY2 = Math.min(source.getHeight(), srcY2);
+        if (clippedSrcX1 >= clippedSrcX2 || clippedSrcY1 >= clippedSrcY2) {
+            return;
+        }
+        // DoJa-style source rectangles can fall partially outside the image. Clip them and remap
+        // the destination proportionally instead of delegating to getSubimage(), which throws.
+        int destX1 = originX + dx + Math.round((clippedSrcX1 - srcX1) * (dw / (float) sw));
+        int destY1 = originY + dy + Math.round((clippedSrcY1 - srcY1) * (dh / (float) sh));
+        int destX2 = originX + dx + Math.round((clippedSrcX2 - srcX1) * (dw / (float) sw));
+        int destY2 = originY + dy + Math.round((clippedSrcY2 - srcY1) * (dh / (float) sh));
         AffineTransform oldTransform = delegate.getTransform();
         try {
             applyFlipTransform(dx, dy, dw, dh);
             if (image.getAlpha() < 255) {
                 delegate.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, image.getAlpha() / 255.0f));
             }
-            delegate.drawImage(region, originX + dx, originY + dy, originX + dx + dw, originY + dy + dh, 0, 0, region.getWidth(), region.getHeight(), null);
+            delegate.drawImage(source, destX1, destY1, destX2, destY2, clippedSrcX1, clippedSrcY1, clippedSrcX2, clippedSrcY2, null);
             delegate.setComposite(AlphaComposite.SrcOver);
         } finally {
             delegate.setTransform(oldTransform);

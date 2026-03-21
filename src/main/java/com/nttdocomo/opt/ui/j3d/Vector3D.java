@@ -17,16 +17,19 @@ public class Vector3D {
     }
 
     public void normalize() {
-        int length = FixedPoint.sqrt(x * x + y * y + z * z);
+        // Map-space coordinates can be much larger than UI-scene coordinates. Keep the length
+        // accumulation in 64-bit so camera/lookAt setup does not overflow before normalization.
+        long lengthSquared = (long) x * (long) x + (long) y * (long) y + (long) z * (long) z;
+        int length = (int) java.lang.Math.round(java.lang.Math.sqrt(lengthSquared));
         if (length == 0) {
             x = 0;
             y = 0;
             z = FixedPoint.ONE;
             return;
         }
-        x = (x << 12) / length;
-        y = (y << 12) / length;
-        z = (z << 12) / length;
+        x = (int) ((((long) x) << 12) / length);
+        y = (int) ((((long) y) << 12) / length);
+        z = (int) ((((long) z) << 12) / length);
     }
 
     public int dot(Vector3D other) {

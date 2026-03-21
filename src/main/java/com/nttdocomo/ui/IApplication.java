@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public abstract class IApplication {
+    private static final boolean TRACE_FAILURES = Boolean.getBoolean("opendoja.traceFailures");
     public static final int LAUNCHED_FROM_MENU = 0;
     public static final int LAUNCHED_AFTER_DOWNLOAD = 1;
     public static final int LAUNCHED_FROM_TIMER = 2;
@@ -98,6 +99,10 @@ public abstract class IApplication {
     }
 
     public final void terminate() {
+        if (TRACE_FAILURES) {
+            IllegalStateException trace = new IllegalStateException("IApplication.terminate()");
+            trace.printStackTrace(System.err);
+        }
         DoJaRuntime runtime = DoJaRuntime.current();
         if (runtime != null) {
             runtime.shutdown();

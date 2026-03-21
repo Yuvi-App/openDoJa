@@ -18,6 +18,7 @@ import java.awt.RenderingHints;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
@@ -57,6 +58,7 @@ public final class DoJaRuntime {
     private final HostPanel hostPanel;
     private JFrame frameWindow;
     private Frame currentFrame;
+    private volatile Canvas presentedCanvas;
     private volatile BufferedImage presentedFrame;
     private volatile int keypadState;
     private volatile long selectLatchedUntilNanos;
@@ -184,9 +186,13 @@ public final class DoJaRuntime {
         this.currentFrame = frame;
         if (frame instanceof Canvas canvas) {
             ensureCanvasSurface(canvas);
-            presentedFrame = snapshotCanvasImage(canvas);
+            if (presentedCanvas != canvas || presentedFrame == null) {
+                presentedFrame = snapshotCanvasImage(canvas);
+            }
+            presentedCanvas = canvas;
             requestRender(canvas);
         } else {
+            presentedCanvas = null;
             presentedFrame = null;
             repaintWindow();
         }
@@ -299,7 +305,11 @@ public final class DoJaRuntime {
     }
 
     public void notifySurfaceFlush(Canvas canvas, BufferedImage frame) {
-        if (canvas == currentFrame) {
+        // Some games start a render thread from the Canvas constructor and flush direct-draw frames
+        // before Display.setCurrent(canvas) runs. Preserve that latest frame so it is still visible
+        // once the Canvas becomes current, instead of dropping it as "not current yet".
+        if (canvas == currentFrame || currentFrame == null) {
+            presentedCanvas = canvas;
             presentedFrame = frame == null ? snapshotCanvasImage(canvas) : frame;
             repaintWindow();
         }
@@ -362,22 +372,30 @@ public final class DoJaRuntime {
         if (preferredLoader != null) {
             InputStream preferred = preferredLoader.getResourceAsStream(normalized);
             if (preferred != null) {
-                return preferred;
+                return toBufferedResourceStream(preferred);
             }
         }
         InputStream contextIn = Thread.currentThread().getContextClassLoader().getResourceAsStream(normalized);
         if (contextIn != null) {
-            return contextIn;
+            return toBufferedResourceStream(contextIn);
         }
         Path filesystemPath = Path.of(normalized);
         if (Files.exists(filesystemPath)) {
-            return Files.newInputStream(filesystemPath);
+            return new ByteArrayInputStream(Files.readAllBytes(filesystemPath));
         }
         Path relativeToSource = resolveRelativeToSourceUrl(launchConfig, normalized);
         if (relativeToSource != null && Files.exists(relativeToSource)) {
-            return Files.newInputStream(relativeToSource);
+            return new ByteArrayInputStream(Files.readAllBytes(relativeToSource));
         }
         throw new IOException("Resource not found: " + path);
+    }
+
+    private static InputStream toBufferedResourceStream(InputStream raw) throws IOException {
+        try (InputStream in = raw) {
+            // DoJa games often treat resource streams like memory-backed blobs: available() is expected
+            // to be the full remaining length, and a single read(byte[]) is expected to fill that buffer.
+            return new ByteArrayInputStream(in.readAllBytes());
+        }
     }
 
     private static String normalizeResourcePath(String path) {

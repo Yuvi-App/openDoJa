@@ -54,6 +54,10 @@ public final class DesktopSurface {
         this.repaintHook = repaintHook;
     }
 
+    public boolean hasRepaintHook() {
+        return repaintHook != null;
+    }
+
     public synchronized float[] depthBufferForFrame() {
         int pixelCount = image.getWidth() * image.getHeight();
         if (depthBuffer == null || depthBuffer.length != pixelCount) {
