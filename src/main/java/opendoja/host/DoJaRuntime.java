@@ -39,6 +39,8 @@ import java.util.concurrent.locks.ReentrantLock;
 public final class DoJaRuntime {
     private static final ThreadLocal<LaunchConfig> PREPARED_LAUNCH = new ThreadLocal<>();
     private static final boolean TRACE_EVENTS = Boolean.getBoolean("opendoja.traceEvents");
+    private static final long MINIMUM_SELECT_PRESS_NANOS =
+            java.lang.Math.max(0L, Long.getLong("opendoja.input.minimumSelectPressMs", 75L)) * 1_000_000L;
     private static volatile DoJaRuntime current;
 
     private final LaunchConfig config;
@@ -57,6 +59,7 @@ public final class DoJaRuntime {
     private Frame currentFrame;
     private volatile BufferedImage presentedFrame;
     private volatile int keypadState;
+    private volatile long selectLatchedUntilNanos;
 
     private DoJaRuntime(LaunchConfig config, IApplication application) {
         this.config = config;
@@ -227,7 +230,14 @@ public final class DoJaRuntime {
     }
 
     public int keypadState() {
-        return keypadState;
+        int state = keypadState;
+        if (MINIMUM_SELECT_PRESS_NANOS <= 0L || (state & keyMask(Display.KEY_SELECT)) != 0) {
+            return state;
+        }
+        if (selectLatchedUntilNanos > System.nanoTime()) {
+            return state | keyMask(Display.KEY_SELECT);
+        }
+        return state;
     }
 
     public void dispatchTimerEvent(Canvas canvas, int param) {
@@ -242,8 +252,17 @@ public final class DoJaRuntime {
 
     public void dispatchSyntheticKey(int dojaKey, int eventType) {
         int mask = keyMask(dojaKey);
+        long now = System.nanoTime();
         if (eventType == Display.KEY_PRESSED_EVENT) {
             keypadState |= mask;
+            if (dojaKey == Display.KEY_SELECT && MINIMUM_SELECT_PRESS_NANOS > 0L) {
+                // Some DoJa games derive edge-triggered confirm input from polled keypad-state snapshots
+                // rather than from KEY_PRESSED_EVENT callbacks. If a desktop tap begins and ends between
+                // two polls, the sampled state is 0 at both reads and the edge disappears completely.
+                // Keep KEY_SELECT visible for a short minimum dwell window so a fast desktop confirm tap
+                // survives at least one poll without changing long-hold behavior.
+                selectLatchedUntilNanos = now + MINIMUM_SELECT_PRESS_NANOS;
+            }
         } else if (eventType == Display.KEY_RELEASED_EVENT) {
             keypadState &= ~mask;
         }
