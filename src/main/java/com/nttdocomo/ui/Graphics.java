@@ -170,8 +170,7 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         if (text == null) {
             return;
         }
-        delegate.setFont(font.awtFont());
-        delegate.drawString(text, originX + x, originY + y);
+        font.drawString(delegate, text, originX + x, originY + y, color);
     }
 
     public void fillPolygon(int[] xs, int[] ys, int n) {

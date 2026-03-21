@@ -54,6 +54,12 @@ public final class DoJaRuntime {
         thread.setDaemon(true);
         return thread;
     });
+    private final java.util.concurrent.ExecutorService renderExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread thread = new Thread(r, "openDoJa-render");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private final AtomicBoolean renderQueued = new AtomicBoolean();
     private final Set<AutoCloseable> shutdownResources = ConcurrentHashMap.newKeySet();
     private final HostPanel hostPanel;
     private JFrame frameWindow;
@@ -147,6 +153,7 @@ public final class DoJaRuntime {
         }
         closeShutdownResources();
         scheduler.shutdownNow();
+        renderExecutor.shutdownNow();
         if (frameWindow != null) {
             SwingUtilities.invokeLater(() -> frameWindow.dispose());
         }
@@ -190,7 +197,11 @@ public final class DoJaRuntime {
                 presentedFrame = snapshotCanvasImage(canvas);
             }
             presentedCanvas = canvas;
-            requestRender(canvas);
+            if (usesDirectGraphicsMode(canvas)) {
+                repaintWindow();
+            } else {
+                requestRender(canvas);
+            }
         } else {
             presentedCanvas = null;
             presentedFrame = null;
@@ -203,21 +214,40 @@ public final class DoJaRuntime {
     }
 
     public void requestRender(Canvas canvas) {
+        if (usesDirectGraphicsMode(canvas)) {
+            if (canvas == currentFrame && (presentedCanvas != canvas || presentedFrame == null)) {
+                presentedCanvas = canvas;
+                presentedFrame = snapshotCanvasImage(canvas);
+            }
+            repaintWindow();
+            return;
+        }
         Runnable paintTask = () -> {
-            ensureCanvasSurface(canvas);
-            Graphics g = canvas.getGraphics();
             try {
-                g.lock();
-                canvas.paint(g);
+                synchronized (canvas) {
+                    ensureCanvasSurface(canvas);
+                    Graphics g = runtimeGraphics(canvas);
+                    try {
+                        // Runtime-driven paints must not happen on the EDT: some games keep a
+                        // synchronized paint loop on their own thread and call Graphics.lock()
+                        // inside that method. A separate render worker keeps window events flowing
+                        // and preserves the same Canvas-monitor -> surface-lock ordering.
+                        g.lock();
+                        canvas.paint(g);
+                    } finally {
+                        g.unlock(true);
+                        g.dispose();
+                    }
+                }
             } finally {
-                g.unlock(true);
-                g.dispose();
+                renderQueued.set(false);
             }
         };
-        if (SwingUtilities.isEventDispatchThread()) {
-            paintTask.run();
-        } else {
-            SwingUtilities.invokeLater(paintTask);
+        if (shutdown.get()) {
+            return;
+        }
+        if (renderQueued.compareAndSet(false, true)) {
+            renderExecutor.execute(paintTask);
         }
     }
 
@@ -341,6 +371,16 @@ public final class DoJaRuntime {
     private BufferedImage snapshotCanvasImage(Canvas canvas) {
         BufferedImage image = getCanvasImage(canvas);
         return copyCanvasImage(image);
+    }
+
+    private boolean usesDirectGraphicsMode(Canvas canvas) {
+        Object direct = invokeCanvasMethod(canvas, "directGraphicsMode", new Class<?>[0]);
+        return direct instanceof Boolean value && value;
+    }
+
+    private Graphics runtimeGraphics(Canvas canvas) {
+        Object graphics = invokeCanvasMethod(canvas, "runtimeGraphics", new Class<?>[0]);
+        return (Graphics) Objects.requireNonNull(graphics, "Canvas.runtimeGraphics() returned null");
     }
 
     private BufferedImage copyCanvasImage(BufferedImage image) {

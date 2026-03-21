@@ -2,9 +2,11 @@ package com.nttdocomo.ui;
 
 import com.nttdocomo.lang.XString;
 
+import java.awt.AWTError;
+import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.GraphicsEnvironment;
-import java.awt.FontMetrics;
+import java.awt.HeadlessException;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.util.HashSet;
@@ -28,26 +30,23 @@ public class Font {
     public static final int SIZE_LARGE = 0x70000300;
     public static final int SIZE_TINY = 0x70000400;
 
-    private static final Set<String> AVAILABLE_FAMILIES = availableFamilies();
     private static final BufferedImage METRICS_IMAGE = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
-    private static Font defaultFont = new Font(FACE_SYSTEM, STYLE_PLAIN, decodeSize(SIZE_TINY));
+    private static volatile Set<String> availableFamilies;
+    private static Font defaultFont = createFont(FACE_SYSTEM, STYLE_PLAIN, decodeSize(SIZE_TINY));
 
     private final java.awt.Font awtFont;
-    private FontMetrics metrics;
+    private java.awt.FontMetrics metrics;
 
     protected Font() {
-        this(FACE_SYSTEM, STYLE_PLAIN, decodeSize(SIZE_MEDIUM));
+        this(new java.awt.Font(java.awt.Font.DIALOG, java.awt.Font.PLAIN, 12));
+    }
+
+    protected Font(java.awt.Font awtFont) {
+        this.awtFont = awtFont == null ? new java.awt.Font(java.awt.Font.DIALOG, java.awt.Font.PLAIN, 12) : awtFont;
     }
 
     private Font(int face, int style, int size) {
-        int awtStyle = switch (style) {
-            case STYLE_BOLD -> java.awt.Font.BOLD;
-            case STYLE_ITALIC -> java.awt.Font.ITALIC;
-            case STYLE_BOLDITALIC -> java.awt.Font.BOLD | java.awt.Font.ITALIC;
-            default -> java.awt.Font.PLAIN;
-        };
-        java.awt.Font baseFont = resolveBaseFont(face);
-        this.awtFont = baseFont.deriveFont(awtStyle, (float) resolveDesktopPointSize(face, baseFont, awtStyle, size));
+        this(resolveBaseFont(face).deriveFont(resolveAwtStyle(style), (float) resolveDesktopPointSize(face, resolveBaseFont(face), resolveAwtStyle(style), size)));
     }
 
     public static Font getDefaultFont() {
@@ -62,22 +61,20 @@ public class Font {
 
     public static Font getFont(int value) {
         if (value == TYPE_HEADING) {
-            return new Font(FACE_SYSTEM, STYLE_BOLD, decodeSize(SIZE_LARGE));
+            return createFont(FACE_SYSTEM, STYLE_BOLD, decodeSize(SIZE_LARGE));
         }
         if (value == TYPE_DEFAULT) {
             return getDefaultFont();
         }
-        return new Font(FACE_SYSTEM, STYLE_PLAIN, decodeSize(value));
+        return createFont(FACE_SYSTEM, STYLE_PLAIN, decodeSize(value));
     }
 
     public static Font getFont(int faceAndStyle, int size) {
-        int face = decodeFace(faceAndStyle);
-        int style = decodeStyle(faceAndStyle);
-        return new Font(face, style, decodeSize(size));
+        return createFont(decodeFace(faceAndStyle), decodeStyle(faceAndStyle), decodeSize(size));
     }
 
     public static int[] getSupportedFontSizes() {
-        return new int[]{12, 16, 24, 30};
+        return _BitmapFont.getSupportedFontSizes();
     }
 
     public int getAscent() {
@@ -89,7 +86,7 @@ public class Font {
     }
 
     public int getHeight() {
-        FontMetrics metrics = metrics();
+        java.awt.FontMetrics metrics = metrics();
         return metrics.getAscent() + metrics.getDescent();
     }
 
@@ -149,7 +146,20 @@ public class Font {
         return awtFont;
     }
 
-    private FontMetrics metrics() {
+    void drawString(Graphics2D graphics, String text, int x, int y, int argbColor) {
+        if (text == null) {
+            return;
+        }
+        graphics.setFont(awtFont);
+        graphics.setColor(new Color(argbColor, true));
+        graphics.drawString(text, x, y);
+    }
+
+    static Object textAntialiasHint() {
+        return TEXT_ANTIALIAS_HINT;
+    }
+
+    private java.awt.FontMetrics metrics() {
         if (metrics == null) {
             synchronized (METRICS_IMAGE) {
                 Graphics2D graphics = METRICS_IMAGE.createGraphics();
@@ -164,6 +174,20 @@ public class Font {
             }
         }
         return metrics;
+    }
+
+    private static Font createFont(int face, int style, int size) {
+        Font bitmap = _BitmapFont.create(face, style, size);
+        return bitmap != null ? bitmap : new Font(face, style, size);
+    }
+
+    private static int resolveAwtStyle(int style) {
+        return switch (style) {
+            case STYLE_BOLD -> java.awt.Font.BOLD;
+            case STYLE_ITALIC -> java.awt.Font.ITALIC;
+            case STYLE_BOLDITALIC -> java.awt.Font.BOLD | java.awt.Font.ITALIC;
+            default -> java.awt.Font.PLAIN;
+        };
     }
 
     private static int decodeFace(int value) {
@@ -209,9 +233,9 @@ public class Font {
                 for (int pointSize = 6; pointSize <= 32; pointSize++) {
                     java.awt.Font candidate = baseFont.deriveFont(awtStyle, (float) pointSize);
                     graphics.setFont(candidate);
-                    FontMetrics metrics = graphics.getFontMetrics();
+                    java.awt.FontMetrics metrics = graphics.getFontMetrics();
                     int renderedHeight = metrics.getAscent() + metrics.getDescent();
-                    int distance = java.lang.Math.abs(renderedHeight - targetHeight);
+                    int distance = Math.abs(renderedHeight - targetHeight);
                     if (distance < bestDistance) {
                         bestDistance = distance;
                         bestPointSize = pointSize;
@@ -231,7 +255,7 @@ public class Font {
         if (logicalSize == decodeSize(SIZE_TINY) && face != FACE_MONOSPACE) {
             return 14;
         }
-        return java.lang.Math.max(8, java.lang.Math.round(logicalSize * HANDSET_FONT_SCALE));
+        return Math.max(8, Math.round(logicalSize * HANDSET_FONT_SCALE));
     }
 
     private static java.awt.Font resolveBaseFont(int face) {
@@ -286,10 +310,6 @@ public class Font {
         );
     }
 
-    static Object textAntialiasHint() {
-        return TEXT_ANTIALIAS_HINT;
-    }
-
     private static Object resolveTextAntialiasHint() {
         String value = System.getProperty("opendoja.textAntialias", "gasp").toLowerCase(Locale.ROOT);
         return switch (value) {
@@ -301,8 +321,9 @@ public class Font {
     }
 
     private static String firstInstalled(String... candidates) {
+        Set<String> families = availableFamilies();
         for (String candidate : candidates) {
-            if (AVAILABLE_FAMILIES.contains(candidate.toLowerCase(Locale.ROOT))) {
+            if (families.contains(candidate.toLowerCase(Locale.ROOT))) {
                 return candidate;
             }
         }
@@ -310,13 +331,23 @@ public class Font {
     }
 
     private static Set<String> availableFamilies() {
+        Set<String> cached = availableFamilies;
+        if (cached != null) {
+            return cached;
+        }
         Set<String> families = new HashSet<>();
-        for (String family : GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames()) {
-            families.add(family.toLowerCase(Locale.ROOT));
+        try {
+            for (String family : GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames()) {
+                families.add(family.toLowerCase(Locale.ROOT));
+            }
+        } catch (HeadlessException | AWTError ignored) {
+            // Bitmap fonts are the primary path; keep fallback font resolution resilient when no
+            // desktop font environment is available.
         }
         families.add(java.awt.Font.DIALOG.toLowerCase(Locale.ROOT));
         families.add(java.awt.Font.SANS_SERIF.toLowerCase(Locale.ROOT));
         families.add(java.awt.Font.MONOSPACED.toLowerCase(Locale.ROOT));
+        availableFamilies = families;
         return families;
     }
 }

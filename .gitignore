@@ -20,7 +20,7 @@ out/
 .opendoja/
 
 # Reverse-engineering inputs and local task logs
-resources/
+/resources/
 tasks/
 AGENTS.md
 COMPATIBILITY_NOTES.md

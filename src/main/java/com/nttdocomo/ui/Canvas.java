@@ -10,11 +10,30 @@ public abstract class Canvas extends Frame {
     public static final int IME_CANCELED = 1;
 
     private DesktopSurface surface;
+    private volatile boolean directGraphicsMode;
 
     public Canvas() {
     }
 
     public Graphics getGraphics() {
+        DoJaRuntime runtime = DoJaRuntime.current();
+        if (runtime != null && runtime.getCurrentFrame() != this) {
+            // A canvas that grabs Graphics before becoming current is usually running its own
+            // direct frame loop rather than waiting for repaint-driven paint() callbacks.
+            directGraphicsMode = true;
+        }
+        return createGraphics();
+    }
+
+    Graphics runtimeGraphics() {
+        return createGraphics();
+    }
+
+    boolean directGraphicsMode() {
+        return directGraphicsMode;
+    }
+
+    private Graphics createGraphics() {
         ensureSurface(Display.getWidth(), Display.getHeight());
         surface.setBackgroundColor(backgroundColor());
         surface.setRepaintHook(frame -> {
