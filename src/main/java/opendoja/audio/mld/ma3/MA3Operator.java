@@ -43,6 +43,17 @@ class MA3Operator
 	implements BasicOperator
 {
 	/**
+	 * Enable the Yamaha-style EVB/DVB pitch path by default.
+	 *
+	 * The MA-3 preset ROM uses EVB operators heavily, native Yamaha binaries
+	 * expose dedicated pitch helpers, and probe renders show the path changes
+	 * vibrato-enabled content while leaving non-vibrato presets bit-identical.
+	 * Keep an opt-out switch in case stronger native parity evidence requires it.
+	 */
+	private static final boolean ENABLE_VIBRATO =
+		!Boolean.getBoolean("opendoja.ma3DisableVibrato");
+
+	/**
 	 * OPL registers
 	 * Envelope attack rate
 	 */
@@ -513,22 +524,12 @@ class MA3Operator
 		this.oscPhase +=
 			(note.f_number << note.block >> 1) * constMultis[this.multi] >> 1;
 		
-		// According to available resources, the below algorithm should be
-		// correct for vibrato, but no significance has been observed and
-		// the output from ATS-MA3-N is no different. It has been disabled
-		// pending further reserach. A real MA-3 may be needed.
-		//
-		// The DVB settings in the MA-2 algorithms are as defined in
-		// ATS-MA2-N, with two bits, although the OPL register only uses
-		// one bit for DVB. The MA-2 presets may need to be adjusted once
-		// the vibrato thing is pinned down.
-		//
-		// if (evb) {
-		//     oscPhase += instance.vibPhase << 19 >> 31 ^ note
-		//     .f_number >>
-		//        (9 - dvb + ((instance.vibPhase >> 10 & 3) == 3 ? 1 : 
-		//        0));
-		// }
+		if (ENABLE_VIBRATO && this.evb)
+		{
+			this.oscPhase +=
+				(instance.vibPhase << 19 >> 31 ^ note.f_number >>
+					(9 - this.dvb + ((instance.vibPhase >> 10 & 3) == 3 ? 1 : 0)));
+		}
 		
 		return this.fb0;
 	}
