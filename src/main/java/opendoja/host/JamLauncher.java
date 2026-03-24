@@ -4,6 +4,7 @@ import com.nttdocomo.ui.IApplication;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
@@ -78,11 +79,45 @@ public final class JamLauncher {
         }
         String trimmed = packageUrl.trim();
         if (trimmed.contains("://")) {
-            return trimmed;
+            return normalizePackageUri(URI.create(trimmed)).toString();
         }
         Path base = jamPath.getParent();
         Path resolved = (base == null ? Path.of(trimmed) : base.resolve(trimmed)).normalize();
+        if (isJarPath(resolved.getFileName())) {
+            Path absoluteResolved = resolved.toAbsolutePath().normalize();
+            Path parent = absoluteResolved.getParent();
+            return toDirectoryUri(parent == null ? absoluteResolved : parent);
+        }
         return resolved.toUri().toString();
+    }
+
+    private static URI normalizePackageUri(URI packageUri) {
+        String path = packageUri.getPath();
+        if (!isJarName(lastPathSegment(path))) {
+            return packageUri;
+        }
+        return packageUri.resolve(".");
+    }
+
+    private static boolean isJarPath(Path path) {
+        return path != null && isJarName(path.toString());
+    }
+
+    private static boolean isJarName(String name) {
+        return name != null && name.length() >= 4 && name.regionMatches(true, name.length() - 4, ".jar", 0, 4);
+    }
+
+    private static String lastPathSegment(String path) {
+        if (path == null || path.isEmpty()) {
+            return null;
+        }
+        int slash = path.lastIndexOf('/');
+        return slash >= 0 ? path.substring(slash + 1) : path;
+    }
+
+    private static String toDirectoryUri(Path directory) {
+        String uri = directory.toUri().toString();
+        return uri.endsWith("/") ? uri : uri + "/";
     }
 
     private static Path defaultScratchpadRoot(Path jamPath) {
