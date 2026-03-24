@@ -190,7 +190,7 @@ public final class Software3DContext {
                                   int[] textureCoordArray, SoftwareTexture texture, float[] objectTransform, int blendMode, float transparency) {
         Projection projection = uiPerspective ? createUiProjection(surfaceWidth, surfaceHeight) : null;
         // UI `Primitive` keeps the palette-zero color-key bit in primitiveParam, unlike opt `PrimitiveArray`.
-        renderPrimitiveBuffer(g, target, originX, originY, surfaceWidth, surfaceHeight, primitiveType, primitiveParam, 0, primitiveCount, vertexArray, colorArray, textureCoordArray, texture, objectTransform == null ? uiTransform : multiply(uiTransform, objectTransform), projection, uiClip, surfaceWidth / 2f, surfaceHeight / 2f, uiOrthoWidth, uiOrthoHeight, true, (primitiveParam & 0x10) != 0, blendMode, transparency, false, false);
+        renderPrimitiveBuffer(g, target, originX, originY, surfaceWidth, surfaceHeight, primitiveType, primitiveParam, 0, primitiveCount, vertexArray, colorArray, textureCoordArray, texture, objectTransform == null ? uiTransform : multiply(uiTransform, objectTransform), projection, uiClip, surfaceWidth / 2f, surfaceHeight / 2f, uiOrthoWidth, uiOrthoHeight, true, (primitiveParam & 0x10) != 0, blendMode, transparency, false, false, false);
     }
 
     public void renderOptFigure(Graphics2D g, BufferedImage target, int originX, int originY, int surfaceWidth, int surfaceHeight, MascotFigure figure) {
@@ -219,7 +219,7 @@ public final class Software3DContext {
         renderPrimitiveBuffer(g, target, originX, originY, surfaceWidth, surfaceHeight, primitives.getType(), primitives.getParam(), start, count,
                 primitives.getVertexArray(), primitives.getColorArray(), primitives.getTextureCoordArray(), texture, optViewTransform, projection, optClip,
                 optScreenCenterX, optScreenCenterY, resolveOptOrthoWidth(surfaceWidth), resolveOptOrthoHeight(surfaceHeight),
-                optSemiTransparent, (attr & 0x10) != 0, attr & 0x60, 1f, true, true);
+                optSemiTransparent, (attr & 0x10) != 0, attr & 0x60, 1f, true, true, true);
     }
 
     private void renderModel(Graphics2D g, BufferedImage target, int originX, int originY, int surfaceWidth, int surfaceHeight,
@@ -354,7 +354,7 @@ public final class Software3DContext {
                                        float[] transform, Projection projection, Rectangle clip,
                                        float centerX, float centerY, float orthoWidth, float orthoHeight,
                                        boolean allowBlend, boolean transparentPaletteZero, int blendMode, float transparency,
-                                       boolean unsignedByteTextureCoords, boolean invertScreenY) {
+                                       boolean unsignedByteTextureCoords, boolean invertScreenY, boolean opaqueRgbColors) {
         if (vertexArray == null) {
             return;
         }
@@ -428,7 +428,11 @@ public final class Software3DContext {
                 }
             }
             avgDepth /= vertexCount;
-            int color = scaleColor(colorForPrimitive(primitive, primitiveParam, colorArray), transparency, 1f);
+            int baseColor = colorForPrimitive(primitive, primitiveParam, colorArray);
+            if (opaqueRgbColors) {
+                baseColor = normalizeOpaqueRgbColor(baseColor);
+            }
+            int color = scaleColor(baseColor, transparency, 1f);
             if (texture != null && vertexCount >= 3 && uv != null) {
                 if (primitiveType == 4 && vertexCount == 4) {
                     addProjectedPrimitiveQuad(projected, xs, ys, depthValues, color, avgDepth, texture, uv, projection != null, transparentPaletteZero, effectiveBlendMode);
@@ -1089,6 +1093,10 @@ public final class Software3DContext {
             return colorArray[java.lang.Math.min(primitive, colorArray.length - 1)];
         }
         return colorArray[0];
+    }
+
+    private static int normalizeOpaqueRgbColor(int color) {
+        return (color & 0xFF000000) == 0 ? (0xFF000000 | color) : color;
     }
 
     private static int scaleColor(int color, float transparency, float lightScale) {
