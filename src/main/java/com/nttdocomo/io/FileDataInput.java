@@ -1,9 +1,10 @@
 package com.nttdocomo.io;
 
+import opendoja.host.DoJaEncoding;
+
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -11,8 +12,6 @@ import java.nio.file.Path;
  * Data input for reading a file with random access.
  */
 public class FileDataInput implements java.io.DataInput, RandomAccessible, AutoCloseable {
-    private static final Charset DEFAULT_CHARSET = Charset.forName("MS932");
-
     private final FileEntity owner;
     private final RandomAccessFile file;
     private boolean closed;
@@ -124,7 +123,7 @@ public class FileDataInput implements java.io.DataInput, RandomAccessible, AutoC
         int length = readUnsignedShort();
         byte[] data = new byte[length];
         readFully(data);
-        return new String(data, DEFAULT_CHARSET);
+        return new String(data, DoJaEncoding.DEFAULT_CHARSET);
     }
 
     /**
@@ -156,7 +155,7 @@ public class FileDataInput implements java.io.DataInput, RandomAccessible, AutoC
         if (padding > 0) {
             setPositionRelative(padding);
         }
-        return new String(data, DEFAULT_CHARSET);
+        return new String(data, DoJaEncoding.DEFAULT_CHARSET);
     }
 
     /**
@@ -302,7 +301,7 @@ public class FileDataInput implements java.io.DataInput, RandomAccessible, AutoC
     public String readLine() throws IOException {
         ensureOpen();
         byte[] buffer = readLineBytes();
-        return buffer == null ? null : new String(buffer, DEFAULT_CHARSET);
+        return buffer == null ? null : new String(buffer, DoJaEncoding.DEFAULT_CHARSET);
     }
 
     /**

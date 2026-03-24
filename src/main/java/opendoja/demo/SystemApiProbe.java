@@ -43,12 +43,12 @@ import com.nttdocomo.ui.PhoneSystem;
 import com.nttdocomo.ui.UIException;
 import com.nttdocomo.util.ScheduleDate;
 import com.nttdocomo.util.Timer;
+import opendoja.host.DoJaEncoding;
 import opendoja.host.DoJaRuntime;
 import opendoja.host.LaunchConfig;
 import opendoja.host.system.DoJaSystemRegistry;
 
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -258,7 +258,7 @@ public final class SystemApiProbe {
                 + "REDISTRIBUTION=4\n"
                 + "MOVE=next\n"
                 + "BODY=" + Base64.getEncoder().encodeToString(new byte[]{9, 8, 7}) + '\n')
-                .getBytes(Charset.forName("MS932"));
+                .getBytes(DoJaEncoding.DEFAULT_CHARSET);
         Toruca toruca = new Toruca(torucaBytes);
         check("ABCDEFGH123".equals(toruca.getIPID()), "toruca ipid");
         check("sort42".equals(toruca.getSortID()), "toruca sort id");

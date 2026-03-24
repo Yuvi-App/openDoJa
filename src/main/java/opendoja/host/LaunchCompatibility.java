@@ -11,10 +11,6 @@ final class LaunchCompatibility {
     private static final String APPLIED_PROPERTY = "opendoja.launchCompatApplied";
     private static final String DEFAULT_ENCODING_PROPERTY = "opendoja.defaultEncoding";
     private static final String KEEP_EXPLICIT_GC_PROPERTY = "opendoja.keepExplicitGc";
-    // Probe these in order and use the first charset the host JVM exposes. The goal is CP-932
-    // semantics, but some JVMs resolve the raw "CP932" alias to x-IBM942C instead of the
-    // Windows/MS932 mapping the game data expects, so that alias is intentionally not listed here.
-    private static final String[] DEFAULT_ENCODINGS = {"MS932", "windows-31j", "Shift_JIS"};
 
     private LaunchCompatibility() {
     }
@@ -81,17 +77,7 @@ final class LaunchCompatibility {
             String value = override.trim();
             return value.isEmpty() ? null : value;
         }
-        for (String candidate : DEFAULT_ENCODINGS) {
-            try {
-                return Charset.forName(candidate).name();
-            } catch (RuntimeException ignored) {
-                // Prefer CP-932 semantics first. On this JVM the "CP932" alias resolves to
-                // x-IBM942C, which differs from the Windows/MS932 mapping used by the game data,
-                // so we probe the known-compatible names explicitly before falling back to plain
-                // Shift_JIS.
-            }
-        }
-        return null;
+        return DoJaEncoding.defaultCharsetName();
     }
 
     private static String explicitFileEncodingArgument() {

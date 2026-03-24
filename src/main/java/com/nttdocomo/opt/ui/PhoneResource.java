@@ -1,6 +1,7 @@
 package com.nttdocomo.opt.ui;
 
-import java.nio.charset.Charset;
+import opendoja.host.DoJaEncoding;
+
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -9,7 +10,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class PhoneResource {
     public static final int INFORMATIONDISPLAY_DATA_TITLE = 0;
-    private static final Charset DOCOMO_CHARSET = Charset.forName("MS932");
     private static final Map<Integer, InformationDisplay> DISPLAYS = new ConcurrentHashMap<>();
 
     /**
@@ -38,7 +38,7 @@ public class PhoneResource {
             return null;
         }
         if (dataType == INFORMATIONDISPLAY_DATA_TITLE) {
-            return display.title.getBytes(DOCOMO_CHARSET);
+            return display.title.getBytes(DoJaEncoding.DEFAULT_CHARSET);
         }
         return null;
     }

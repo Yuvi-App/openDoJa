@@ -1,8 +1,9 @@
 package com.nttdocomo.io;
 
+import opendoja.host.DoJaEncoding;
+
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -10,8 +11,6 @@ import java.nio.file.Path;
  * Data output for writing a file with random access.
  */
 public class FileDataOutput implements java.io.DataOutput, RandomAccessible, AutoCloseable {
-    private static final Charset DEFAULT_CHARSET = Charset.forName("MS932");
-
     private final FileEntity owner;
     private final RandomAccessFile file;
     private boolean closed;
@@ -156,7 +155,7 @@ public class FileDataOutput implements java.io.DataOutput, RandomAccessible, Aut
         if (s == null) {
             throw new NullPointerException("s");
         }
-        byte[] data = s.getBytes(DEFAULT_CHARSET);
+        byte[] data = s.getBytes(DoJaEncoding.DEFAULT_CHARSET);
         if (data.length >= 65536) {
             throw new IllegalArgumentException("encoded string is too large");
         }
@@ -185,7 +184,7 @@ public class FileDataOutput implements java.io.DataOutput, RandomAccessible, Aut
         if (bytes < 0 || bytes >= 65536) {
             throw new IllegalArgumentException("bytes out of range: " + bytes);
         }
-        byte[] data = s.getBytes(DEFAULT_CHARSET);
+        byte[] data = s.getBytes(DoJaEncoding.DEFAULT_CHARSET);
         if (data.length > bytes) {
             throw new IllegalArgumentException("encoded string is larger than bytes");
         }

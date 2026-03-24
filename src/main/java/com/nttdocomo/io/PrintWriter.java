@@ -1,16 +1,16 @@
 package com.nttdocomo.io;
 
+import opendoja.host.DoJaEncoding;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.nio.charset.Charset;
 
 /**
  * A writer that formats data in a convenient text form.
  */
 public class PrintWriter extends Writer {
-    private static final Charset DEFAULT_CHARSET = Charset.forName("MS932");
     private static final String LINE_SEPARATOR = "\r\n";
 
     /**
@@ -76,7 +76,7 @@ public class PrintWriter extends Writer {
      * @throws NullPointerException if {@code out} is {@code null}
      */
     public PrintWriter(OutputStream out, boolean autoFlush) {
-        this(new OutputStreamWriter(out, DEFAULT_CHARSET), autoFlush);
+        this(new OutputStreamWriter(out, DoJaEncoding.DEFAULT_CHARSET), autoFlush);
     }
 
     /**

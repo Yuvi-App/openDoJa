@@ -1,13 +1,11 @@
 package com.nttdocomo.net;
 
-import java.nio.charset.Charset;
+import opendoja.host.DoJaEncoding;
 
 /**
  * Converts strings to strings in {@code x-www-form-urlencoded} format.
  */
 public final class URLEncoder {
-    private static final Charset DEFAULT_DOJA_ENCODING = Charset.forName("MS932");
-
     private URLEncoder() {
     }
 
@@ -24,6 +22,6 @@ public final class URLEncoder {
         if (str == null) {
             throw new NullPointerException("str");
         }
-        return java.net.URLEncoder.encode(str, DEFAULT_DOJA_ENCODING);
+        return java.net.URLEncoder.encode(str, DoJaEncoding.DEFAULT_CHARSET);
     }
 }

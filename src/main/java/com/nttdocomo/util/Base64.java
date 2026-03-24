@@ -1,14 +1,12 @@
 package com.nttdocomo.util;
 
-import java.nio.charset.Charset;
+import opendoja.host.DoJaEncoding;
 
 /**
  * Performs Base64 encoding and decoding.
  * See RFC 2045 for the Base64 encoding format.
  */
 public final class Base64 {
-    private static final Charset DEFAULT_CHARSET = Charset.forName("MS932");
-
     private Base64() {
     }
 
@@ -62,7 +60,7 @@ public final class Base64 {
      * @throws NullPointerException if {@code value} is {@code null}
      */
     public static String encode(String value) {
-        return encode(value.getBytes(DEFAULT_CHARSET));
+        return encode(value.getBytes(DoJaEncoding.DEFAULT_CHARSET));
     }
 
     /**

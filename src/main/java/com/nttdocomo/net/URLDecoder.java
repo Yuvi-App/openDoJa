@@ -1,13 +1,11 @@
 package com.nttdocomo.net;
 
-import java.nio.charset.Charset;
+import opendoja.host.DoJaEncoding;
 
 /**
  * Decodes strings in {@code x-www-form-urlencoded} format to normal strings.
  */
 public final class URLDecoder {
-    private static final Charset DEFAULT_DOJA_ENCODING = Charset.forName("MS932");
-
     /**
      * Creates a {@code URLDecoder}.
      */
@@ -28,6 +26,6 @@ public final class URLDecoder {
         if (str == null) {
             throw new NullPointerException("str");
         }
-        return java.net.URLDecoder.decode(str, DEFAULT_DOJA_ENCODING);
+        return java.net.URLDecoder.decode(str, DoJaEncoding.DEFAULT_CHARSET);
     }
 }

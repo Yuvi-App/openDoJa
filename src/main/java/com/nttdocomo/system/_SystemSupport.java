@@ -14,6 +14,7 @@ import com.nttdocomo.ui.MediaSound;
 import com.nttdocomo.ui.MApplication;
 import com.nttdocomo.ui.UIException;
 import com.nttdocomo.util.ScheduleDate;
+import opendoja.host.DoJaEncoding;
 import opendoja.host.DoJaRuntime;
 import opendoja.host.system.DoJaSystemRegistry;
 
@@ -23,7 +24,6 @@ import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.Charset;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -41,7 +41,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Shared host-side implementation for the DoJa system package.
  */
 final class _SystemSupport {
-    static final Charset DEFAULT_CHARSET = Charset.forName("MS932");
     static final ZoneId JST = ZoneId.of("Asia/Tokyo");
     static final int MAIL_SUBJECT_MAX_BYTES = 200;
     static final int MAIL_ADDRESS_MAX_BYTES = 50;
@@ -466,7 +465,7 @@ final class _SystemSupport {
     }
 
     static int byteLength(String value) {
-        return value == null ? 0 : value.getBytes(DEFAULT_CHARSET).length;
+        return value == null ? 0 : value.getBytes(DoJaEncoding.DEFAULT_CHARSET).length;
     }
 
     static int mailRemainingBytes(MailDraft mail) {
@@ -1120,7 +1119,7 @@ final class _SystemSupport {
     static int[] findTorucaByHostAndIpid(String host, String ipid) {
         ensureAccessUserInfo();
         ensureRuntimeActive();
-        if (host == null || ipid == null || ipid.getBytes(DEFAULT_CHARSET).length <= 7) {
+        if (host == null || ipid == null || ipid.getBytes(DoJaEncoding.DEFAULT_CHARSET).length <= 7) {
             return null;
         }
         String needle = truncateIpid(ipid);
@@ -1180,12 +1179,12 @@ final class _SystemSupport {
         }
         appendProperty(builder, "MOVE", toruca.getProperty(MediaResource.X_DCM_MOVE));
         appendProperty(builder, "BODY", java.util.Base64.getEncoder().encodeToString(copyBytes(toruca.getBody()) == null ? new byte[0] : toruca.getBody()));
-        return builder.toString().getBytes(DEFAULT_CHARSET);
+        return builder.toString().getBytes(DoJaEncoding.DEFAULT_CHARSET);
     }
 
     static Toruca parseToruca(byte[] data) {
         Objects.requireNonNull(data, "data");
-        String raw = new String(data, DEFAULT_CHARSET);
+        String raw = new String(data, DoJaEncoding.DEFAULT_CHARSET);
         if (!raw.contains("VERSION=") || !raw.contains("TYPE=")) {
             throw new IllegalArgumentException("Unsupported toruca format");
         }
@@ -1405,11 +1404,11 @@ final class _SystemSupport {
         if (ipid == null) {
             return null;
         }
-        byte[] bytes = ipid.getBytes(DEFAULT_CHARSET);
+        byte[] bytes = ipid.getBytes(DoJaEncoding.DEFAULT_CHARSET);
         if (bytes.length <= 8) {
             return ipid;
         }
-        return new String(Arrays.copyOf(bytes, 8), DEFAULT_CHARSET);
+        return new String(Arrays.copyOf(bytes, 8), DoJaEncoding.DEFAULT_CHARSET);
     }
 
     private static String hostPart(String url) {

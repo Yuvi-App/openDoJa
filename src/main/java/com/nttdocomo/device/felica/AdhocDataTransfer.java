@@ -1,9 +1,9 @@
 package com.nttdocomo.device.felica;
 
 import com.nttdocomo.io.ConnectionException;
+import opendoja.host.DoJaEncoding;
 
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.util.Hashtable;
 import java.util.Map;
 
@@ -11,7 +11,6 @@ import java.util.Map;
  * Represents ad-hoc data transfer using FeliCa.
  */
 public final class AdhocDataTransfer {
-    private static final Charset DEFAULT_CHARSET = Charset.forName("MS932");
     private static final int ADHOC_MODE_0 = 0;
     private static final int ADHOC_MODE_1 = 1;
 
@@ -94,7 +93,7 @@ public final class AdhocDataTransfer {
         if (adfUrl == null) {
             throw new NullPointerException("type");
         }
-        if (adfUrl.getBytes(DEFAULT_CHARSET).length > 255) {
+        if (adfUrl.getBytes(DoJaEncoding.DEFAULT_CHARSET).length > 255) {
             throw new IllegalArgumentException("type");
         }
         if (command == null) {

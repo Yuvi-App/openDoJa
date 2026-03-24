@@ -2,11 +2,11 @@ package opendoja.host.system;
 
 import com.nttdocomo.lang.XString;
 import com.nttdocomo.ui.IApplication;
+import opendoja.host.DoJaEncoding;
 import opendoja.host.OpenDoJaLog;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.Charset;
 import java.util.Arrays;
 
 /**
@@ -14,7 +14,6 @@ import java.util.Arrays;
  * handset behavior cannot be reproduced directly on the desktop host.
  */
 public final class DoJaExternalActionSupport {
-    private static final Charset DEFAULT_CHARSET = Charset.forName("MS932");
     private static final int MAX_BROWSER_URL_BYTES = 255;
     private static final int MAX_PHONE_NUMBER_BYTES = 50;
     private static final int MAX_IAPPLI_PARAMS = 16;
@@ -118,7 +117,7 @@ public final class DoJaExternalActionSupport {
             if (args[i] == null) {
                 throw new NullPointerException("args[" + i + "]");
             }
-            bytes += args[i].getBytes(DEFAULT_CHARSET).length;
+            bytes += args[i].getBytes(DoJaEncoding.DEFAULT_CHARSET).length;
         }
         if (bytes > MAX_IAPPLI_PARAM_BYTES) {
             throw new IllegalArgumentException("i-appli parameters exceed the supported size");
@@ -137,7 +136,7 @@ public final class DoJaExternalActionSupport {
     }
 
     private static void validateHttpUrl(String url, int maxBytes) {
-        if (url.getBytes(DEFAULT_CHARSET).length > maxBytes) {
+        if (url.getBytes(DoJaEncoding.DEFAULT_CHARSET).length > maxBytes) {
             throw new IllegalArgumentException("URL exceeds supported size");
         }
         try {
@@ -153,7 +152,7 @@ public final class DoJaExternalActionSupport {
     }
 
     private static void validatePhoneNumber(String phoneNumber) {
-        if (phoneNumber.getBytes(DEFAULT_CHARSET).length > MAX_PHONE_NUMBER_BYTES) {
+        if (phoneNumber.getBytes(DoJaEncoding.DEFAULT_CHARSET).length > MAX_PHONE_NUMBER_BYTES) {
             throw new IllegalArgumentException("Phone number exceeds supported size");
         }
         for (int i = 0; i < phoneNumber.length(); i++) {
