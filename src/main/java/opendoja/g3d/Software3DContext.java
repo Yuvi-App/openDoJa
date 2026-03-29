@@ -60,6 +60,7 @@ public final class Software3DContext {
     private SoftwareTexture[] primitiveTextures = new SoftwareTexture[0];
     private int primitiveTextureIndex;
     private float[] frameDepthBuffer;
+    private final List<PendingOptPrimitiveBlend> pendingOptPrimitiveBlends = new ArrayList<>();
 
     public void setUiClip(int x, int y, int width, int height) {
         this.uiClip = new Rectangle(x, y, width, height);
@@ -192,7 +193,7 @@ public final class Software3DContext {
         float[] effectiveTransform = objectTransform == null ? uiTransform : multiply(uiTransform, objectTransform);
         // UI `Primitive` keeps the palette-zero color-key bit in primitiveParam, unlike opt `PrimitiveArray`.
         // UI `graphics3d` primitive colors are RGB values; object transparency carries the alpha.
-        renderPrimitiveBuffer(g, target, originX, originY, surfaceWidth, surfaceHeight, primitiveType, primitiveParam, 0, primitiveCount, vertexArray, colorArray, textureCoordArray, texture, effectiveTransform, projection, uiClip, surfaceWidth / 2f, surfaceHeight / 2f, uiOrthoWidth, uiOrthoHeight, true, (primitiveParam & 0x10) != 0, blendMode, transparency, false, false, true, BlendSemantics.UI_GRAPHICS3D);
+        renderPrimitiveBuffer(g, target, originX, originY, surfaceWidth, surfaceHeight, primitiveType, primitiveParam, 0, primitiveCount, vertexArray, colorArray, textureCoordArray, texture, effectiveTransform, projection, uiClip, surfaceWidth / 2f, surfaceHeight / 2f, uiOrthoWidth, uiOrthoHeight, true, (primitiveParam & 0x10) != 0, blendMode, transparency, false, false, true, true, BlendSemantics.UI_GRAPHICS3D);
     }
 
     public void renderOptFigure(Graphics2D g, BufferedImage target, int originX, int originY, int surfaceWidth, int surfaceHeight, MascotFigure figure) {
@@ -220,10 +221,81 @@ public final class Software3DContext {
         // opt.ui.j3d keeps color-key and blend bits in the attr word supplied with each draw call.
         Projection projection = optPerspectiveEnabled ? createOptProjection(surfaceWidth, surfaceHeight) : null;
         boolean invertScreenY = resolveOptPrimitiveScreenYFlip(optViewTransform);
+        // Framebuffer-blended opt primitive batches share a staged pass with later opaque draws.
+        // Queue them until `flush()`/frame end so they are composited after opaque geometry has
+        // established depth, matching the staged ordering expected by the opt renderer contract.
+        if (optSemiTransparent && (attr & 0x60) != 0) {
+            pendingOptPrimitiveBlends.add(new PendingOptPrimitiveBlend(
+                    originX,
+                    originY,
+                    surfaceWidth,
+                    surfaceHeight,
+                    primitives.getType(),
+                    primitives.getParam(),
+                    start,
+                    count,
+                    primitives.getVertexArray() == null ? null : primitives.getVertexArray().clone(),
+                    primitives.getColorArray() == null ? null : primitives.getColorArray().clone(),
+                    primitives.getTextureCoordArray() == null ? null : primitives.getTextureCoordArray().clone(),
+                    texture,
+                    optViewTransform.clone(),
+                    projection,
+                    optClip == null ? null : new Rectangle(optClip),
+                    optScreenCenterX,
+                    optScreenCenterY,
+                    resolveOptOrthoWidth(surfaceWidth),
+                    resolveOptOrthoHeight(surfaceHeight),
+                    (attr & 0x10) != 0,
+                    attr & 0x60,
+                    invertScreenY
+            ));
+            return;
+        }
         renderPrimitiveBuffer(g, target, originX, originY, surfaceWidth, surfaceHeight, primitives.getType(), primitives.getParam(), start, count,
                 primitives.getVertexArray(), primitives.getColorArray(), primitives.getTextureCoordArray(), texture, optViewTransform, projection, optClip,
                 optScreenCenterX, optScreenCenterY, resolveOptOrthoWidth(surfaceWidth), resolveOptOrthoHeight(surfaceHeight),
-                optSemiTransparent, (attr & 0x10) != 0, attr & 0x60, 1f, true, invertScreenY, true, BlendSemantics.FRAMEBUFFER);
+                optSemiTransparent, (attr & 0x10) != 0, attr & 0x60, 1f, true, invertScreenY, true, true, BlendSemantics.FRAMEBUFFER);
+    }
+
+    public void flushPendingOptPrimitiveBlends(Graphics2D g, BufferedImage target) {
+        if (pendingOptPrimitiveBlends.isEmpty()) {
+            return;
+        }
+        // Replay deferred framebuffer blends with depth test still active, but without updating z.
+        // That lets the effect stay behind nearer opaque geometry without poisoning depth for
+        // later draws in the same staged pass.
+        for (PendingOptPrimitiveBlend pending : pendingOptPrimitiveBlends) {
+            renderPrimitiveBuffer(g, target,
+                    pending.originX(),
+                    pending.originY(),
+                    pending.surfaceWidth(),
+                    pending.surfaceHeight(),
+                    pending.primitiveType(),
+                    pending.primitiveParam(),
+                    pending.primitiveStart(),
+                    pending.primitiveCount(),
+                    pending.vertexArray(),
+                    pending.colorArray(),
+                    pending.textureCoordArray(),
+                    pending.texture(),
+                    pending.transform(),
+                    pending.projection(),
+                    pending.clip(),
+                    pending.centerX(),
+                    pending.centerY(),
+                    pending.orthoWidth(),
+                    pending.orthoHeight(),
+                    true,
+                    pending.transparentPaletteZero(),
+                    pending.blendMode(),
+                    1f,
+                    true,
+                    pending.invertScreenY(),
+                    true,
+                    false,
+                    BlendSemantics.FRAMEBUFFER);
+        }
+        pendingOptPrimitiveBlends.clear();
     }
 
     private void renderModel(Graphics2D g, BufferedImage target, int originX, int originY, int surfaceWidth, int surfaceHeight,
@@ -334,12 +406,12 @@ public final class Software3DContext {
             if (polygonTexture != null) {
                 int modulationColor = scaleColor(0xFFFFFFFF, transparency, lightScale);
                 addProjectedFaces(projected, xs, ys, depthValues, modulationColor, avgDepth, polygonTexture, textureCoords,
-                        projection != null, polygon.doubleSided() || !CULL_FIGURES, polygon.transparent(), effectiveBlendOp);
+                        projection != null, polygon.doubleSided() || !CULL_FIGURES, polygon.transparent(), effectiveBlendOp, true);
                 continue;
             }
             int color = scaleColor(polygon.color(), transparency, lightScale);
             addProjectedFaces(projected, xs, ys, depthValues, color, avgDepth, null, null,
-                    projection != null, polygon.doubleSided() || !CULL_FIGURES, false, effectiveBlendOp);
+                    projection != null, polygon.doubleSided() || !CULL_FIGURES, false, effectiveBlendOp, true);
         }
         if (DEBUG_3D && !debugFigureStatsLogged && projection != null && model.polygons().length >= 200) {
             debugFigureStatsLogged = true;
@@ -360,7 +432,7 @@ public final class Software3DContext {
                                        float[] transform, Projection projection, Rectangle clip,
                                        float centerX, float centerY, float orthoWidth, float orthoHeight,
                                        boolean allowBlend, boolean transparentPaletteZero, int blendMode, float transparency,
-                                       boolean unsignedByteTextureCoords, boolean invertScreenY, boolean opaqueRgbColors,
+                                       boolean unsignedByteTextureCoords, boolean invertScreenY, boolean opaqueRgbColors, boolean depthWrite,
                                        BlendSemantics blendSemantics) {
         if (vertexArray == null) {
             return;
@@ -443,19 +515,19 @@ public final class Software3DContext {
             int color = scaleColor(baseColor, transparency, 1f);
             if (texture != null && vertexCount >= 3 && uv != null) {
                 if (primitiveType == 4 && vertexCount == 4) {
-                    addProjectedPrimitiveQuad(projected, xs, ys, depthValues, color, avgDepth, texture, uv, projection != null, transparentPaletteZero, effectiveBlendOp);
+                    addProjectedPrimitiveQuad(projected, xs, ys, depthValues, color, avgDepth, texture, uv, projection != null, transparentPaletteZero, effectiveBlendOp, depthWrite);
                 } else {
-                    addProjectedFaces(projected, xs, ys, depthValues, color, avgDepth, texture, uv, projection != null, true, transparentPaletteZero, effectiveBlendOp);
+                    addProjectedFaces(projected, xs, ys, depthValues, color, avgDepth, texture, uv, projection != null, true, transparentPaletteZero, effectiveBlendOp, depthWrite);
                 }
                 continue;
             }
             if (primitiveType == 2) {
-                projected.add(new ProjectedPolygon(xs, ys, depthValues, color, avgDepth, false, null, null, false, false, effectiveBlendOp));
+                projected.add(new ProjectedPolygon(xs, ys, depthValues, color, avgDepth, false, null, null, false, false, effectiveBlendOp, depthWrite));
             } else {
                 if (primitiveType == 4 && vertexCount == 4) {
-                    addProjectedPrimitiveQuad(projected, xs, ys, depthValues, color, avgDepth, null, null, projection != null, false, effectiveBlendOp);
+                    addProjectedPrimitiveQuad(projected, xs, ys, depthValues, color, avgDepth, null, null, projection != null, false, effectiveBlendOp, depthWrite);
                 } else {
-                    addProjectedFaces(projected, xs, ys, depthValues, color, avgDepth, null, null, projection != null, true, false, effectiveBlendOp);
+                    addProjectedFaces(projected, xs, ys, depthValues, color, avgDepth, null, null, projection != null, true, false, effectiveBlendOp, depthWrite);
                 }
             }
         }
@@ -489,7 +561,7 @@ public final class Software3DContext {
 
     private static void addProjectedPrimitiveQuad(List<ProjectedPolygon> projected, float[] xs, float[] ys, float[] depthValues,
                                                   int color, float depth, SoftwareTexture texture, float[] textureCoords,
-                                                  boolean perspective, boolean transparentPaletteZero, BlendOp blendOp) {
+                                                  boolean perspective, boolean transparentPaletteZero, BlendOp blendOp, boolean depthWrite) {
         addProjectedTriangle(projected,
                 new float[]{xs[0], xs[1], xs[2]},
                 new float[]{ys[0], ys[1], ys[2]},
@@ -507,7 +579,8 @@ public final class Software3DContext {
                 perspective,
                 true,
                 transparentPaletteZero,
-                blendOp);
+                blendOp,
+                depthWrite);
         addProjectedTriangle(projected,
                 new float[]{xs[0], xs[2], xs[3]},
                 new float[]{ys[0], ys[2], ys[3]},
@@ -525,12 +598,13 @@ public final class Software3DContext {
                 perspective,
                 true,
                 transparentPaletteZero,
-                blendOp);
+                blendOp,
+                depthWrite);
     }
 
     private static void addProjectedFaces(List<ProjectedPolygon> projected, float[] xs, float[] ys, float[] depthValues, int color, float depth,
                                           SoftwareTexture texture, float[] textureCoords, boolean perspective,
-                                          boolean doubleSided, boolean transparentPaletteZero, BlendOp blendOp) {
+                                          boolean doubleSided, boolean transparentPaletteZero, BlendOp blendOp, boolean depthWrite) {
         if (xs.length < 3) {
             return;
         }
@@ -555,7 +629,8 @@ public final class Software3DContext {
                     perspective,
                     doubleSided,
                     transparentPaletteZero,
-                    blendOp);
+                    blendOp,
+                    depthWrite);
             addProjectedTriangle(projected,
                     new float[]{xs[2], xs[1], xs[3]},
                     new float[]{ys[2], ys[1], ys[3]},
@@ -573,7 +648,8 @@ public final class Software3DContext {
                     perspective,
                     doubleSided,
                     transparentPaletteZero,
-                    blendOp);
+                    blendOp,
+                    depthWrite);
             return;
         }
         for (int i = 1; i < xs.length - 1; i++) {
@@ -594,14 +670,15 @@ public final class Software3DContext {
                     perspective,
                     doubleSided,
                     transparentPaletteZero,
-                    blendOp);
+                    blendOp,
+                    depthWrite);
         }
     }
 
     private static void addProjectedTriangle(List<ProjectedPolygon> projected, float[] xs, float[] ys, float[] depthValues, int color, float depth,
                                              SoftwareTexture texture, float[] textureCoords, boolean perspective,
-                                             boolean doubleSided, boolean transparentPaletteZero, BlendOp blendOp) {
-        projected.add(new ProjectedPolygon(xs, ys, depthValues, color, depth, true, texture, textureCoords, perspective, transparentPaletteZero, blendOp));
+                                             boolean doubleSided, boolean transparentPaletteZero, BlendOp blendOp, boolean depthWrite) {
+        projected.add(new ProjectedPolygon(xs, ys, depthValues, color, depth, true, texture, textureCoords, perspective, transparentPaletteZero, blendOp, depthWrite));
     }
 
     private static ClippedPolygon clipPerspectivePolygon(float[] points, float[] textureCoords, Projection projection,
@@ -765,7 +842,7 @@ public final class Software3DContext {
         }
         for (int i = 1; i < vertexCount - 1; i++) {
             drawTexturedTriangle(target, clip, depthBuffer, polygon.texture(), polygon.color(), polygon.perspective(),
-                    polygon.transparentPaletteZero(), polygon.blendMode(),
+                    polygon.transparentPaletteZero(), polygon.blendMode(), polygon.depthWrite(),
                     polygon.xs()[0], polygon.ys()[0], uvs[0], uvs[1],
                     polygon.depthValues()[0],
                     polygon.xs()[i], polygon.ys()[i], uvs[i * 2], uvs[i * 2 + 1],
@@ -782,7 +859,7 @@ public final class Software3DContext {
             return;
         }
         for (int i = 1; i < vertexCount - 1; i++) {
-            drawColoredTriangle(target, clip, depthBuffer, polygon.color(), polygon.blendMode(),
+            drawColoredTriangle(target, clip, depthBuffer, polygon.color(), polygon.blendMode(), polygon.depthWrite(),
                     polygon.xs()[0], polygon.ys()[0], depthValues[0],
                     polygon.xs()[i], polygon.ys()[i], depthValues[i],
                     polygon.xs()[i + 1], polygon.ys()[i + 1], depthValues[i + 1]);
@@ -790,7 +867,7 @@ public final class Software3DContext {
     }
 
     private static void drawTexturedTriangle(BufferedImage target, Rectangle clip, float[] depthBuffer, SoftwareTexture texture, int modulationColor,
-                                             boolean perspective, boolean transparentPaletteZero, BlendOp blendOp,
+                                             boolean perspective, boolean transparentPaletteZero, BlendOp blendOp, boolean depthWrite,
                                              float x0, float y0, float u0, float v0, float d0,
                                              float x1, float y1, float u1, float v1, float d1,
                                              float x2, float y2, float u2, float v2, float d2) {
@@ -866,13 +943,15 @@ public final class Software3DContext {
                 if (((sample >>> 24) & 0xFF) <= 0) {
                     continue;
                 }
-                depthBuffer[offset] = depth;
+                if (depthWrite) {
+                    depthBuffer[offset] = depth;
+                }
                 blendPixel(target, x, y, sample, blendOp);
             }
         }
     }
 
-    private static void drawColoredTriangle(BufferedImage target, Rectangle clip, float[] depthBuffer, int color, BlendOp blendOp,
+    private static void drawColoredTriangle(BufferedImage target, Rectangle clip, float[] depthBuffer, int color, BlendOp blendOp, boolean depthWrite,
                                             float x0, float y0, float d0,
                                             float x1, float y1, float d1,
                                             float x2, float y2, float d2) {
@@ -937,7 +1016,9 @@ public final class Software3DContext {
                 if (((color >>> 24) & 0xFF) <= 0) {
                     continue;
                 }
-                depthBuffer[offset] = depth;
+                if (depthWrite) {
+                    depthBuffer[offset] = depth;
+                }
                 blendPixel(target, x, y, color, blendOp);
             }
         }
@@ -1286,7 +1367,15 @@ public final class Software3DContext {
 
     private record ProjectedPolygon(float[] xs, float[] ys, float[] depthValues, int color, float depth, boolean closed,
                                     SoftwareTexture texture, float[] textureCoords, boolean perspective,
-                                    boolean transparentPaletteZero, BlendOp blendMode) {
+                                    boolean transparentPaletteZero, BlendOp blendMode, boolean depthWrite) {
+    }
+
+    private record PendingOptPrimitiveBlend(int originX, int originY, int surfaceWidth, int surfaceHeight,
+                                            int primitiveType, int primitiveParam, int primitiveStart, int primitiveCount,
+                                            int[] vertexArray, int[] colorArray, int[] textureCoordArray,
+                                            SoftwareTexture texture, float[] transform, Projection projection, Rectangle clip,
+                                            float centerX, float centerY, float orthoWidth, float orthoHeight,
+                                            boolean transparentPaletteZero, int blendMode, boolean invertScreenY) {
     }
 
     private enum BlendSemantics {

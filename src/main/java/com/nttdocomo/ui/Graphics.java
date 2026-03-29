@@ -351,6 +351,12 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         BufferedImage presentedFrame = null;
         boolean outermostUnlock = runtime == null || runtime.surfaceLock().getHoldCount() == 1;
         boolean pacedPresentation = flush;
+        // opt `renderPrimitives(...)` framebuffer blends participate in the same staged 3D pass
+        // as later opaque draws. Replay them only at the pass boundary so opaque geometry fills
+        // z first, then the blended pass can depth-test against that result.
+        if (flush || outermostUnlock) {
+            flushPending3DPasses();
+        }
         if (flush) {
             presentedFrame = copyImage(surface.image());
         } else if (outermostUnlock && surface.hasRepaintHook()) {
@@ -526,6 +532,9 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
     }
 
     private void flushSurfaceFrame() {
+        // `Graphics3D.flush()` is the pass boundary for staged opt draws inside one locked frame.
+        // Finish any deferred blended primitive batches before ending the shared depth frame.
+        flushPending3DPasses();
         DoJaRuntime runtime = DoJaRuntime.current();
         if (runtime != null && runtime.surfaceLock().isHeldByCurrentThread()) {
             // opt.ui.j3d titles can issue multiple flushes inside one locked Canvas frame to
@@ -535,6 +544,10 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
             return;
         }
         surface.flush(copyImage(surface.image()));
+    }
+
+    private void flushPending3DPasses() {
+        threeD.flushPendingOptPrimitiveBlends(delegate, surface.image());
     }
 
     private void prepare3DDepthFrame() {
