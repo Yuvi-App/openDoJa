@@ -13,7 +13,6 @@ import javax.swing.Timer;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.GraphicsEnvironment;
 import java.awt.RenderingHints;
@@ -71,6 +70,8 @@ public final class DoJaRuntime {
     private final Set<AutoCloseable> shutdownResources = ConcurrentHashMap.newKeySet();
     private final Map<Canvas, Long> lastCanvasTimerEventNanos = Collections.synchronizedMap(new WeakHashMap<>());
     private final HostPanel hostPanel;
+    private final ExternalFrameRenderer externalFrameRenderer;
+    private final int hostScale;
     private volatile IApplication application;
     private JFrame frameWindow;
     private Frame currentFrame;
@@ -83,6 +84,8 @@ public final class DoJaRuntime {
 
     private DoJaRuntime(LaunchConfig config) {
         this.config = config;
+        this.hostScale = resolveHostScale(config);
+        this.externalFrameRenderer = new ExternalFrameRenderer(config.externalFrameEnabled());
         this.hostPanel = new HostPanel(this);
     }
 
@@ -159,6 +162,10 @@ public final class DoJaRuntime {
 
     public int displayHeight() {
         return config.height();
+    }
+
+    public int hostScale() {
+        return hostScale;
     }
 
     public String sourceUrl() {
@@ -304,6 +311,37 @@ public final class DoJaRuntime {
         }
     }
 
+    public boolean isExternalFrameEnabled() {
+        return externalFrameRenderer.enabled();
+    }
+
+    public void setExternalFrameEnabled(boolean enabled) {
+        if (externalFrameRenderer.enabled() == enabled) {
+            return;
+        }
+        externalFrameRenderer.setEnabled(enabled);
+        if (SwingUtilities.isEventDispatchThread()) {
+            hostPanel.refreshPreferredSize();
+            repackWindow();
+        } else {
+            SwingUtilities.invokeLater(() -> {
+                hostPanel.refreshPreferredSize();
+                repackWindow();
+            });
+        }
+        repaintWindow();
+    }
+
+    public void addExternalFrameOverlay(HostOverlayRenderer overlay) {
+        externalFrameRenderer.addOverlay(overlay);
+        repaintWindow();
+    }
+
+    public void removeExternalFrameOverlay(HostOverlayRenderer overlay) {
+        externalFrameRenderer.removeOverlay(overlay);
+        repaintWindow();
+    }
+
     public Path scratchpadRoot() {
         return config.scratchpadRoot();
     }
@@ -360,6 +398,26 @@ public final class DoJaRuntime {
             if (eventType == Display.KEY_PRESSED_EVENT) {
                 wakeDirectCanvasSync(canvas);
             }
+            repaintWindow();
+        };
+        if (SwingUtilities.isEventDispatchThread()) {
+            eventTask.run();
+        } else {
+            SwingUtilities.invokeLater(eventTask);
+        }
+    }
+
+    public void dispatchHostSoftKey(int softKey, int eventType) {
+        Frame frame = currentFrame;
+        if (frame == null) {
+            return;
+        }
+        Runnable eventTask = () -> {
+            if (TRACE_EVENTS) {
+                OpenDoJaLog.debug(DoJaRuntime.class,
+                        () -> "soft-key event type=" + eventType + " key=" + softKey + " frame=" + frame.getClass().getName());
+            }
+            frame.processSoftKeyEvent(eventType, softKey);
             repaintWindow();
         };
         if (SwingUtilities.isEventDispatchThread()) {
@@ -577,6 +635,27 @@ public final class DoJaRuntime {
         return 1 << keyCode;
     }
 
+    private static int resolveHostScale(LaunchConfig config) {
+        if (config == null) {
+            return 1;
+        }
+        String raw = config.parameters().get("opendoja.hostScale");
+        if (raw == null || raw.isBlank()) {
+            return 1;
+        }
+        try {
+            return java.lang.Math.max(1, Integer.parseInt(raw.trim()));
+        } catch (NumberFormatException ignored) {
+            return 1;
+        }
+    }
+
+    private void repackWindow() {
+        if (frameWindow != null) {
+            frameWindow.pack();
+        }
+    }
+
 
     private void closeShutdownResources() {
         for (AutoCloseable resource : shutdownResources.toArray(AutoCloseable[]::new)) {
@@ -649,16 +728,26 @@ public final class DoJaRuntime {
         };
     }
 
+    private static int mapHostSoftKey(int awtKeyCode) {
+        return switch (awtKeyCode) {
+            case KeyEvent.VK_A -> Frame.SOFT_KEY_1;
+            case KeyEvent.VK_S -> Frame.SOFT_KEY_2;
+            default -> -1;
+        };
+    }
+
     private static final class HostPanel extends JPanel {
-        private static final int SCALE = 2;
         private final DoJaRuntime runtime;
         private final DesktopKeyInputAdapter keyInputAdapter;
+        private final DesktopKeyInputAdapter softKeyInputAdapter;
 
         private HostPanel(DoJaRuntime runtime) {
             this.runtime = runtime;
             this.keyInputAdapter = new DesktopKeyInputAdapter(this::scheduleRelease, runtime::dispatchSyntheticKey,
                     KEY_REPEAT_RELEASE_DEBOUNCE_MS);
-            setPreferredSize(new Dimension(runtime.displayWidth() * SCALE, runtime.displayHeight() * SCALE));
+            this.softKeyInputAdapter = new DesktopKeyInputAdapter(this::scheduleRelease, runtime::dispatchHostSoftKey,
+                    KEY_REPEAT_RELEASE_DEBOUNCE_MS);
+            refreshPreferredSize();
             setBackground(Color.BLACK);
             setOpaque(true);
             setFocusable(true);
@@ -666,6 +755,7 @@ public final class DoJaRuntime {
                 @Override
                 public void focusLost(FocusEvent e) {
                     keyInputAdapter.releaseAll();
+                    softKeyInputAdapter.releaseAll();
                 }
             });
             addKeyListener(new KeyAdapter() {
@@ -680,6 +770,16 @@ public final class DoJaRuntime {
                 }
 
                 private void dispatchKey(KeyEvent event) {
+                    int softKey = mapHostSoftKey(event.getKeyCode());
+                    if (softKey >= 0) {
+                        if (event.getID() == KeyEvent.KEY_PRESSED) {
+                            softKeyInputAdapter.keyPressed(softKey);
+                        } else if (event.getID() == KeyEvent.KEY_RELEASED) {
+                            softKeyInputAdapter.keyReleased(softKey);
+                        }
+                        event.consume();
+                        return;
+                    }
                     int dojaKey = runtime.mapKeyCode(event.getKeyCode());
                     if (dojaKey < 0) {
                         return;
@@ -701,19 +801,20 @@ public final class DoJaRuntime {
             return timer::stop;
         }
 
+        private void refreshPreferredSize() {
+            ExternalFrameLayout layout = runtime.externalFrameRenderer.layoutFor(
+                    runtime.displayWidth(), runtime.displayHeight(), runtime.hostScale());
+            setPreferredSize(layout.preferredSize());
+            revalidate();
+        }
+
         @Override
         protected void paintComponent(java.awt.Graphics g) {
             super.paintComponent(g);
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-            g2.setColor(Color.BLACK);
-            g2.fillRect(0, 0, getWidth(), getHeight());
-            if (runtime.currentFrame instanceof Canvas canvas) {
-                BufferedImage image = runtime.presentedFrame;
-                if (image != null) {
-                    g2.drawImage(image, 0, 0, image.getWidth() * SCALE, image.getHeight() * SCALE, null);
-                }
-            }
+            runtime.externalFrameRenderer.paint(g2, runtime.currentFrame, runtime.presentedFrame,
+                    runtime.displayWidth(), runtime.displayHeight(), runtime.hostScale());
             g2.dispose();
         }
     }

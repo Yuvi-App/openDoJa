@@ -117,6 +117,22 @@ public abstract class Canvas extends Frame {
         return;
     }
 
+    @Override
+    public void processSoftKeyEvent(int type, int key) {
+        int dojaKey = switch (key) {
+            case SOFT_KEY_1 -> Display.KEY_SOFT1;
+            case SOFT_KEY_2 -> Display.KEY_SOFT2;
+            default -> -1;
+        };
+        if (dojaKey < 0) {
+            return;
+        }
+        DoJaRuntime runtime = DoJaRuntime.current();
+        if (runtime != null) {
+            runtime.dispatchSyntheticKey(dojaKey, type);
+        }
+    }
+
     /**
      * Gets the keypad state.
      *

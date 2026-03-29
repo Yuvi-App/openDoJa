@@ -142,6 +142,18 @@ public class Panel extends Frame {
         this.softKeyListener = softKeyListener;
     }
 
+    @Override
+    public void processSoftKeyEvent(int type, int key) {
+        if (softKeyListener == null) {
+            return;
+        }
+        if (type == Display.KEY_PRESSED_EVENT) {
+            softKeyListener.softKeyPressed(key);
+        } else if (type == Display.KEY_RELEASED_EVENT) {
+            softKeyListener.softKeyReleased(key);
+        }
+    }
+
     /**
      * Sets the frame title string.
      *

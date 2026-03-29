@@ -18,6 +18,7 @@ public final class LaunchConfig {
     private final String sourceUrl;
     private final Map<String, String> parameters;
     private final Path scratchpadRoot;
+    private final boolean externalFrameEnabled;
     private final boolean exitOnShutdown;
 
     private LaunchConfig(Builder builder) {
@@ -30,6 +31,7 @@ public final class LaunchConfig {
         this.sourceUrl = builder.sourceUrl;
         this.parameters = Collections.unmodifiableMap(new HashMap<>(builder.parameters));
         this.scratchpadRoot = builder.scratchpadRoot;
+        this.externalFrameEnabled = builder.externalFrameEnabled;
         this.exitOnShutdown = builder.exitOnShutdown;
     }
 
@@ -73,6 +75,10 @@ public final class LaunchConfig {
         return scratchpadRoot;
     }
 
+    public boolean externalFrameEnabled() {
+        return externalFrameEnabled;
+    }
+
     public boolean exitOnShutdown() {
         return exitOnShutdown;
     }
@@ -87,6 +93,7 @@ public final class LaunchConfig {
         private String sourceUrl = "resource:///";
         private final Map<String, String> parameters = new HashMap<>();
         private Path scratchpadRoot;
+        private boolean externalFrameEnabled = true;
         private boolean exitOnShutdown;
 
         private Builder(Class<? extends IApplication> applicationClass) {
@@ -134,6 +141,11 @@ public final class LaunchConfig {
 
         public Builder scratchpadRoot(Path scratchpadRoot) {
             this.scratchpadRoot = scratchpadRoot;
+            return this;
+        }
+
+        public Builder externalFrameEnabled(boolean externalFrameEnabled) {
+            this.externalFrameEnabled = externalFrameEnabled;
             return this;
         }
 

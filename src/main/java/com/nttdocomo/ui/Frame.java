@@ -17,7 +17,6 @@ public abstract class Frame {
      * Soft key 2 is the right soft key.
      */
     public static final int SOFT_KEY_2 = 1;
-
     private int background = Graphics.getColorOfName(Graphics.WHITE);
     private final String[] softLabels = new String[2];
     private boolean softLabelVisible = true;
@@ -77,15 +76,20 @@ public abstract class Frame {
         this.softLabelVisible = visible;
     }
 
-    int backgroundColor() {
-        return background;
-    }
-
-    String softLabel(int key) {
+    public String getSoftLabel(int key) {
         return key >= 0 && key < softLabels.length ? softLabels[key] : null;
     }
 
-    boolean softLabelVisible() {
+    public boolean isSoftLabelVisible() {
         return softLabelVisible;
+    }
+
+    public void processSoftKeyEvent(int type, int key) {
+        int ignoredType = type;
+        int ignoredKey = key;
+    }
+
+    int backgroundColor() {
+        return background;
     }
 }
