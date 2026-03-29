@@ -85,7 +85,7 @@ public final class DoJaRuntime {
     private DoJaRuntime(LaunchConfig config) {
         this.config = config;
         this.hostScale = resolveHostScale(config);
-        this.externalFrameRenderer = new ExternalFrameRenderer(config.externalFrameEnabled());
+        this.externalFrameRenderer = new ExternalFrameRenderer(resolveExternalFrameEnabled(config));
         this.hostPanel = new HostPanel(this);
     }
 
@@ -645,6 +645,14 @@ public final class DoJaRuntime {
         } catch (NumberFormatException ignored) {
             return 1;
         }
+    }
+
+    private static boolean resolveExternalFrameEnabled(LaunchConfig config) {
+        String raw = System.getProperty("opendoja.externalFrame");
+        if (raw == null || raw.isBlank()) {
+            return config == null || config.externalFrameEnabled();
+        }
+        return Boolean.parseBoolean(raw);
     }
 
     private void repackWindow() {
