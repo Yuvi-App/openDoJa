@@ -9,6 +9,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 public final class LaunchConfig {
+    public static final String STATUS_BAR_ICON_DEVICE_PROPERTY = "opendoja.statusBarIconDevice";
+    public static final String DEFAULT_STATUS_BAR_ICON_DEVICE = "n900i";
+
     private final Class<? extends IApplication> applicationClass;
     private final int width;
     private final int height;
@@ -18,6 +21,8 @@ public final class LaunchConfig {
     private final String sourceUrl;
     private final Map<String, String> parameters;
     private final Path scratchpadRoot;
+    private final String statusBarIconDevice;
+    private final IAppliType iAppliType;
     private final boolean externalFrameEnabled;
     private final boolean exitOnShutdown;
 
@@ -31,6 +36,8 @@ public final class LaunchConfig {
         this.sourceUrl = builder.sourceUrl;
         this.parameters = Collections.unmodifiableMap(new HashMap<>(builder.parameters));
         this.scratchpadRoot = builder.scratchpadRoot;
+        this.statusBarIconDevice = builder.statusBarIconDevice;
+        this.iAppliType = builder.iAppliType;
         this.externalFrameEnabled = builder.externalFrameEnabled;
         this.exitOnShutdown = builder.exitOnShutdown;
     }
@@ -75,6 +82,14 @@ public final class LaunchConfig {
         return scratchpadRoot;
     }
 
+    public String statusBarIconDevice() {
+        return statusBarIconDevice;
+    }
+
+    public IAppliType iAppliType() {
+        return iAppliType;
+    }
+
     public boolean externalFrameEnabled() {
         return externalFrameEnabled;
     }
@@ -93,6 +108,8 @@ public final class LaunchConfig {
         private String sourceUrl = "resource:///";
         private final Map<String, String> parameters = new HashMap<>();
         private Path scratchpadRoot;
+        private String statusBarIconDevice = resolveDefaultStatusBarIconDevice();
+        private IAppliType iAppliType = IAppliType.I_APPLI;
         private boolean externalFrameEnabled = true;
         private boolean exitOnShutdown;
 
@@ -144,6 +161,20 @@ public final class LaunchConfig {
             return this;
         }
 
+        public Builder statusBarIconDevice(String statusBarIconDevice) {
+            if (statusBarIconDevice == null || statusBarIconDevice.isBlank()) {
+                this.statusBarIconDevice = DEFAULT_STATUS_BAR_ICON_DEVICE;
+                return this;
+            }
+            this.statusBarIconDevice = statusBarIconDevice.trim();
+            return this;
+        }
+
+        public Builder iAppliType(IAppliType iAppliType) {
+            this.iAppliType = iAppliType == null ? IAppliType.I_APPLI : iAppliType;
+            return this;
+        }
+
         public Builder externalFrameEnabled(boolean externalFrameEnabled) {
             this.externalFrameEnabled = externalFrameEnabled;
             return this;
@@ -157,5 +188,13 @@ public final class LaunchConfig {
         public LaunchConfig build() {
             return new LaunchConfig(this);
         }
+    }
+
+    private static String resolveDefaultStatusBarIconDevice() {
+        String raw = System.getProperty(STATUS_BAR_ICON_DEVICE_PROPERTY);
+        if (raw == null || raw.isBlank()) {
+            return DEFAULT_STATUS_BAR_ICON_DEVICE;
+        }
+        return raw.trim();
     }
 }

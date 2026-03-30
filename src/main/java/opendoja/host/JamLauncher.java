@@ -18,10 +18,18 @@ public final class JamLauncher {
     }
 
     public static IApplication launch(Path jamPath, boolean exitOnShutdown) throws IOException, ClassNotFoundException {
-        Properties properties = new Properties();
-        try (InputStream in = Files.newInputStream(jamPath)) {
-            properties.load(in);
-        }
+        return DesktopLauncher.launch(buildLaunchConfig(jamPath, exitOnShutdown));
+    }
+
+    public static LaunchConfig buildLaunchConfig(Path jamPath, boolean exitOnShutdown) throws IOException, ClassNotFoundException {
+        Properties properties = loadJamProperties(jamPath);
+        LaunchConfig config = buildLaunchConfig(jamPath, properties, exitOnShutdown);
+        seedScratchpadIfAvailable(jamPath, config.scratchpadRoot(), parseScratchpadSizes(properties.getProperty("SPsize")));
+        return config;
+    }
+
+    private static LaunchConfig buildLaunchConfig(Path jamPath, Properties properties, boolean exitOnShutdown)
+            throws ClassNotFoundException {
         String appClassName = properties.getProperty("AppClass");
         if (appClassName == null || appClassName.isBlank()) {
             throw new IllegalArgumentException("JAM/ADF missing AppClass: " + jamPath);
@@ -37,6 +45,7 @@ public final class JamLauncher {
                 .title(properties.getProperty("AppName", applicationClass.getSimpleName()))
                 .sourceUrl(resolvePackageUrl(jamPath, properties.getProperty("PackageURL")))
                 .scratchpadRoot(scratchpadRoot)
+                .iAppliType(IAppliType.fromJamProperties(properties))
                 .exitOnShutdown(exitOnShutdown);
         String drawArea = properties.getProperty("DrawArea");
         if (drawArea != null) {
@@ -55,8 +64,7 @@ public final class JamLauncher {
         for (String name : properties.stringPropertyNames()) {
             builder.parameter(name, properties.getProperty(name));
         }
-        seedScratchpadIfAvailable(jamPath, scratchpadRoot, parseScratchpadSizes(properties.getProperty("SPsize")));
-        return DesktopLauncher.launch(builder.build());
+        return builder.build();
     }
 
     public static void main(String[] args) throws Exception {
@@ -118,6 +126,14 @@ public final class JamLauncher {
     private static String toDirectoryUri(Path directory) {
         String uri = directory.toUri().toString();
         return uri.endsWith("/") ? uri : uri + "/";
+    }
+
+    private static Properties loadJamProperties(Path jamPath) throws IOException {
+        Properties properties = new Properties();
+        try (InputStream in = Files.newInputStream(jamPath)) {
+            properties.load(in);
+        }
+        return properties;
     }
 
     private static Path defaultScratchpadRoot(Path jamPath) {

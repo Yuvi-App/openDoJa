@@ -85,7 +85,10 @@ public final class DoJaRuntime {
     private DoJaRuntime(LaunchConfig config) {
         this.config = config;
         this.hostScale = resolveHostScale(config);
-        this.externalFrameRenderer = new ExternalFrameRenderer(resolveExternalFrameEnabled(config));
+        this.externalFrameRenderer = new ExternalFrameRenderer(
+                resolveExternalFrameEnabled(config),
+                config.statusBarIconDevice(),
+                config.iAppliType());
         this.hostPanel = new HostPanel(this);
     }
 
@@ -344,6 +347,10 @@ public final class DoJaRuntime {
 
     public Path scratchpadRoot() {
         return config.scratchpadRoot();
+    }
+
+    public IAppliType iAppliType() {
+        return config.iAppliType();
     }
 
     public Path scratchpadFile(int index) {

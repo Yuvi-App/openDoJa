@@ -2,12 +2,15 @@ package opendoja.host;
 
 import com.nttdocomo.ui.Frame;
 
+import javax.imageio.ImageIO;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -18,16 +21,21 @@ final class ExternalFrameRenderer {
     private static final int BOTTOM_HEIGHT = 20;
     private static final int HORIZONTAL_INSET = 2;
     private static final int VERTICAL_INSET = 2;
+    private static final int STATUS_GROUP_GAP = 4;
     private static final int[] SOFT_KEYS = {
             Frame.SOFT_KEY_1,
             Frame.SOFT_KEY_2
     };
 
     private final List<HostOverlayRenderer> overlays = new CopyOnWriteArrayList<>();
+    private final StatusBarIcons statusBarIcons;
+    private final IAppliType iAppliType;
     private volatile boolean enabled;
 
-    ExternalFrameRenderer(boolean enabled) {
+    ExternalFrameRenderer(boolean enabled, String statusBarIconDevice, IAppliType iAppliType) {
         this.enabled = enabled;
+        this.statusBarIcons = StatusBarIcons.load(statusBarIconDevice);
+        this.iAppliType = iAppliType == null ? IAppliType.I_APPLI : iAppliType;
     }
 
     boolean enabled() {
@@ -106,6 +114,7 @@ final class ExternalFrameRenderer {
         g.fillRect(layout.leftConnector().x, layout.leftConnector().y, layout.leftConnector().width, layout.leftConnector().height);
         g.fillRect(layout.rightConnector().x, layout.rightConnector().y, layout.rightConnector().width, layout.rightConnector().height);
 
+        paintStatusIcons(g, layout.statusArea());
         paintSoftKeys(g, layout.softKeyArea(), frame);
     }
 
@@ -170,9 +179,198 @@ final class ExternalFrameRenderer {
         return com.nttdocomo.ui.Font.getFont(com.nttdocomo.ui.Font.FACE_SYSTEM | com.nttdocomo.ui.Font.STYLE_PLAIN, selected);
     }
 
+    private void paintStatusIcons(Graphics2D g, Rectangle statusArea) {
+        if (statusArea.width <= 0 || statusArea.height <= 0 || statusBarIcons.isEmpty()) {
+            return;
+        }
+
+        int left = statusArea.x;
+        int right = statusArea.x + statusArea.width;
+
+        paintStatusIconRight(g, statusArea, right, batteryStatusIcon());
+        left = paintCoverageStatus(g, statusArea, left);
+        if (left > statusArea.x) {
+            left += STATUS_GROUP_GAP;
+        }
+        paintStatusIconLeft(g, statusArea, left, iAppliStatusIcon(), false);
+    }
+
+    private int paintCoverageStatus(Graphics2D g, Rectangle statusArea, int left) {
+        if (!hasInternetConnectivity()) {
+            return paintStatusIconLeft(g, statusArea, left, statusBarIcons.noSignal(), false);
+        }
+        int next = paintStatusIconLeft(g, statusArea, left, statusBarIcons.signalAntenna(), false);
+        return paintStatusIconLeft(g, statusArea, next, signalStrengthIcon(), true);
+    }
+
+    private BufferedImage signalStrengthIcon() {
+        return switch (resolveSignalStrength()) {
+            case 1 -> statusBarIcons.signal1();
+            case 2 -> statusBarIcons.signal2();
+            default -> statusBarIcons.signal3();
+        };
+    }
+
+    private BufferedImage iAppliStatusIcon() {
+        return iAppliType == IAppliType.I_APPLI_DX ? statusBarIcons.iAppliDx() : statusBarIcons.iAppli();
+    }
+
+    private BufferedImage batteryStatusIcon() {
+        return switch (resolveBatteryLevel()) {
+            case 0 -> statusBarIcons.battery0();
+            case 1 -> statusBarIcons.battery1();
+            case 2 -> statusBarIcons.battery2();
+            default -> statusBarIcons.battery3();
+        };
+    }
+
+    private int resolveSignalStrength() {
+        // TODO: Map host Wi-Fi strength into the handset signal levels.
+        return 3;
+    }
+
+    private boolean hasInternetConnectivity() {
+        // TODO: Replace this stub with host connectivity detection and use no_signal when offline.
+        return true;
+    }
+
+    private int resolveBatteryLevel() {
+        // TODO: Detect host battery percentage when available and map it into 0-3.
+        return 3;
+    }
+
+    private int paintStatusIconLeft(Graphics2D g, Rectangle statusArea, int left, BufferedImage icon, boolean gapBefore) {
+        ScaledStatusIcon scaled = ScaledStatusIcon.scale(icon, statusArea.height);
+        if (scaled == null) {
+            return left;
+        }
+        int drawX = left;
+        if (drawX >= statusArea.x + statusArea.width) {
+            return statusArea.x + statusArea.width;
+        }
+        int drawY = statusArea.y + java.lang.Math.max(0, (statusArea.height - scaled.height()) / 2);
+        g.drawImage(scaled.image(), drawX, drawY, scaled.width(), scaled.height(), null);
+        return drawX + scaled.width();
+    }
+
+    private void paintStatusIconRight(Graphics2D g, Rectangle statusArea, int right, BufferedImage icon) {
+        ScaledStatusIcon scaled = ScaledStatusIcon.scale(icon, statusArea.height);
+        if (scaled == null) {
+            return;
+        }
+        int drawX = java.lang.Math.max(statusArea.x, right - scaled.width());
+        int drawY = statusArea.y + java.lang.Math.max(0, (statusArea.height - scaled.height()) / 2);
+        g.drawImage(scaled.image(), drawX, drawY, scaled.width(), scaled.height(), null);
+    }
+
     private void paintOverlays(Graphics2D g, ExternalFrameLayout layout, Frame frame, BufferedImage drawImage) {
         for (HostOverlayRenderer overlay : overlays) {
             overlay.paint(g, layout, frame, drawImage);
+        }
+    }
+
+    private record ScaledStatusIcon(BufferedImage image, int width, int height) {
+        private static ScaledStatusIcon scale(BufferedImage image, int maxHeight) {
+            if (image == null || maxHeight <= 0) {
+                return null;
+            }
+            int targetHeight = java.lang.Math.min(maxHeight, image.getHeight());
+            if (targetHeight <= 0) {
+                return null;
+            }
+            int targetWidth = java.lang.Math.max(1,
+                    (int) java.lang.Math.round(image.getWidth() * (targetHeight / (double) image.getHeight())));
+            return new ScaledStatusIcon(image, targetWidth, targetHeight);
+        }
+    }
+
+    private record StatusBarIcons(
+            BufferedImage signalAntenna,
+            BufferedImage signal1,
+            BufferedImage signal2,
+            BufferedImage signal3,
+            BufferedImage noSignal,
+            BufferedImage iAppli,
+            BufferedImage iAppliDx,
+            BufferedImage battery0,
+            BufferedImage battery1,
+            BufferedImage battery2,
+            BufferedImage battery3) {
+        private static final String RESOURCE_ROOT = "opendoja/images/icons/";
+
+        private static StatusBarIcons load(String requestedFamily) {
+            String family = normalizeFamily(requestedFamily);
+            StatusBarIcons icons = loadFamily(family);
+            if (icons != null) {
+                return icons;
+            }
+            if (!LaunchConfig.DEFAULT_STATUS_BAR_ICON_DEVICE.equals(family)) {
+                OpenDoJaLog.warn(ExternalFrameRenderer.class,
+                        () -> "Status bar icon family '" + family + "' not found, falling back to '"
+                                + LaunchConfig.DEFAULT_STATUS_BAR_ICON_DEVICE + "'");
+                icons = loadFamily(LaunchConfig.DEFAULT_STATUS_BAR_ICON_DEVICE);
+                if (icons != null) {
+                    return icons;
+                }
+            }
+            OpenDoJaLog.warn(ExternalFrameRenderer.class, "Status bar icons unavailable; leaving the top bar blank");
+            return new StatusBarIcons(null, null, null, null, null, null, null, null, null, null, null);
+        }
+
+        private static StatusBarIcons loadFamily(String family) {
+            try {
+                BufferedImage signalAntenna = loadImage(family, "signal_antenna.png");
+                BufferedImage signal1 = loadImage(family, "signal_1.png");
+                BufferedImage signal2 = loadImage(family, "signal_2.png");
+                BufferedImage signal3 = loadImage(family, "signal_3.png");
+                BufferedImage noSignal = loadImage(family, "no_signal.png");
+                BufferedImage iAppli = loadImage(family, "i-appli.png");
+                BufferedImage iAppliDx = loadImage(family, "i-appli_dx.png", "i-apply_dx.png");
+                BufferedImage battery0 = loadImage(family, "battery_0.png");
+                BufferedImage battery1 = loadImage(family, "battery_1.png");
+                BufferedImage battery2 = loadImage(family, "battery_2.png");
+                BufferedImage battery3 = loadImage(family, "battery_3.png");
+                if (signalAntenna == null || signal1 == null || signal2 == null || signal3 == null || noSignal == null
+                        || iAppli == null || iAppliDx == null || battery0 == null || battery1 == null
+                        || battery2 == null || battery3 == null) {
+                    return null;
+                }
+                return new StatusBarIcons(signalAntenna, signal1, signal2, signal3, noSignal,
+                        iAppli, iAppliDx, battery0, battery1, battery2, battery3);
+            } catch (IOException e) {
+                OpenDoJaLog.warn(ExternalFrameRenderer.class,
+                        "Failed to load status bar icon family '" + family + "'", e);
+                return null;
+            }
+        }
+
+        private static String normalizeFamily(String requestedFamily) {
+            if (requestedFamily == null || requestedFamily.isBlank()) {
+                return LaunchConfig.DEFAULT_STATUS_BAR_ICON_DEVICE;
+            }
+            return requestedFamily.trim();
+        }
+
+        private static BufferedImage loadImage(String family, String... names) throws IOException {
+            for (String name : names) {
+                String resourcePath = RESOURCE_ROOT + family + "/" + name;
+                try (InputStream in = ExternalFrameRenderer.class.getClassLoader().getResourceAsStream(resourcePath)) {
+                    if (in == null) {
+                        continue;
+                    }
+                    BufferedImage image = ImageIO.read(in);
+                    if (image != null) {
+                        return image;
+                    }
+                }
+            }
+            return null;
+        }
+
+        private boolean isEmpty() {
+            return signalAntenna == null && signal1 == null && signal2 == null && signal3 == null
+                    && noSignal == null && iAppli == null && iAppliDx == null
+                    && battery0 == null && battery1 == null && battery2 == null && battery3 == null;
         }
     }
 }
