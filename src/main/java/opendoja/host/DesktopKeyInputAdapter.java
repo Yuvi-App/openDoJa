@@ -8,20 +8,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-final class DesktopKeyInputAdapter {
+public final class DesktopKeyInputAdapter {
     private final Scheduler scheduler;
     private final KeySink sink;
     private final int releaseDebounceMs;
     private final Set<Integer> pressedKeys = new HashSet<>();
     private final Map<Integer, PendingRelease> pendingReleases = new HashMap<>();
 
-    DesktopKeyInputAdapter(Scheduler scheduler, KeySink sink, int releaseDebounceMs) {
+    public DesktopKeyInputAdapter(Scheduler scheduler, KeySink sink, int releaseDebounceMs) {
         this.scheduler = scheduler;
         this.sink = sink;
         this.releaseDebounceMs = java.lang.Math.max(0, releaseDebounceMs);
     }
 
-    void keyPressed(int dojaKey) {
+    public void keyPressed(int dojaKey) {
         PendingRelease pendingRelease = pendingReleases.remove(dojaKey);
         if (pendingRelease != null) {
             // Desktop auto-repeat can surface as a same-key release/press pair while the key is
@@ -35,7 +35,7 @@ final class DesktopKeyInputAdapter {
         sink.dispatch(dojaKey, Display.KEY_PRESSED_EVENT);
     }
 
-    void keyReleased(int dojaKey) {
+    public void keyReleased(int dojaKey) {
         if (!pressedKeys.contains(dojaKey)) {
             return;
         }
@@ -58,7 +58,7 @@ final class DesktopKeyInputAdapter {
         pendingReleases.put(dojaKey, pendingRelease);
     }
 
-    void releaseAll() {
+    public void releaseAll() {
         for (PendingRelease pendingRelease : pendingReleases.values()) {
             pendingRelease.cancel();
         }
@@ -70,15 +70,15 @@ final class DesktopKeyInputAdapter {
         }
     }
 
-    interface Scheduler {
+    public interface Scheduler {
         PendingRelease schedule(int delayMillis, Runnable task);
     }
 
-    interface PendingRelease {
+    public interface PendingRelease {
         void cancel();
     }
 
-    interface KeySink {
+    public interface KeySink {
         void dispatch(int dojaKey, int eventType);
     }
 }

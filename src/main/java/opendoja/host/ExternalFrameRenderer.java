@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-final class ExternalFrameRenderer {
+public final class ExternalFrameRenderer {
     private static final int SIDE_WIDTH = 2;
     private static final int TOP_HEIGHT = 18;
     private static final int BOTTOM_HEIGHT = 20;
@@ -32,7 +32,7 @@ final class ExternalFrameRenderer {
     private final IAppliType iAppliType;
     private volatile boolean enabled;
 
-    ExternalFrameRenderer(boolean enabled, String statusBarIconDevice, IAppliType iAppliType) {
+    public ExternalFrameRenderer(boolean enabled, String statusBarIconDevice, IAppliType iAppliType) {
         this.enabled = enabled;
         this.statusBarIcons = StatusBarIcons.load(statusBarIconDevice);
         this.iAppliType = iAppliType == null ? IAppliType.I_APPLI : iAppliType;
@@ -54,7 +54,7 @@ final class ExternalFrameRenderer {
         overlays.remove(overlay);
     }
 
-    ExternalFrameLayout layoutFor(int viewportWidth, int viewportHeight, int scale) {
+    public ExternalFrameLayout layoutFor(int viewportWidth, int viewportHeight, int scale) {
         int clampedScale = Math.max(1, scale);
         if (!enabled) {
             Rectangle screenArea = new Rectangle(0, 0, viewportWidth, viewportHeight);
@@ -86,7 +86,7 @@ final class ExternalFrameRenderer {
                 new Dimension(outerWidth * clampedScale, outerHeight * clampedScale));
     }
 
-    void paint(Graphics2D graphics, Frame frame, BufferedImage drawImage, int viewportWidth, int viewportHeight, int scale) {
+    public void paint(Graphics2D graphics, Frame frame, BufferedImage drawImage, int viewportWidth, int viewportHeight, int scale) {
         ExternalFrameLayout layout = layoutFor(viewportWidth, viewportHeight, scale);
         Graphics2D g = (Graphics2D) graphics.create();
         try {

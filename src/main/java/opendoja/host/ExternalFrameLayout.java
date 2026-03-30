@@ -3,7 +3,7 @@ package opendoja.host;
 import java.awt.Dimension;
 import java.awt.Rectangle;
 
-record ExternalFrameLayout(
+public record ExternalFrameLayout(
         boolean enabled,
         int scale,
         Rectangle screenArea,
