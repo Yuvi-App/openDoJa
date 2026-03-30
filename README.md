@@ -1,6 +1,6 @@
 # openDoJa
 
-`openDoJa` is a desktop-focused clean-room reimplementation of the DoJa 5.1 runtime and related APIs, aimed at running decompiled i-appli / keitai Java games on modern computers while preserving the original compatibility-facing package structure.
+`openDoJa` is a desktop-focused clean-room reimplementation of the DoJa 5.1 runtime and related APIs, aimed at running i-appli Java games on modern computers.
 
 ## Status
 
