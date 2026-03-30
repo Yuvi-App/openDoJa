@@ -8,6 +8,11 @@
 mvn -q -DskipTests package
 ```
 
+## GitHub Actions
+
+- Every push to `master` builds a standalone JAR and uploads it as a nightly workflow artifact.
+- A GitHub release is created when the `pom.xml` version changes.
+
 ## Run
 
 Open the desktop launcher UI:
