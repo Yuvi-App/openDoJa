@@ -311,7 +311,23 @@ public final class MLDPCMPlayer implements AutoCloseable {
         }
 
         int getCurrentTimeMillis() {
-            return currentTimeMillis;
+            int current = currentTimeMillis;
+            if (current != 0) {
+                return current;
+            }
+            synchronized (stateLock) {
+                if (closed || pendingStop || paused) {
+                    return 0;
+                }
+                if (pendingSound != null || activeSession != null) {
+                    // Titles poll getCurrentTime() to distinguish "not playing"
+                    // from "already started". Report a minimal non-zero time
+                    // as soon as playback is pending or active, even before the
+                    // worker has rendered the first audio chunk.
+                    return 1;
+                }
+            }
+            return 0;
         }
 
         int getTotalTimeMillis() {
