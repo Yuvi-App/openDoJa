@@ -13,6 +13,11 @@ mvn -q -DskipTests package
 - Every push to `master` rebuilds the rolling `nightly` GitHub release and replaces its attached JAR.
 - A GitHub release is created when the `pom.xml` version changes.
 
+## Download
+
+- Latest version: https://github.com/GrenderG/openDoJa/releases/latest
+- Nightly version: https://github.com/GrenderG/openDoJa/releases/download/nightly/opendoja-nightly.jar
+
 ## Run
 
 Open the desktop launcher UI:
@@ -25,12 +30,6 @@ Launch a specific JAM directly through the packaged launcher:
 
 ```bash
 java -jar target/opendoja-{version}.jar --run-jam <game.jam>
-```
-
-For local development without packaging, the original CLI host path still works:
-
-```bash
-java -cp out/classes:<game-jar> opendoja.host.JamLauncher <game.jam>
 ```
 
 ## Reporting Broken Games

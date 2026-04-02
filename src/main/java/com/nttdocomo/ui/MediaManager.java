@@ -12,6 +12,7 @@ import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -174,7 +175,7 @@ public final class MediaManager {
         if (Files.exists(filesystemPath)) {
             return Files.newInputStream(filesystemPath);
         }
-        throw new IOException("Media resource not found: " + name);
+        throw new FileNotFoundException("Media resource not found: " + name);
     }
 
     private static byte[] trimSoundBytes(byte[] data) {
