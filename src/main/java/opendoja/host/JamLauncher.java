@@ -93,9 +93,13 @@ public final class JamLauncher {
         if (trimmed.contains("://")) {
             return normalizePackageUri(URI.create(trimmed)).toString();
         }
+        String relativePath = packagePathPart(trimmed);
+        if (relativePath.isEmpty()) {
+            return jamPath.toUri().toString();
+        }
         Path base = jamPath.getParent();
-        Path resolved = (base == null ? Path.of(trimmed) : base.resolve(trimmed)).normalize();
-        if (isJarPath(resolved.getFileName())) {
+        Path resolved = (base == null ? Path.of(relativePath) : base.resolve(relativePath)).normalize();
+        if (isJarName(lastPathSegment(relativePath))) {
             Path absoluteResolved = resolved.toAbsolutePath().normalize();
             Path parent = absoluteResolved.getParent();
             return toDirectoryUri(parent == null ? absoluteResolved : parent);
@@ -125,6 +129,19 @@ public final class JamLauncher {
         }
         int slash = path.lastIndexOf('/');
         return slash >= 0 ? path.substring(slash + 1) : path;
+    }
+
+    private static String packagePathPart(String raw) {
+        int cut = raw.length();
+        int query = raw.indexOf('?');
+        if (query >= 0) {
+            cut = Math.min(cut, query);
+        }
+        int fragment = raw.indexOf('#');
+        if (fragment >= 0) {
+            cut = Math.min(cut, fragment);
+        }
+        return raw.substring(0, cut).trim();
     }
 
     private static String toDirectoryUri(Path directory) {
