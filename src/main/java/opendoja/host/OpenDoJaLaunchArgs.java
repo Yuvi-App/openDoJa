@@ -136,6 +136,8 @@ public final class OpenDoJaLaunchArgs {
     public static final String KEEP_EXPLICIT_GC = "opendoja.keepExplicitGc";
     /** Marks that launch compatibility tweaks were applied. */
     public static final String LAUNCH_COMPAT_APPLIED = "opendoja.launchCompatApplied";
+    /** Marks that the one-time VerifyError fallback re-exec was applied. */
+    public static final String VERIFY_FALLBACK_APPLIED = "opendoja.verifyFallbackApplied";
     /** Minimum OpenDoJa log level. */
     public static final String LOG_LEVEL = "opendoja.logLevel";
     /** Status returned by the mock media player. */
@@ -350,7 +352,8 @@ public final class OpenDoJaLaunchArgs {
             TRACE_EVENTS,
             TRACE_FAILURES,
             UI_FIGURE_VERTEX_SCALE,
-            LAUNCH_COMPAT_APPLIED);
+            LAUNCH_COMPAT_APPLIED,
+            VERIFY_FALLBACK_APPLIED);
 
     private static final Map<String, Supplier<String>> DEFAULTS = buildDefaults();
     private static final Set<String> PROPERTY_SET = Set.copyOf(PROPERTIES);
@@ -509,6 +512,7 @@ public final class OpenDoJaLaunchArgs {
         defaults.put(IRRECEIVER_DATA, () -> "IR-RECEIVE");
         defaults.put(KEEP_EXPLICIT_GC, () -> "false");
         defaults.put(LAUNCH_COMPAT_APPLIED, () -> "false");
+        defaults.put(VERIFY_FALLBACK_APPLIED, () -> "false");
         defaults.put(LOG_LEVEL, () -> OpenDoJaLog.Level.OFF.name());
         defaults.put(MEDIAPLAYER_STATUS, () -> Integer.toString(com.nttdocomo.opt.device.MediaPlayer.STATUS_COMPLETED));
         defaults.put(MEDIAPLAYER_STOP_POSITION, () -> "0");

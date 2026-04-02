@@ -75,8 +75,7 @@ public abstract class Image {
         if (!(this instanceof DesktopImage desktopImage)) {
             return 0;
         }
-        desktopImage.ensureNotDisposed();
-        return desktopImage.surface().width();
+        return desktopImage.width();
     }
 
     /**
@@ -89,8 +88,7 @@ public abstract class Image {
         if (!(this instanceof DesktopImage desktopImage)) {
             return 0;
         }
-        desktopImage.ensureNotDisposed();
-        return desktopImage.surface().height();
+        return desktopImage.height();
     }
 
     /**
@@ -121,7 +119,6 @@ public abstract class Image {
      */
     public int getTransparentColor() {
         if (this instanceof DesktopImage desktopImage) {
-            desktopImage.ensureNotDisposed();
             return desktopImage.getTransparentColor();
         }
         return 0;
@@ -162,7 +159,6 @@ public abstract class Image {
      */
     public int getAlpha() {
         if (this instanceof DesktopImage desktopImage) {
-            desktopImage.ensureNotDisposed();
             return desktopImage.getAlpha();
         }
         return 255;
@@ -170,7 +166,6 @@ public abstract class Image {
 
     BufferedImage renderForDisplay() {
         if (this instanceof DesktopImage desktopImage) {
-            desktopImage.ensureNotDisposed();
             return desktopImage.renderImage();
         }
         return null;
@@ -201,6 +196,14 @@ final class DesktopImage extends Image {
     DesktopSurface surface() {
         ensureNotDisposed();
         return surface;
+    }
+
+    int width() {
+        return surface.width();
+    }
+
+    int height() {
+        return surface.height();
     }
 
     @Override
@@ -237,6 +240,9 @@ final class DesktopImage extends Image {
     }
 
     BufferedImage renderImage() {
+        // Some legacy titles dispose temporary images immediately after handing them to the
+        // current paint pass. Keep read-only pixel access alive after dispose, but continue to
+        // reject mutating operations through ensureNotDisposed()/surface().
         if (!transparentEnabled) {
             return surface.image();
         }

@@ -26,7 +26,7 @@ public final class JamLauncher {
     }
 
     private static LaunchConfig buildLaunchConfig(Path jamPath, Properties properties, boolean exitOnShutdown)
-            throws ClassNotFoundException {
+            throws IOException, ClassNotFoundException {
         String appClassName = properties.getProperty("AppClass");
         if (appClassName == null || appClassName.isBlank()) {
             throw new IllegalArgumentException("JAM/ADF missing AppClass: " + jamPath);
@@ -77,7 +77,14 @@ public final class JamLauncher {
         }
         Path jamPath = Path.of(args[0]);
         LaunchCompatibility.reexecJamLauncherIfNeeded(jamPath);
-        launch(jamPath, true);
+        try {
+            launch(jamPath, true);
+        } catch (VerifyError error) {
+            if (!LaunchCompatibility.reexecJamLauncherOnVerifyError(jamPath)) {
+                throw error;
+            }
+            return;
+        }
         DoJaRuntime runtime = DoJaRuntime.current();
         if (runtime != null) {
             runtime.awaitShutdown();

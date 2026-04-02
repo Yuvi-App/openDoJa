@@ -23,7 +23,7 @@ final class LaunchCompatibility {
             return;
         }
 
-        Process process = new ProcessBuilder(buildJavaCommand(targetEncoding, disableExplicitGc, limitHotSpotTier,
+        Process process = new ProcessBuilder(buildCompatibilityCommand(targetEncoding, disableExplicitGc, limitHotSpotTier,
                         JamLauncher.class.getName(),
                         new String[]{jamPath.toString()}))
                 .inheritIO()
@@ -32,7 +32,20 @@ final class LaunchCompatibility {
         System.exit(exit);
     }
 
-    private static List<String> buildJavaCommand(String targetEncoding, boolean disableExplicitGc, boolean limitHotSpotTier,
+    static boolean reexecJamLauncherOnVerifyError(Path jamPath) throws IOException, InterruptedException {
+        if (Boolean.getBoolean(OpenDoJaLaunchArgs.VERIFY_FALLBACK_APPLIED) || explicitVerificationArgument() != null) {
+            return false;
+        }
+        Process process = new ProcessBuilder(buildVerifyFallbackCommand(JamLauncher.class.getName(),
+                        new String[]{jamPath.toString()}))
+                .inheritIO()
+                .start();
+        int exit = process.waitFor();
+        System.exit(exit);
+        return true;
+    }
+
+    private static List<String> buildCompatibilityCommand(String targetEncoding, boolean disableExplicitGc, boolean limitHotSpotTier,
             String mainClass, String[] args) {
         List<String> command = new ArrayList<>();
         command.add(Path.of(System.getProperty("java.home"), "bin", "java").toString());
@@ -64,6 +77,28 @@ final class LaunchCompatibility {
         if (targetEncoding != null) {
             command.add("-Dfile.encoding=" + targetEncoding);
         }
+        command.add("-cp");
+        command.add(System.getProperty("java.class.path"));
+        command.add(mainClass);
+        for (String arg : args) {
+            command.add(arg);
+        }
+        return command;
+    }
+
+    private static List<String> buildVerifyFallbackCommand(String mainClass, String[] args) {
+        List<String> command = new ArrayList<>();
+        command.add(Path.of(System.getProperty("java.home"), "bin", "java").toString());
+        for (String arg : ManagementFactory.getRuntimeMXBean().getInputArguments()) {
+            if (arg.startsWith("-D" + OpenDoJaLaunchArgs.VERIFY_FALLBACK_APPLIED + "=")
+                    || arg.startsWith("-Xverify:")
+                    || arg.equals("-noverify")) {
+                continue;
+            }
+            command.add(arg);
+        }
+        command.add("-D" + OpenDoJaLaunchArgs.VERIFY_FALLBACK_APPLIED + "=true");
+        command.add("-Xverify:none");
         command.add("-cp");
         command.add(System.getProperty("java.class.path"));
         command.add(mainClass);
@@ -116,6 +151,15 @@ final class LaunchCompatibility {
         } catch (RuntimeException ignored) {
             return true;
         }
+    }
+
+    private static String explicitVerificationArgument() {
+        for (String arg : ManagementFactory.getRuntimeMXBean().getInputArguments()) {
+            if (arg.startsWith("-Xverify:") || arg.equals("-noverify")) {
+                return arg;
+            }
+        }
+        return null;
     }
 
     private static boolean shouldLimitHotSpotTier() {
