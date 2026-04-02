@@ -5,8 +5,8 @@ import java.util.Locale;
 import java.util.function.Supplier;
 
 public final class OpenDoJaLog {
-    private static final boolean PROPERTY_CONFIGURED = System.getProperty(OpenDoJaLaunchArgs.LOG_LEVEL) != null;
-    private static volatile Level configuredLevel = Level.parse(System.getProperty(OpenDoJaLaunchArgs.LOG_LEVEL));
+    private static final boolean PROPERTY_CONFIGURED = OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.LOG_LEVEL, null) != null;
+    private static volatile Level configuredLevel = Level.parse(OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.LOG_LEVEL, null));
     private static volatile boolean configuredInCode;
 
     private OpenDoJaLog() {

@@ -649,7 +649,7 @@ public final class DoJaRuntime {
     }
 
     private void applyLaunchSystemProperties() {
-        previousMicroeditionPlatform = System.getProperty("microedition.platform");
+        previousMicroeditionPlatform = OpenDoJaLaunchArgs.get("microedition.platform", null);
         String launchPlatform = launchMicroeditionPlatform();
         if ((previousMicroeditionPlatform == null || previousMicroeditionPlatform.isBlank())
                 && launchPlatform != null
@@ -657,7 +657,7 @@ public final class DoJaRuntime {
             System.setProperty("microedition.platform", launchPlatform);
             restoreMicroeditionPlatform = true;
         }
-        previousMicroeditionProfiles = System.getProperty("microedition.profiles");
+        previousMicroeditionProfiles = OpenDoJaLaunchArgs.get("microedition.profiles", null);
         String launchProfiles = launchMicroeditionProfiles();
         if ((previousMicroeditionProfiles == null || previousMicroeditionProfiles.isBlank())
                 && launchProfiles != null

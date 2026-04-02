@@ -6,6 +6,7 @@ import com.nttdocomo.ui.Frame;
 import com.nttdocomo.ui.Graphics;
 import opendoja.host.DoJaRuntime;
 import opendoja.host.LaunchConfig;
+import opendoja.host.OpenDoJaLaunchArgs;
 
 import javax.swing.SwingUtilities;
 import java.awt.Dimension;
@@ -38,11 +39,11 @@ public final class ExternalFrameSoftKeyProbe {
                 .viewport(viewportWidth, viewportHeight)
                 .title("ExternalFrameSoftKeyProbe");
         LaunchConfig config = builder.build();
-        String previousHostScale = System.getProperty(opendoja.host.OpenDoJaLaunchArgs.HOST_SCALE);
+        String previousHostScale = OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.HOST_SCALE, null);
         if (configuredScale == null) {
-            System.clearProperty(opendoja.host.OpenDoJaLaunchArgs.HOST_SCALE);
+            System.clearProperty(OpenDoJaLaunchArgs.HOST_SCALE);
         } else {
-            System.setProperty(opendoja.host.OpenDoJaLaunchArgs.HOST_SCALE, configuredScale);
+            System.setProperty(OpenDoJaLaunchArgs.HOST_SCALE, configuredScale);
         }
         DoJaRuntime.prepareLaunch(config);
         try {

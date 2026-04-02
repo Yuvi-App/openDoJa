@@ -218,7 +218,7 @@ public final class LaunchConfig {
     }
 
     private static String resolveDefaultStatusBarIconDevice() {
-        String raw = System.getProperty(OpenDoJaLaunchArgs.STATUS_BAR_ICON_DEVICE);
+        String raw = OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.STATUS_BAR_ICON_DEVICE, null);
         if (raw == null || raw.isBlank()) {
             return DEFAULT_STATUS_BAR_ICON_DEVICE;
         }

@@ -40,7 +40,7 @@ final class LauncherProcessSupport {
 
     List<String> buildLaunchCommand(GameLaunchSelection selection, LauncherSettings settings) throws IOException {
         List<String> command = new ArrayList<>();
-        command.add(Path.of(System.getProperty("java.home"), "bin", "java").toString());
+        command.add(Path.of(OpenDoJaLaunchArgs.get("java.home"), "bin", "java").toString());
         if (settings != null && settings.disableBytecodeVerification()) {
             command.add("-Xverify:none");
         }

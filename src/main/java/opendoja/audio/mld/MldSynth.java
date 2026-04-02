@@ -56,7 +56,7 @@ public enum MldSynth {
     }
 
     public static MldSynth resolveConfigured() {
-        MldSynth fromProperty = fromId(System.getProperty(OpenDoJaLaunchArgs.MLD_SYNTH));
+        MldSynth fromProperty = fromId(OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.MLD_SYNTH, null));
         if (fromProperty != null) {
             return fromProperty;
         }

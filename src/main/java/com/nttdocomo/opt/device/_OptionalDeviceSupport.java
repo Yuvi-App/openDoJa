@@ -305,7 +305,7 @@ final class _OptionalDeviceSupport {
     }
 
     static int[] stationsForTuner(int tunerType) {
-        String property = System.getProperty(tunerType == RadioTuner.TUNERTYPE_FM
+        String property = opendoja.host.OpenDoJaLaunchArgs.get(tunerType == RadioTuner.TUNERTYPE_FM
                 ? opendoja.host.OpenDoJaLaunchArgs.RADIOTUNER_FM_STATIONS
                 : opendoja.host.OpenDoJaLaunchArgs.RADIOTUNER_AM_STATIONS);
         if (property == null || property.isBlank()) {

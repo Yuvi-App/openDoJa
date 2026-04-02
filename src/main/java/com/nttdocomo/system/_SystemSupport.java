@@ -1306,7 +1306,7 @@ final class _SystemSupport {
     }
 
     static String ownerProfileData(int item) {
-        String user = System.getProperty("user.name", "");
+        String user = opendoja.host.OpenDoJaLaunchArgs.get("user.name", "");
         return switch (item) {
             case OwnerProfile.NAME, OwnerProfile.FAMILY_NAME -> user;
             case OwnerProfile.GIVEN_NAME, OwnerProfile.KANA, OwnerProfile.FAMILY_NAME_KANA,
