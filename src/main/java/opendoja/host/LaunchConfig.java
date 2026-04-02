@@ -12,6 +12,8 @@ import java.util.Properties;
 
 public final class LaunchConfig {
     public static final String DEFAULT_STATUS_BAR_ICON_DEVICE = "n900i";
+    public static final int DEFAULT_VIEWPORT_WIDTH = 240;
+    public static final int DEFAULT_VIEWPORT_HEIGHT = 240;
 
     private final Class<? extends IApplication> applicationClass;
     private final int width;
@@ -113,8 +115,8 @@ public final class LaunchConfig {
 
     public static final class Builder {
         private final Class<? extends IApplication> applicationClass;
-        private int width = 240;
-        private int height = 240;
+        private int width = DEFAULT_VIEWPORT_WIDTH;
+        private int height = DEFAULT_VIEWPORT_HEIGHT;
         private String title;
         private String[] args;
         private int launchType = IApplication.LAUNCHED_FROM_MENU;

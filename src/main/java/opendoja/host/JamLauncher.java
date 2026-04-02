@@ -51,16 +51,7 @@ public final class JamLauncher {
                 .scratchpadSizes(scratchpadSizes)
                 .iAppliType(LaunchConfig.IAppliType.fromJamProperties(properties))
                 .exitOnShutdown(exitOnShutdown);
-        String drawArea = properties.getProperty("DrawArea");
-        if (drawArea != null) {
-            String[] parts = drawArea.toLowerCase().split("x");
-            if (parts.length == 2) {
-                try {
-                    builder.viewport(Integer.parseInt(parts[0].trim()), Integer.parseInt(parts[1].trim()));
-                } catch (NumberFormatException ignored) {
-                }
-            }
-        }
+        applyOptionalDrawArea(builder, properties.getProperty("DrawArea"));
         String appParam = properties.getProperty("AppParam");
         if (appParam != null && !appParam.isBlank()) {
             builder.args(appParam.trim().split("\\s+"));
@@ -187,6 +178,22 @@ public final class JamLauncher {
             properties.load(reader);
         }
         return properties;
+    }
+
+    private static void applyOptionalDrawArea(LaunchConfig.Builder builder, String rawDrawArea) {
+        if (builder == null || rawDrawArea == null || rawDrawArea.isBlank()) {
+            // DrawArea is optional. When it is absent, leave the launch on the host's full default
+            // viewport rather than clamping it to a smaller compatibility rectangle.
+            return;
+        }
+        String[] parts = rawDrawArea.trim().split("x");
+        if (parts.length != 2) {
+            return;
+        }
+        try {
+            builder.viewport(Integer.parseInt(parts[0].trim()), Integer.parseInt(parts[1].trim()));
+        } catch (NumberFormatException ignored) {
+        }
     }
 
     private static ResolvedScratchpad resolveScratchpad(Path jamPath) {
