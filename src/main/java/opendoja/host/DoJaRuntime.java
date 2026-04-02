@@ -344,7 +344,7 @@ public final class DoJaRuntime {
         return config.scratchpadPackedFile();
     }
 
-    public IAppliType iAppliType() {
+    public LaunchConfig.IAppliType iAppliType() {
         return config.iAppliType();
     }
 

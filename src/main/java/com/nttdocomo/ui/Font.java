@@ -1,6 +1,8 @@
 package com.nttdocomo.ui;
 
 import com.nttdocomo.lang.XString;
+import opendoja.host.OpenDoJaLaunchArgs;
+import opendoja.host.LaunchConfig;
 
 import java.awt.AWTError;
 import java.awt.Color;
@@ -35,7 +37,8 @@ import java.util.Set;
  * {@link #getFont(int, int)}.</p>
  */
 public class Font {
-    private static final float HANDSET_FONT_SCALE = opendoja.host.OpenDoJaLaunchArgs.getFloat(opendoja.host.OpenDoJaLaunchArgs.FONT_SCALE);
+    private static final float HANDSET_FONT_SCALE = OpenDoJaLaunchArgs.getFloat(OpenDoJaLaunchArgs.FONT_SCALE);
+    private static final boolean BITMAP_FONT_ENABLED = LaunchConfig.FontType.resolveConfigured() == LaunchConfig.FontType.BITMAP;
     private static final Object TEXT_ANTIALIAS_HINT = resolveTextAntialiasHint();
     /**
      * A font type that represents the default font ({@code =0x00000000}).
@@ -454,8 +457,13 @@ public class Font {
     }
 
     private static Font createFont(int face, int style, int size) {
-        Font bitmap = _BitmapFont.create(face, style, size);
-        return bitmap != null ? bitmap : new Font(face, style, size);
+        if (BITMAP_FONT_ENABLED) {
+            Font bitmap = _BitmapFont.create(face, style, size);
+            if (bitmap != null) {
+                return bitmap;
+            }
+        }
+        return new Font(face, style, size);
     }
 
     static String requireString(String text, String name) {

@@ -15,6 +15,7 @@ final class LauncherPreferencesStore {
     private static final String SYNTH_ID_KEY = "synthId";
     private static final String TERMINAL_ID_KEY = "terminalId";
     private static final String USER_ID_KEY = "userId";
+    private static final String FONT_TYPE_KEY = "fontType";
     private static final String LAST_DIRECTORY_KEY = "lastDirectory";
     private static final String RECENT_JAM_KEY_PREFIX = "recentJam.";
 
@@ -25,11 +26,13 @@ final class LauncherPreferencesStore {
         String storedSynthId = preferences.get(SYNTH_ID_KEY, OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.MLD_SYNTH));
         String storedTerminalId = preferences.get(TERMINAL_ID_KEY, OpenDoJaIdentity.defaultTerminalId());
         String storedUserId = preferences.get(USER_ID_KEY, OpenDoJaIdentity.defaultUserId());
+        String storedFontType = preferences.get(FONT_TYPE_KEY, OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.FONT_TYPE));
         return new LauncherSettings(
                 OpenDoJaLaunchArgs.getInt(OpenDoJaLaunchArgs.HOST_SCALE, storedHostScale),
                 OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.MLD_SYNTH, storedSynthId),
                 OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.TERMINAL_ID, storedTerminalId),
-                OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.USER_ID, storedUserId));
+                OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.USER_ID, storedUserId),
+                OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.FONT_TYPE, storedFontType));
     }
 
     void saveSettings(LauncherSettings settings) {
@@ -37,6 +40,7 @@ final class LauncherPreferencesStore {
         preferences.put(SYNTH_ID_KEY, settings.synthId());
         preferences.put(TERMINAL_ID_KEY, settings.terminalId());
         preferences.put(USER_ID_KEY, settings.userId());
+        preferences.put(FONT_TYPE_KEY, settings.fontType());
     }
 
     Path lastDirectory() {

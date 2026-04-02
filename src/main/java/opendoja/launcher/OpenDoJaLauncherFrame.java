@@ -1,6 +1,7 @@
 package opendoja.launcher;
 
 import opendoja.audio.mld.MldSynth;
+import opendoja.host.LaunchConfig;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
@@ -85,6 +86,7 @@ final class OpenDoJaLauncherFrame extends JFrame {
         settingsMenu.addSeparator();
         settingsMenu.add(buildHostScaleMenu());
         settingsMenu.add(buildSynthMenu());
+        settingsMenu.add(buildFontTypeMenu());
         settingsMenu.addSeparator();
         settingsMenu.add(new JMenuItem(new AbstractAction("Terminal ID...") {
             @Override
@@ -290,7 +292,8 @@ final class OpenDoJaLauncherFrame extends JFrame {
                             selectedScale,
                             current.synthId(),
                             current.terminalId(),
-                            current.userId()));
+                            current.userId(),
+                            current.fontType()));
                 }
             });
             item.setSelected(settings.hostScale() == scale);
@@ -298,6 +301,30 @@ final class OpenDoJaLauncherFrame extends JFrame {
             hostScaleMenu.add(item);
         }
         return hostScaleMenu;
+    }
+
+    private JMenu buildFontTypeMenu() {
+        LauncherSettings settings = jamLaunchService.loadSettings();
+        JMenu fontTypeMenu = new JMenu("Font Type");
+        ButtonGroup group = new ButtonGroup();
+        for (LaunchConfig.FontType fontType : LaunchConfig.FontType.values()) {
+            JRadioButtonMenuItem item = new JRadioButtonMenuItem(new AbstractAction(fontType.label) {
+                @Override
+                public void actionPerformed(ActionEvent event) {
+                    LauncherSettings current = jamLaunchService.loadSettings();
+                    jamLaunchService.saveSettings(new LauncherSettings(
+                            current.hostScale(),
+                            current.synthId(),
+                            current.terminalId(),
+                            current.userId(),
+                            fontType.id));
+                }
+            });
+            item.setSelected(settings.fontType().equals(fontType.id));
+            group.add(item);
+            fontTypeMenu.add(item);
+        }
+        return fontTypeMenu;
     }
 
     private JMenu buildSynthMenu() {
@@ -313,7 +340,8 @@ final class OpenDoJaLauncherFrame extends JFrame {
                             current.hostScale(),
                             synth.id,
                             current.terminalId(),
-                            current.userId()));
+                            current.userId(),
+                            current.fontType()));
                 }
             });
             item.setSelected(settings.synthId().equals(synth.id));
@@ -333,7 +361,8 @@ final class OpenDoJaLauncherFrame extends JFrame {
                 current.hostScale(),
                 current.synthId(),
                 updated,
-                current.userId()));
+                current.userId(),
+                current.fontType()));
     }
 
     private void updateUserId() {
@@ -346,12 +375,15 @@ final class OpenDoJaLauncherFrame extends JFrame {
                 current.hostScale(),
                 current.synthId(),
                 current.terminalId(),
-                updated));
+                updated,
+                current.fontType()));
     }
 
     private static String formatSynthLabel(MldSynth synth) {
-        String id = synth.id.replace('_', ' ');
-        return id.substring(0, 1).toUpperCase(Locale.ROOT) + id.substring(1);
+        return switch (synth) {
+            case FUETREK -> "FueTrek";
+            case MA3 -> "MA3";
+        };
     }
 
     private void showAboutDialog() {

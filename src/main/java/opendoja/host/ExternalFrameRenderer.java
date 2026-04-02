@@ -29,13 +29,13 @@ public final class ExternalFrameRenderer {
 
     private final List<HostOverlayRenderer> overlays = new CopyOnWriteArrayList<>();
     private final StatusBarIcons statusBarIcons;
-    private final IAppliType iAppliType;
+    private final LaunchConfig.IAppliType iAppliType;
     private volatile boolean enabled;
 
-    public ExternalFrameRenderer(boolean enabled, String statusBarIconDevice, IAppliType iAppliType) {
+    public ExternalFrameRenderer(boolean enabled, String statusBarIconDevice, LaunchConfig.IAppliType iAppliType) {
         this.enabled = enabled;
         this.statusBarIcons = StatusBarIcons.load(statusBarIconDevice);
-        this.iAppliType = iAppliType == null ? IAppliType.I_APPLI : iAppliType;
+        this.iAppliType = iAppliType == null ? LaunchConfig.IAppliType.I_APPLI : iAppliType;
     }
 
     boolean enabled() {
@@ -212,7 +212,7 @@ public final class ExternalFrameRenderer {
     }
 
     private BufferedImage iAppliStatusIcon() {
-        return iAppliType == IAppliType.I_APPLI_DX ? statusBarIcons.iAppliDx() : statusBarIcons.iAppli();
+        return iAppliType == LaunchConfig.IAppliType.I_APPLI_DX ? statusBarIcons.iAppliDx() : statusBarIcons.iAppli();
     }
 
     private BufferedImage batteryStatusIcon() {

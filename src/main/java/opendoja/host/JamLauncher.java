@@ -44,7 +44,7 @@ public final class JamLauncher {
                 .sourceUrl(resolvePackageUrl(jamPath, properties.getProperty("PackageURL")))
                 .scratchpadPackedFile(scratchpad.path())
                 .scratchpadSizes(scratchpadSizes)
-                .iAppliType(IAppliType.fromJamProperties(properties))
+                .iAppliType(LaunchConfig.IAppliType.fromJamProperties(properties))
                 .exitOnShutdown(exitOnShutdown);
         String drawArea = properties.getProperty("DrawArea");
         if (drawArea != null) {

@@ -94,6 +94,8 @@ public final class OpenDoJaLaunchArgs {
     public static final String FINGERPRINT_MATCH_ID = "opendoja.fingerprint.matchId";
     /** Maximum fingerprint candidates accepted per match. */
     public static final String FINGERPRINT_MAX_CANDIDATES = "opendoja.fingerprint.maxCandidates";
+    /** UI font renderer type: bitmap or system. */
+    public static final String FONT_TYPE = "opendoja.fontType";
     /** Scale factor applied to handset font sizing. */
     public static final String FONT_SCALE = "opendoja.fontScale";
     /** Selects the FueTrek mixer profile variant. */
@@ -277,6 +279,7 @@ public final class OpenDoJaLaunchArgs {
             FINGERPRINT_IDS,
             FINGERPRINT_MATCH_ID,
             FINGERPRINT_MAX_CANDIDATES,
+            FONT_TYPE,
             FONT_SCALE,
             FUETREK_MIX_PROFILE,
             GPS_ACCURACY,
@@ -485,6 +488,7 @@ public final class OpenDoJaLaunchArgs {
         defaults.put(FINGERPRINT_IDS, () -> "0");
         defaults.put(FINGERPRINT_MATCH_ID, () -> "0");
         defaults.put(FINGERPRINT_MAX_CANDIDATES, () -> "16");
+        defaults.put(FONT_TYPE, () -> LaunchConfig.FontType.BITMAP.id);
         defaults.put(FONT_SCALE, () -> "0.85");
         defaults.put(FUETREK_MIX_PROFILE, () -> "0");
         defaults.put(GPS_ACCURACY, () -> Integer.toString(com.nttdocomo.device.location.Location.ACCURACY_NORMAL));

@@ -6,7 +6,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
 
 public final class LaunchConfig {
     public static final String DEFAULT_STATUS_BAR_ICON_DEVICE = "n900i";
@@ -219,5 +221,65 @@ public final class LaunchConfig {
             return DEFAULT_STATUS_BAR_ICON_DEVICE;
         }
         return raw.trim();
+    }
+
+    // Nested host-config enums start here. Keep them with LaunchConfig so the
+    // small configuration vocabularies stay attached to the main host launch
+    // model instead of being split into separate top-level files.
+
+    /**
+     * Selects which host text renderer backs DoJa {@code com.nttdocomo.ui.Font}:
+     * the extracted handset bitmap font path or the desktop system-font fallback.
+     */
+    public enum FontType {
+        BITMAP("bitmap", "Bitmap"),
+        SYSTEM("system", "System");
+
+        public final String id;
+        public final String label;
+
+        FontType(String id, String label) {
+            this.id = id;
+            this.label = label;
+        }
+
+        public static FontType fromId(String candidate) {
+            if (candidate == null) {
+                return null;
+            }
+            String normalized = candidate.trim().toLowerCase(Locale.ROOT);
+            for (FontType type : values()) {
+                if (type.id.equals(normalized)) {
+                    return type;
+                }
+            }
+            return null;
+        }
+
+        public static String normalizeId(String candidate) {
+            FontType type = fromId(candidate);
+            return type == null ? BITMAP.id : type.id;
+        }
+
+        public static FontType resolveConfigured() {
+            FontType configured = fromId(OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.FONT_TYPE));
+            return configured == null ? BITMAP : configured;
+        }
+    }
+
+    /**
+     * Distinguishes standard i-appli jars from i-appli DX launches so host UI
+     * chrome and runtime behavior can follow the title's packaged capability.
+     */
+    public enum IAppliType {
+        I_APPLI,
+        I_APPLI_DX;
+
+        static IAppliType fromJamProperties(Properties properties) {
+            if (properties == null) {
+                return I_APPLI;
+            }
+            return properties.containsKey("TrustedAPID") ? I_APPLI_DX : I_APPLI;
+        }
     }
 }

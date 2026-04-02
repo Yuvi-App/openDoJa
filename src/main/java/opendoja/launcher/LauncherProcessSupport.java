@@ -68,6 +68,7 @@ final class LauncherProcessSupport {
         appendProperty(command, overriddenProperties, OpenDoJaLaunchArgs.MLD_SYNTH, settings.synthId());
         appendProperty(command, overriddenProperties, OpenDoJaLaunchArgs.TERMINAL_ID, settings.terminalId());
         appendProperty(command, overriddenProperties, OpenDoJaLaunchArgs.USER_ID, settings.userId());
+        appendProperty(command, overriddenProperties, OpenDoJaLaunchArgs.FONT_TYPE, settings.fontType());
     }
 
     private void appendProperty(List<String> command, Set<String> overriddenProperties, String name, String value) {
