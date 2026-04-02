@@ -7,14 +7,17 @@ import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.JButton;
 import javax.swing.JFrame;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.JEditorPane;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButtonMenuItem;
+import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingConstants;
 import javax.swing.TransferHandler;
@@ -25,6 +28,7 @@ import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.Dimension;
+import java.awt.Desktop;
 import java.awt.Font;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
@@ -77,16 +81,10 @@ final class OpenDoJaLauncherFrame extends JFrame {
         }));
 
         JMenu settingsMenu = new JMenu("Settings");
-        settingsMenu.add(new JMenuItem(new AbstractAction("Keybinds") {
-            @Override
-            public void actionPerformed(ActionEvent event) {
-                settingsController.showKeybinds(OpenDoJaLauncherFrame.this);
-            }
-        }));
-        settingsMenu.addSeparator();
         settingsMenu.add(buildHostScaleMenu());
         settingsMenu.add(buildSynthMenu());
         settingsMenu.add(buildFontTypeMenu());
+        settingsMenu.add(buildExperimentalMenu());
         settingsMenu.addSeparator();
         settingsMenu.add(new JMenuItem(new AbstractAction("Terminal ID...") {
             @Override
@@ -102,6 +100,13 @@ final class OpenDoJaLauncherFrame extends JFrame {
         }));
 
         JMenu helpMenu = new JMenu("Help");
+        helpMenu.add(new JMenuItem(new AbstractAction("Keybinds") {
+            @Override
+            public void actionPerformed(ActionEvent event) {
+                settingsController.showKeybinds(OpenDoJaLauncherFrame.this);
+            }
+        }));
+        helpMenu.addSeparator();
         helpMenu.add(new JMenuItem(new AbstractAction("About") {
             @Override
             public void actionPerformed(ActionEvent event) {
@@ -293,7 +298,9 @@ final class OpenDoJaLauncherFrame extends JFrame {
                             current.synthId(),
                             current.terminalId(),
                             current.userId(),
-                            current.fontType()));
+                            current.fontType(),
+                            current.disableBytecodeVerification(),
+                            current.disableOsDpiScaling()));
                 }
             });
             item.setSelected(settings.hostScale() == scale);
@@ -317,7 +324,9 @@ final class OpenDoJaLauncherFrame extends JFrame {
                             current.synthId(),
                             current.terminalId(),
                             current.userId(),
-                            fontType.id));
+                            fontType.id,
+                            current.disableBytecodeVerification(),
+                            current.disableOsDpiScaling()));
                 }
             });
             item.setSelected(settings.fontType().equals(fontType.id));
@@ -341,7 +350,9 @@ final class OpenDoJaLauncherFrame extends JFrame {
                             synth.id,
                             current.terminalId(),
                             current.userId(),
-                            current.fontType()));
+                            current.fontType(),
+                            current.disableBytecodeVerification(),
+                            current.disableOsDpiScaling()));
                 }
             });
             item.setSelected(settings.synthId().equals(synth.id));
@@ -349,6 +360,43 @@ final class OpenDoJaLauncherFrame extends JFrame {
             synthMenu.add(item);
         }
         return synthMenu;
+    }
+
+    private JMenu buildExperimentalMenu() {
+        LauncherSettings settings = jamLaunchService.loadSettings();
+        JMenu experimentalMenu = new JMenu("Experimental");
+
+        JCheckBoxMenuItem disableBytecodeVerificationItem = new JCheckBoxMenuItem("Disable Bytecode Verification");
+        disableBytecodeVerificationItem.setSelected(settings.disableBytecodeVerification());
+        disableBytecodeVerificationItem.addActionListener(event -> {
+            LauncherSettings current = jamLaunchService.loadSettings();
+            jamLaunchService.saveSettings(new LauncherSettings(
+                    current.hostScale(),
+                    current.synthId(),
+                    current.terminalId(),
+                    current.userId(),
+                    current.fontType(),
+                    disableBytecodeVerificationItem.isSelected(),
+                    current.disableOsDpiScaling()));
+        });
+        experimentalMenu.add(disableBytecodeVerificationItem);
+
+        JCheckBoxMenuItem disableOsDpiScalingItem = new JCheckBoxMenuItem("Disable OS DPI Scaling");
+        disableOsDpiScalingItem.setSelected(settings.disableOsDpiScaling());
+        disableOsDpiScalingItem.addActionListener(event -> {
+            LauncherSettings current = jamLaunchService.loadSettings();
+            jamLaunchService.saveSettings(new LauncherSettings(
+                    current.hostScale(),
+                    current.synthId(),
+                    current.terminalId(),
+                    current.userId(),
+                    current.fontType(),
+                    current.disableBytecodeVerification(),
+                    disableOsDpiScalingItem.isSelected()));
+        });
+        experimentalMenu.add(disableOsDpiScalingItem);
+
+        return experimentalMenu;
     }
 
     private void updateTerminalId() {
@@ -362,7 +410,9 @@ final class OpenDoJaLauncherFrame extends JFrame {
                 current.synthId(),
                 updated,
                 current.userId(),
-                current.fontType()));
+                current.fontType(),
+                current.disableBytecodeVerification(),
+                current.disableOsDpiScaling()));
     }
 
     private void updateUserId() {
@@ -376,7 +426,9 @@ final class OpenDoJaLauncherFrame extends JFrame {
                 current.synthId(),
                 current.terminalId(),
                 updated,
-                current.fontType()));
+                current.fontType(),
+                current.disableBytecodeVerification(),
+                current.disableOsDpiScaling()));
     }
 
     private static String formatSynthLabel(MldSynth synth) {
@@ -387,11 +439,31 @@ final class OpenDoJaLauncherFrame extends JFrame {
     }
 
     private void showAboutDialog() {
-        JOptionPane.showMessageDialog(
-                this,
-                OpenDoJaLauncher.APP_NAME + "\nVersion " + OpenDoJaLauncher.VERSION
-                        + "\nDesktop launcher for DoJa games.",
-                "About",
-                JOptionPane.INFORMATION_MESSAGE);
+        JEditorPane content = new JEditorPane("text/html",
+                "<html><body style='font-family:sans-serif;font-size:12px'>"
+                        + "<b>" + OpenDoJaLauncher.APP_NAME + "</b><br>"
+                        + "Version " + OpenDoJaLauncher.VERSION + "<br>"
+                        + "Desktop launcher for DoJa games.<br><br>"
+                        + "Source code: <a href='https://github.com/GrenderG/openDoJa'>"
+                        + "https://github.com/GrenderG/openDoJa</a>"
+                        + "</body></html>");
+        content.setEditable(false);
+        content.setOpaque(false);
+        content.addHyperlinkListener(event -> {
+            if (event.getEventType() != javax.swing.event.HyperlinkEvent.EventType.ACTIVATED) {
+                return;
+            }
+            if (!Desktop.isDesktopSupported()) {
+                return;
+            }
+            try {
+                Desktop.getDesktop().browse(event.getURL().toURI());
+            } catch (IOException | URISyntaxException ignored) {
+            }
+        });
+        JScrollPane scrollPane = new JScrollPane(content);
+        scrollPane.setBorder(null);
+        scrollPane.setPreferredSize(new Dimension(420, 150));
+        JOptionPane.showMessageDialog(this, scrollPane, "About", JOptionPane.INFORMATION_MESSAGE);
     }
 }
