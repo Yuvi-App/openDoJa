@@ -2,8 +2,13 @@ package opendoja.host;
 
 import com.nttdocomo.ui.IApplication;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.StringReader;
 import java.net.URI;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
@@ -80,6 +85,9 @@ public final class JamLauncher {
         try {
             launch(jamPath, true);
         } catch (VerifyError error) {
+            // A few handset-era jars contain bytecode that modern HotSpot rejects up front even
+            // though the same title otherwise runs once verification is disabled. Retry once from
+            // the top launch boundary so the default path stays strict for all normal titles.
             if (!LaunchCompatibility.reexecJamLauncherOnVerifyError(jamPath)) {
                 throw error;
             }
@@ -157,8 +165,25 @@ public final class JamLauncher {
     }
 
     private static Properties loadJamProperties(Path jamPath) throws IOException {
+        byte[] data = Files.readAllBytes(jamPath);
+        try {
+            return loadJamProperties(data, DoJaEncoding.DEFAULT_CHARSET);
+        } catch (CharacterCodingException ignored) {
+            // Most JAM/ADF files follow the handset default charset, but some titles
+            // are using UTF-8. Keep the historical decode path first and only fall
+            // back when the legacy decoder proves the file is not actually encoded that way.
+            return loadJamProperties(data, StandardCharsets.UTF_8);
+        }
+    }
+
+    private static Properties loadJamProperties(byte[] data, Charset charset) throws IOException {
         Properties properties = new Properties();
-        try (java.io.Reader reader = Files.newBufferedReader(jamPath, DoJaEncoding.DEFAULT_CHARSET)) {
+        String text = charset.newDecoder()
+                .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                .decode(java.nio.ByteBuffer.wrap(data))
+                .toString();
+        try (BufferedReader reader = new BufferedReader(new StringReader(text))) {
             properties.load(reader);
         }
         return properties;

@@ -36,6 +36,9 @@ final class LaunchCompatibility {
         if (Boolean.getBoolean(OpenDoJaLaunchArgs.VERIFY_FALLBACK_APPLIED) || explicitVerificationArgument() != null) {
             return false;
         }
+        // This fallback is intentionally JVM-wide because bytecode verification is also JVM-wide.
+        // Keep it as a one-time startup retry only after the title has actually failed with
+        // VerifyError, rather than weakening verification for every launch.
         Process process = new ProcessBuilder(buildVerifyFallbackCommand(JamLauncher.class.getName(),
                         new String[]{jamPath.toString()}))
                 .inheritIO()
