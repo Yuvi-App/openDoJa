@@ -15,21 +15,38 @@ mvn -q -DskipTests package
 
 ## Download
 
-- Latest version: https://github.com/GrenderG/openDoJa/releases/latest
-- Nightly version: https://github.com/GrenderG/openDoJa/releases/download/nightly/opendoja-nightly.jar
+- Nightly (most up-to-date) version: https://github.com/GrenderG/openDoJa/releases/download/nightly/opendoja-nightly.jar
+- Latest (stable) version: https://github.com/GrenderG/openDoJa/releases/latest
 
 ## Run
 
 Open the desktop launcher UI:
 
 ```bash
-java -jar target/opendoja-{version}.jar
+java -jar opendoja-{version}.jar
 ```
 
 Launch a specific JAM directly through the packaged launcher:
 
 ```bash
-java -jar target/opendoja-{version}.jar --run-jam <game.jam>
+java -jar opendoja-{version}.jar --run-jam <game.jam>
+```
+
+Print all available launcher options:
+
+```bash
+java -jar opendoja-{version}.jar --help
+```
+
+Launch a JAM directly without the launcher UI, with explicit host scale, synth, user ID, and terminal ID:
+
+```bash
+java \
+  -Dopendoja.hostScale=<x> \
+  -Dopendoja.mldSynth=<fuetrek|ma3> \
+  -Dopendoja.userId=<uid> \
+  -Dopendoja.terminalId=<tid> \
+  -jar opendoja-{version}.jar --run-jam <game.jam>
 ```
 
 ## Reporting Broken Games
