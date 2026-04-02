@@ -11,7 +11,7 @@ import java.nio.file.Path;
 
 public final class OpenDoJaLauncher {
     static final String APP_NAME = "openDoJa Launcher";
-    static final String VERSION = "0.1.1";
+    static final String VERSION = "0.1.2";
     private static final String RUN_JAM_FLAG = "--run-jam";
     private static final String RUN_JAM_INTERNAL_FLAG = "--run-jam-internal";
     private static final String SPAWN_JAM_FLAG = "--spawn-jam";
