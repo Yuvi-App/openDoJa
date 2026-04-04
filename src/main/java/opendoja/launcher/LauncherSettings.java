@@ -1,6 +1,6 @@
 package opendoja.launcher;
 
-import opendoja.audio.mld.MldSynth;
+import opendoja.audio.mld.MLDSynth;
 import opendoja.host.OpenDoJaIdentity;
 import opendoja.host.LaunchConfig;
 
@@ -21,7 +21,7 @@ record LauncherSettings(
     }
 
     static LauncherSettings defaults() {
-        return new LauncherSettings(1, MldSynth.DEFAULT.id,
+        return new LauncherSettings(1, MLDSynth.DEFAULT.id,
                 OpenDoJaIdentity.defaultTerminalId(),
                 OpenDoJaIdentity.defaultUserId(),
                 LaunchConfig.FontType.BITMAP.id,
@@ -34,7 +34,7 @@ record LauncherSettings(
     }
 
     private static String normalizeSynthId(String candidate) {
-        MldSynth synth = MldSynth.fromId(candidate);
-        return synth == null ? MldSynth.DEFAULT.id : synth.id;
+        MLDSynth synth = MLDSynth.fromId(candidate);
+        return synth == null ? MLDSynth.DEFAULT.id : synth.id;
     }
 }

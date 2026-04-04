@@ -1,7 +1,7 @@
 package opendoja.probes;
 
 import opendoja.audio.mld.MLD;
-import opendoja.audio.mld.MldSynth;
+import opendoja.audio.mld.MLDSynth;
 import opendoja.audio.mld.MLDPlayer;
 import opendoja.audio.mld.MLDPlayerEvent;
 import opendoja.audio.mld.SamplerProvider;
@@ -25,7 +25,7 @@ public final class MldRenderProbe {
         if (iterations < 0) {
             throw new IllegalArgumentException("iterations must be non-negative");
         }
-        MldSynth synth = MldSynth.resolveConfigured();
+        MLDSynth synth = MLDSynth.resolveConfigured();
         SamplerProvider provider = synth.createSamplerProvider();
         float sampleRate = synth.defaultSampleRate;
         MLDPlayer player = new MLDPlayer(mld, provider, sampleRate);

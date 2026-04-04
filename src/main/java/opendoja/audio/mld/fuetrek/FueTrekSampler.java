@@ -1,6 +1,8 @@
 package opendoja.audio.mld.fuetrek;
 
 import opendoja.audio.mld.MLD;
+import opendoja.audio.mld.MLDPlaybackEngine;
+import opendoja.audio.mld.MLDRawExtBHandler;
 import opendoja.audio.mld.Sampler;
 import opendoja.host.OpenDoJaLog;
 
@@ -10,7 +12,7 @@ import java.util.Arrays;
 /**
  * Sample-based FueTrek renderer built from the extracted MFiSynth_ft ROM image.
  */
-final class FueTrekSampler implements Sampler {
+final class FueTrekSampler implements Sampler, MLDRawExtBHandler {
     private static final boolean DEBUG_NOTES = opendoja.host.OpenDoJaLaunchArgs.getBoolean(opendoja.host.OpenDoJaLaunchArgs.DEBUG_FUE_TREK_NOTES);
     private static final boolean DEBUG_CONTROL = opendoja.host.OpenDoJaLaunchArgs.getBoolean(opendoja.host.OpenDoJaLaunchArgs.DEBUG_FUE_TREK_CONTROL);
     private static final int CHANNEL_COUNT = 16;
@@ -75,6 +77,11 @@ final class FueTrekSampler implements Sampler {
             }
         }
         return customVoices.isEmpty();
+    }
+
+    @Override
+    public MLDPlaybackEngine createPlaybackEngine(MLD mld, float sampleRate) {
+        return new FueTrekMLDPlaybackEngine(this, mld, sampleRate);
     }
 
     @Override
@@ -418,30 +425,7 @@ final class FueTrekSampler implements Sampler {
         OpenDoJaLog.debug(FueTrekSampler.class, sb.toString());
     }
 
-    @Override
-    public boolean interceptsExtBEvent(int eventId) {
-        switch (eventId & 0xff) {
-            case MLD.EVENT_MASTER_VOLUME:
-            case 0xb1:
-            case MLD.EVENT_X_DRUM_ENABLE:
-            case MLD.EVENT_PROGRAM_CHANGE:
-            case MLD.EVENT_BANK_CHANGE:
-            case MLD.EVENT_VOLUME:
-            case MLD.EVENT_PANPOT:
-            case MLD.EVENT_PITCHBEND:
-            case 0xe6:
-            case MLD.EVENT_PITCHBEND_RANGE:
-            case MLD.EVENT_WAVE_CHANNEL_VOLUME:
-            case MLD.EVENT_WAVE_CHANNEL_PANPOT:
-            case 0xea:
-                return true;
-            default:
-                return false;
-        }
-    }
-
-    @Override
-    public void handleExtBEvent(int eventId, int channel, int rawParam) {
+    public void handleRawExtBEvent(int eventId, int channel, int rawParam) {
         if ((eventId & 0xff) == MLD.EVENT_X_DRUM_ENABLE) {
             int targetChannel = (rawParam >> 3) & 0xf;
             ChannelState target = channel(targetChannel);
@@ -531,17 +515,7 @@ final class FueTrekSampler implements Sampler {
     }
 
     @Override
-    public SequenceControlMode sequenceControlMode() {
-        return SequenceControlMode.FUETREK;
-    }
-
-    @Override
     public boolean suppressActiveKeyRetrigger() {
-        return true;
-    }
-
-    @Override
-    public boolean supportsResourceAudio() {
         return true;
     }
 

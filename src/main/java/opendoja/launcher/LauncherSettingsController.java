@@ -1,6 +1,6 @@
 package opendoja.launcher;
 
-import opendoja.audio.mld.MldSynth;
+import opendoja.audio.mld.MLDSynth;
 import opendoja.host.OpenDoJaIdentity;
 
 import java.awt.Component;
@@ -14,8 +14,8 @@ final class LauncherSettingsController {
         keybindSettingsController.showDialog(parent);
     }
 
-    List<MldSynth> availableSynths() {
-        return List.of(MldSynth.values());
+    List<MLDSynth> availableSynths() {
+        return List.of(MLDSynth.values());
     }
 
     String promptTerminalId(Component parent, String currentValue) {

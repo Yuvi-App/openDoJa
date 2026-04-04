@@ -1,6 +1,6 @@
 package opendoja.host;
 
-import opendoja.audio.mld.MldSynth;
+import opendoja.audio.mld.MLDSynth;
 
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -516,10 +516,10 @@ public final class OpenDoJaLaunchArgs {
         defaults.put(LOG_LEVEL, () -> OpenDoJaLog.Level.OFF.name());
         defaults.put(MEDIAPLAYER_STATUS, () -> Integer.toString(com.nttdocomo.opt.device.MediaPlayer.STATUS_COMPLETED));
         defaults.put(MEDIAPLAYER_STOP_POSITION, () -> "0");
-        defaults.put(MLD_BUFFER_FRAMES, () -> Integer.toString(MldSynth.resolveConfigured().defaultBufferFrames));
+        defaults.put(MLD_BUFFER_FRAMES, () -> Integer.toString(MLDSynth.resolveConfigured().defaultBufferFrames));
         defaults.put(MLD_LINE_BUFFER_FRAMES, () -> Integer.toString(getInt(MLD_BUFFER_FRAMES) * 4));
-        defaults.put(MLD_SAMPLE_RATE, () -> Float.toString(MldSynth.resolveConfigured().defaultSampleRate));
-        defaults.put(MLD_SYNTH, () -> MldSynth.DEFAULT.id);
+        defaults.put(MLD_SAMPLE_RATE, () -> Float.toString(MLDSynth.resolveConfigured().defaultSampleRate));
+        defaults.put(MLD_SYNTH, () -> MLDSynth.DEFAULT.id);
         defaults.put(OWNER_EMAIL1, () -> "");
         defaults.put(OWNER_PHONE1, () -> "");
         defaults.put(PEDOMETER_DEFAULT_HEIGHT_MM, () -> "1700");

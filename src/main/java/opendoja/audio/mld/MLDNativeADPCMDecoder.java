@@ -1,6 +1,6 @@
 package opendoja.audio.mld;
 
-final class MLDNativeADPCMDecoder {
+public final class MLDNativeADPCMDecoder {
     private static final int INPUT_SAMPLE_RATE_8K = 8000;
     private static final int INPUT_SAMPLE_RATE_16K = 16000;
     private static final int CODED_BITS_2 = 2;
@@ -64,11 +64,11 @@ final class MLDNativeADPCMDecoder {
     private MLDNativeADPCMDecoder() {
     }
 
-    static boolean supportsLivePath(int sampleRate, int codedBits, int channelCount) {
+    public static boolean supportsLivePath(int sampleRate, int codedBits, int channelCount) {
         return profileFor(sampleRate, codedBits, channelCount) != null;
     }
 
-    static int[] decodeLiveMonoNativeLane0(int sampleRate, int codedBits, byte[] payload) {
+    public static int[] decodeLiveMonoNativeLane0(int sampleRate, int codedBits, byte[] payload) {
         LiveProfile profile = profileFor(sampleRate, codedBits, MONO_CHANNELS);
         if (profile == null) {
             throw new IllegalArgumentException(

@@ -1,6 +1,6 @@
 package opendoja.launcher;
 
-import opendoja.audio.mld.MldSynth;
+import opendoja.audio.mld.MLDSynth;
 import opendoja.host.LaunchConfig;
 
 import javax.swing.AbstractAction;
@@ -361,7 +361,7 @@ final class OpenDoJaLauncherFrame extends JFrame {
         LauncherSettings settings = jamLaunchService.loadSettings();
         JMenu synthMenu = new JMenu("Synth");
         ButtonGroup group = new ButtonGroup();
-        for (MldSynth synth : settingsController.availableSynths()) {
+        for (MLDSynth synth : settingsController.availableSynths()) {
             JRadioButtonMenuItem item = new JRadioButtonMenuItem(new AbstractAction(formatSynthLabel(synth)) {
                 @Override
                 public void actionPerformed(ActionEvent event) {
@@ -452,7 +452,7 @@ final class OpenDoJaLauncherFrame extends JFrame {
                 current.disableOsDpiScaling()));
     }
 
-    private static String formatSynthLabel(MldSynth synth) {
+    private static String formatSynthLabel(MLDSynth synth) {
         return switch (synth) {
             case FUETREK -> "FueTrek";
             case MA3 -> "MA3";

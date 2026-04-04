@@ -79,14 +79,14 @@ public final class MLDPCMPlayer implements AutoCloseable {
     }
 
     private static SynthProfile resolveSynthProfile() {
-        return switch (MldSynth.resolveConfigured()) {
+        return switch (MLDSynth.resolveConfigured()) {
             case FUETREK -> new SynthProfile(
-                    MldSynth.FUETREK,
+                    MLDSynth.FUETREK,
                     FUETREK_SAMPLER_PROVIDER,
                     FueTrekSamplerProvider.SAMPLE_RATE,
                     1024);
             case MA3 -> new SynthProfile(
-                    MldSynth.MA3,
+                    MLDSynth.MA3,
                     MA3_SAMPLER_PROVIDER,
                     MA3SamplerProvider.SAMPLE_RATE,
                     1024);
@@ -95,7 +95,7 @@ public final class MLDPCMPlayer implements AutoCloseable {
 
     private static int normalizeBufferFrames(int candidate, int fallback) {
         int frames = candidate <= 0 ? fallback : candidate;
-        if (SYNTH_PROFILE.synth != MldSynth.FUETREK) {
+        if (SYNTH_PROFILE.synth != MLDSynth.FUETREK) {
             return frames;
         }
         int clamped = Math.max(FueTrekSamplerProvider.MIN_FRAME_SIZE,
@@ -493,13 +493,13 @@ public final class MLDPCMPlayer implements AutoCloseable {
     }
 
     private static final class SynthProfile {
-        private final MldSynth synth;
+        private final MLDSynth synth;
         private final String id;
         private final SamplerProvider samplerProvider;
         private final float defaultSampleRate;
         private final int defaultBufferFrames;
 
-        private SynthProfile(MldSynth synth,
+        private SynthProfile(MLDSynth synth,
                              SamplerProvider samplerProvider,
                              float defaultSampleRate,
                              int defaultBufferFrames) {
