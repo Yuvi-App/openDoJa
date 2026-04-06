@@ -21,8 +21,8 @@ public class Vector3D {
      * @param other the source vector
      * @throws NullPointerException if {@code other} is {@code null}
      */
-    public Vector3D(Vector3D other) {
-        set(other);
+    public Vector3D(Vector3D v) {
+        set(v);
     }
 
     /**
@@ -44,6 +44,9 @@ public class Vector3D {
      * @param z the z component
      */
     public void set(float x, float y, float z) {
+        requireFinite(x);
+        requireFinite(y);
+        requireFinite(z);
         this.x = x;
         this.y = y;
         this.z = z;
@@ -55,11 +58,11 @@ public class Vector3D {
      * @param other the source vector
      * @throws NullPointerException if {@code other} is {@code null}
      */
-    public void set(Vector3D other) {
-        if (other == null) {
-            throw new NullPointerException("other");
+    public void set(Vector3D v) {
+        if (v == null) {
+            throw new NullPointerException();
         }
-        set(other.x, other.y, other.z);
+        set(v.x, v.y, v.z);
     }
 
     /**
@@ -70,9 +73,10 @@ public class Vector3D {
      * @param z the z component to add
      */
     public void add(float x, float y, float z) {
-        this.x += x;
-        this.y += y;
-        this.z += z;
+        requireFinite(x);
+        requireFinite(y);
+        requireFinite(z);
+        set(FastMath.add(getX(), x), FastMath.add(getY(), y), FastMath.add(getZ(), z));
     }
 
     /**
@@ -81,11 +85,11 @@ public class Vector3D {
      * @param other the vector to add
      * @throws NullPointerException if {@code other} is {@code null}
      */
-    public void add(Vector3D other) {
-        if (other == null) {
-            throw new NullPointerException("other");
+    public void add(Vector3D v) {
+        if (v == null) {
+            throw new NullPointerException();
         }
-        add(other.x, other.y, other.z);
+        add(v.getX(), v.getY(), v.getZ());
     }
 
     /**
@@ -94,6 +98,7 @@ public class Vector3D {
      * @param x the x component value
      */
     public void setX(float x) {
+        requireFinite(x);
         this.x = x;
     }
 
@@ -103,6 +108,7 @@ public class Vector3D {
      * @param y the y component value
      */
     public void setY(float y) {
+        requireFinite(y);
         this.y = y;
     }
 
@@ -112,6 +118,7 @@ public class Vector3D {
      * @param z the z component value
      */
     public void setZ(float z) {
+        requireFinite(z);
         this.z = z;
     }
 
@@ -146,16 +153,21 @@ public class Vector3D {
      * Normalizes this vector to unit length.
      */
     public void normalize() {
-        float length = (float) java.lang.Math.sqrt(x * x + y * y + z * z);
-        if (length <= 0f) {
-            x = 0f;
-            y = 0f;
-            z = 1f;
-            return;
+        int xInt = FastMath.floatToInnerInt(x);
+        int yInt = FastMath.floatToInnerInt(y);
+        int zInt = FastMath.floatToInnerInt(z);
+        if (xInt == 0 && yInt == 0 && zInt == 0) {
+            throw new ArithmeticException();
         }
-        x /= length;
-        y /= length;
-        z /= length;
+        long lengthSquared = (long) xInt * (long) xInt + (long) yInt * (long) yInt + (long) zInt * (long) zInt;
+        int length = (int) java.lang.Math.round(java.lang.Math.sqrt(lengthSquared));
+        if (length == 0) {
+            throw new ArithmeticException();
+        }
+        set(
+                FastMath.innerIntToFloat((int) ((((long) xInt) << 12) / length)),
+                FastMath.innerIntToFloat((int) ((((long) yInt) << 12) / length)),
+                FastMath.innerIntToFloat((int) ((((long) zInt) << 12) / length)));
     }
 
     /**
@@ -165,11 +177,8 @@ public class Vector3D {
      * @return the dot-product value
      * @throws NullPointerException if {@code other} is {@code null}
      */
-    public float dot(Vector3D other) {
-        if (other == null) {
-            throw new NullPointerException("other");
-        }
-        return x * other.x + y * other.y + z * other.z;
+    public float dot(Vector3D v) {
+        return dot(this, v);
     }
 
     /**
@@ -180,8 +189,13 @@ public class Vector3D {
      * @return the dot-product value
      * @throws NullPointerException if either argument is {@code null}
      */
-    public static float dot(Vector3D left, Vector3D right) {
-        return left.dot(right);
+    public static float dot(Vector3D v1, Vector3D v2) {
+        if (v1 == null || v2 == null) {
+            throw new NullPointerException();
+        }
+        return FastMath.add(
+                FastMath.add(FastMath.mul(v1.getX(), v2.getX()), FastMath.mul(v1.getY(), v2.getY())),
+                FastMath.mul(v1.getZ(), v2.getZ()));
     }
 
     /**
@@ -191,8 +205,8 @@ public class Vector3D {
      * @param other the other vector
      * @throws NullPointerException if {@code other} is {@code null}
      */
-    public void cross(Vector3D other) {
-        cross(this, other);
+    public void cross(Vector3D v) {
+        cross(this, v);
     }
 
     /**
@@ -203,15 +217,25 @@ public class Vector3D {
      * @param right the second vector
      * @throws NullPointerException if either argument is {@code null}
      */
-    public void cross(Vector3D left, Vector3D right) {
-        if (left == null || right == null) {
-            throw new NullPointerException("vector");
+    public void cross(Vector3D u, Vector3D v) {
+        if (u == null || v == null) {
+            throw new NullPointerException();
         }
-        float nextX = left.y * right.z - left.z * right.y;
-        float nextY = left.z * right.x - left.x * right.z;
-        float nextZ = left.x * right.y - left.y * right.x;
-        x = nextX;
-        y = nextY;
-        z = nextZ;
+        float ux = u.getX();
+        float uy = u.getY();
+        float uz = u.getZ();
+        float vx = v.getX();
+        float vy = v.getY();
+        float vz = v.getZ();
+        float x = FastMath.sub(FastMath.mul(uy, vz), FastMath.mul(uz, vy));
+        float y = FastMath.sub(FastMath.mul(uz, vx), FastMath.mul(ux, vz));
+        float z = FastMath.sub(FastMath.mul(ux, vy), FastMath.mul(uy, vx));
+        set(x, y, z);
+    }
+
+    private static void requireFinite(float v) {
+        if (Float.isNaN(v) || Float.isInfinite(v)) {
+            throw new IllegalArgumentException();
+        }
     }
 }
