@@ -579,6 +579,10 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
      */
     public void unlock(boolean flush) {
         DoJaRuntime runtime = DoJaRuntime.current();
+        // DoJa specifies that unlock() is a no-op when the lock count is already zero.
+        if (runtime != null && !runtime.surfaceLock().isHeldByCurrentThread()) {
+            return;
+        }
         BufferedImage presentedFrame = null;
         boolean outermostUnlock = runtime == null || runtime.surfaceLock().getHoldCount() == 1;
         boolean pacedPresentation = flush;
