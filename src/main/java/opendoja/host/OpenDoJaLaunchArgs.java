@@ -36,6 +36,8 @@ public final class OpenDoJaLaunchArgs {
     public static final String ACCELERATION_SUPPORTED = "opendoja.accelerationSupported";
     /** Number of Audio3D resources the host exposes. */
     public static final String AUDIO3D_RESOURCES = "opendoja.audio3dResources";
+    /** Number of explicit AudioPresenter ports the host exposes. */
+    public static final String AUDIO_PRESENTER_PORTS = "opendoja.audioPresenterPorts";
     /** Reported Audio3D timer resolution in ms. */
     public static final String AUDIO3D_TIME_RESOLUTION_MS = "opendoja.audio3dTimeResolutionMs";
     /** Maximum cached bitmap font render entries. */
@@ -252,6 +254,7 @@ public final class OpenDoJaLaunchArgs {
             ACCELERATION_MAX_DATA_SIZE,
             ACCELERATION_SUPPORTED,
             AUDIO3D_RESOURCES,
+            AUDIO_PRESENTER_PORTS,
             AUDIO3D_TIME_RESOLUTION_MS,
             BITMAP_FONT_CACHE_ENTRIES,
             BLUETOOTH_DEVICES,
@@ -462,6 +465,7 @@ public final class OpenDoJaLaunchArgs {
         defaults.put(ACCELERATION_MAX_DATA_SIZE, () -> "32");
         defaults.put(ACCELERATION_SUPPORTED, () -> "true");
         defaults.put(AUDIO3D_RESOURCES, () -> "1");
+        defaults.put(AUDIO_PRESENTER_PORTS, () -> "4");
         defaults.put(AUDIO3D_TIME_RESOLUTION_MS, () -> "100");
         defaults.put(BITMAP_FONT_CACHE_ENTRIES, () -> "256");
         defaults.put(BLUETOOTH_DEVICES, () -> "");
