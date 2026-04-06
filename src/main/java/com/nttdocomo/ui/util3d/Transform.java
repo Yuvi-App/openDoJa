@@ -17,11 +17,11 @@ public class Transform {
     /**
      * Creates a transform by copying another transform.
      *
-     * @param other the source transform
-     * @throws NullPointerException if {@code other} is {@code null}
+     * @param transform the source transform
+     * @throws NullPointerException if {@code transform} is {@code null}
      */
-    public Transform(Transform other) {
-        set(other);
+    public Transform(Transform transform) {
+        set(transform);
     }
 
     /**
@@ -34,40 +34,47 @@ public class Transform {
     /**
      * Replaces this matrix with a copy of another transform.
      *
-     * @param other the source transform
-     * @throws NullPointerException if {@code other} is {@code null}
+     * @param transform the source transform
+     * @throws NullPointerException if {@code transform} is {@code null}
      */
-    public void set(Transform other) {
-        if (other == null) {
-            throw new NullPointerException("other");
+    public void set(Transform transform) {
+        if (transform == null) {
+            throw new NullPointerException();
         }
-        System.arraycopy(other.matrix, 0, matrix, 0, 16);
+        System.arraycopy(transform.matrix, 0, matrix, 0, 16);
     }
 
     /**
      * Replaces this matrix from the first 16 values of the supplied array.
      *
-     * @param values the source matrix values
-     * @throws IllegalArgumentException if {@code values} is {@code null} or shorter than 16 elements
+     * @param matrix the source matrix values
      */
-    public void set(float[] values) {
-        if (values == null || values.length < 16) {
-            throw new IllegalArgumentException("values");
+    public void set(float[] matrix) {
+        if (matrix == null) {
+            throw new NullPointerException();
         }
-        System.arraycopy(values, 0, matrix, 0, 16);
+        if (matrix.length < 16) {
+            throw new IllegalArgumentException();
+        }
+        for (int i = 0; i < 16; i++) {
+            requireFinite(matrix[i]);
+        }
+        System.arraycopy(matrix, 0, this.matrix, 0, 16);
     }
 
     /**
      * Copies this matrix into the supplied array.
      *
-     * @param values the destination array
-     * @throws IllegalArgumentException if {@code values} is {@code null} or shorter than 16 elements
+     * @param matrix the destination array
      */
-    public void get(float[] values) {
-        if (values == null || values.length < 16) {
-            throw new IllegalArgumentException("values");
+    public void get(float[] matrix) {
+        if (matrix == null) {
+            throw new NullPointerException();
         }
-        System.arraycopy(matrix, 0, values, 0, 16);
+        if (matrix.length < 16) {
+            throw new IllegalArgumentException();
+        }
+        System.arraycopy(this.matrix, 0, matrix, 0, 16);
     }
 
     /**
@@ -77,6 +84,8 @@ public class Transform {
      * @param value the new value
      */
     public void set(int index, float value) {
+        validateIndex(index);
+        requireFinite(value);
         matrix[index] = value;
     }
 
@@ -87,6 +96,7 @@ public class Transform {
      * @return the element value
      */
     public float get(int index) {
+        validateIndex(index);
         return matrix[index];
     }
 
@@ -95,6 +105,9 @@ public class Transform {
      */
     public void invert() {
         float[] inverse = invertMatrix(matrix);
+        if (inverse == null) {
+            throw new ArithmeticException();
+        }
         System.arraycopy(inverse, 0, matrix, 0, 16);
     }
 
@@ -113,14 +126,14 @@ public class Transform {
     /**
      * Multiplies this transform by another transform.
      *
-     * @param other the transform multiplied on the right
-     * @throws NullPointerException if {@code other} is {@code null}
+     * @param transform the transform multiplied on the right
+     * @throws NullPointerException if {@code transform} is {@code null}
      */
-    public void multiply(Transform other) {
-        if (other == null) {
-            throw new NullPointerException("other");
+    public void multiply(Transform transform) {
+        if (transform == null) {
+            throw new NullPointerException();
         }
-        float[] result = Software3DContext.multiply(matrix, other.matrix);
+        float[] result = multiplyMatrices(matrix, transform.matrix);
         System.arraycopy(result, 0, matrix, 0, 16);
     }
 
@@ -132,6 +145,9 @@ public class Transform {
      * @param z the z scale factor
      */
     public void scale(float x, float y, float z) {
+        requireFinite(x);
+        requireFinite(y);
+        requireFinite(z);
         float[] scale = Software3DContext.identity();
         scale[0] = x;
         scale[5] = y;
@@ -142,11 +158,14 @@ public class Transform {
     /**
      * Applies a scale transform using the components of a vector.
      *
-     * @param vector the vector whose components define the scale factors
-     * @throws NullPointerException if {@code vector} is {@code null}
+     * @param v the vector whose components define the scale factors
+     * @throws NullPointerException if {@code v} is {@code null}
      */
-    public void scale(Vector3D vector) {
-        scale(vector.getX(), vector.getY(), vector.getZ());
+    public void scale(Vector3D v) {
+        if (v == null) {
+            throw new NullPointerException();
+        }
+        scale(v.getX(), v.getY(), v.getZ());
     }
 
     /**
@@ -158,40 +177,59 @@ public class Transform {
      * @param angle the rotation angle
      */
     public void rotate(float x, float y, float z, float angle) {
-        Vector3D axis = new Vector3D(x, y, z);
-        rotate(axis, angle);
+        requireFinite(x);
+        requireFinite(y);
+        requireFinite(z);
+        requireFinite(angle);
+        if (angle == 0.0f) {
+            return;
+        }
+        int ix = FastMath.floatToInnerInt(x);
+        int iy = FastMath.floatToInnerInt(y);
+        int iz = FastMath.floatToInnerInt(z);
+        if (ix == 0 && iy == 0 && iz == 0) {
+            throw new IllegalArgumentException();
+        }
+        Vector3D axis = new Vector3D(
+                FastMath.innerIntToFloat(ix),
+                FastMath.innerIntToFloat(iy),
+                FastMath.innerIntToFloat(iz));
+        axis.normalize();
+        float c = FastMath.cos(angle);
+        float s = FastMath.sin(angle);
+        float oneMinusC = FastMath.sub(1.0f, c);
+        float nx = axis.getX();
+        float ny = axis.getY();
+        float nz = axis.getZ();
+        float[] rotation = Software3DContext.identity();
+        rotation[0] = FastMath.add(FastMath.mul(FastMath.mul(nx, nx), oneMinusC), c);
+        rotation[1] = FastMath.sub(FastMath.mul(FastMath.mul(nx, ny), oneMinusC), FastMath.mul(nz, s));
+        rotation[2] = FastMath.add(FastMath.mul(FastMath.mul(nx, nz), oneMinusC), FastMath.mul(ny, s));
+        rotation[4] = FastMath.add(FastMath.mul(FastMath.mul(ny, nx), oneMinusC), FastMath.mul(nz, s));
+        rotation[5] = FastMath.add(FastMath.mul(FastMath.mul(ny, ny), oneMinusC), c);
+        rotation[6] = FastMath.sub(FastMath.mul(FastMath.mul(ny, nz), oneMinusC), FastMath.mul(nx, s));
+        rotation[8] = FastMath.sub(FastMath.mul(FastMath.mul(nx, nz), oneMinusC), FastMath.mul(ny, s));
+        rotation[9] = FastMath.add(FastMath.mul(FastMath.mul(ny, nz), oneMinusC), FastMath.mul(nx, s));
+        rotation[10] = FastMath.add(FastMath.mul(FastMath.mul(nz, nz), oneMinusC), c);
+        multiply(rotation);
     }
 
     /**
      * Applies a rotation around the supplied axis vector.
      *
-     * @param axis the axis vector
+     * @param v the axis vector
      * @param angle the rotation angle
-     * @throws NullPointerException if {@code axis} is {@code null}
+     * @throws NullPointerException if {@code v} is {@code null}
      */
-    public void rotate(Vector3D axis, float angle) {
-        if (axis == null) {
-            throw new NullPointerException("axis");
+    public void rotate(Vector3D v, float angle) {
+        if (v == null) {
+            throw new NullPointerException();
         }
-        Vector3D normalized = new Vector3D(axis);
-        normalized.normalize();
-        float c = (float) java.lang.Math.cos(angle);
-        float s = (float) java.lang.Math.sin(angle);
-        float t = 1f - c;
-        float x = normalized.getX();
-        float y = normalized.getY();
-        float z = normalized.getZ();
-        float[] rotation = Software3DContext.identity();
-        rotation[0] = c + x * x * t;
-        rotation[1] = x * y * t - z * s;
-        rotation[2] = x * z * t + y * s;
-        rotation[4] = y * x * t + z * s;
-        rotation[5] = c + y * y * t;
-        rotation[6] = y * z * t - x * s;
-        rotation[8] = z * x * t - y * s;
-        rotation[9] = z * y * t + x * s;
-        rotation[10] = c + z * z * t;
-        multiply(rotation);
+        requireFinite(angle);
+        if (angle != 0.0f && isZeroVector(v.getX(), v.getY(), v.getZ())) {
+            throw new IllegalArgumentException();
+        }
+        rotate(v.getX(), v.getY(), v.getZ(), angle);
     }
 
     /**
@@ -204,22 +242,47 @@ public class Transform {
      * @param w the quaternion w component
      */
     public void rotateQuat(float x, float y, float z, float w) {
-        rotateQuat(new Vector3D(x, y, z), w);
+        requireFinite(x);
+        requireFinite(y);
+        requireFinite(z);
+        requireFinite(w);
+        if (isZeroQuaternion(x, y, z, w)) {
+            throw new IllegalArgumentException();
+        }
+        float[] normalized = normalizeQuaternion(x, y, z, w);
+        float qx = normalized[0];
+        float qy = normalized[1];
+        float qz = normalized[2];
+        float qw = normalized[3];
+        float[] rotation = Software3DContext.identity();
+        rotation[0] = FastMath.sub(1.0f, FastMath.add(FastMath.mul(2.0f, FastMath.mul(qy, qy)), FastMath.mul(2.0f, FastMath.mul(qz, qz))));
+        rotation[1] = FastMath.sub(FastMath.mul(2.0f, FastMath.mul(qx, qy)), FastMath.mul(2.0f, FastMath.mul(qz, qw)));
+        rotation[2] = FastMath.add(FastMath.mul(2.0f, FastMath.mul(qx, qz)), FastMath.mul(2.0f, FastMath.mul(qy, qw)));
+        rotation[4] = FastMath.add(FastMath.mul(2.0f, FastMath.mul(qx, qy)), FastMath.mul(2.0f, FastMath.mul(qz, qw)));
+        rotation[5] = FastMath.sub(1.0f, FastMath.add(FastMath.mul(2.0f, FastMath.mul(qx, qx)), FastMath.mul(2.0f, FastMath.mul(qz, qz))));
+        rotation[6] = FastMath.sub(FastMath.mul(2.0f, FastMath.mul(qy, qz)), FastMath.mul(2.0f, FastMath.mul(qx, qw)));
+        rotation[8] = FastMath.sub(FastMath.mul(2.0f, FastMath.mul(qx, qz)), FastMath.mul(2.0f, FastMath.mul(qy, qw)));
+        rotation[9] = FastMath.add(FastMath.mul(2.0f, FastMath.mul(qy, qz)), FastMath.mul(2.0f, FastMath.mul(qx, qw)));
+        rotation[10] = FastMath.sub(1.0f, FastMath.add(FastMath.mul(2.0f, FastMath.mul(qx, qx)), FastMath.mul(2.0f, FastMath.mul(qy, qy))));
+        multiply(rotation);
     }
 
     /**
      * Applies a quaternion-based rotation.
      *
-     * @param axis the quaternion xyz vector
+     * @param v the quaternion xyz vector
      * @param w the quaternion w component
-     * @throws NullPointerException if {@code axis} is {@code null}
+     * @throws NullPointerException if {@code v} is {@code null}
      */
-    public void rotateQuat(Vector3D axis, float w) {
-        if (axis == null) {
-            throw new NullPointerException("axis");
+    public void rotateQuat(Vector3D v, float w) {
+        if (v == null) {
+            throw new NullPointerException();
         }
-        float angle = 2f * (float) java.lang.Math.acos(w);
-        rotate(axis, angle);
+        requireFinite(w);
+        if (w == 0.0f && isZeroVector(v.getX(), v.getY(), v.getZ())) {
+            throw new IllegalArgumentException();
+        }
+        rotateQuat(v.getX(), v.getY(), v.getZ(), w);
     }
 
     /**
@@ -230,6 +293,9 @@ public class Transform {
      * @param z the z translation
      */
     public void translate(float x, float y, float z) {
+        requireFinite(x);
+        requireFinite(y);
+        requireFinite(z);
         float[] translation = Software3DContext.identity();
         translation[3] = x;
         translation[7] = y;
@@ -240,36 +306,69 @@ public class Transform {
     /**
      * Applies a translation using the components of a vector.
      *
-     * @param vector the translation vector
-     * @throws NullPointerException if {@code vector} is {@code null}
+     * @param v the translation vector
+     * @throws NullPointerException if {@code v} is {@code null}
      */
-    public void translate(Vector3D vector) {
-        translate(vector.getX(), vector.getY(), vector.getZ());
+    public void translate(Vector3D v) {
+        if (v == null) {
+            throw new NullPointerException();
+        }
+        translate(v.getX(), v.getY(), v.getZ());
     }
 
     /**
      * Sets this matrix to the view transform defined by an eye position, a
      * reference point, and an up vector.
      *
-     * @param eye the eye position
-     * @param center the point the camera looks at
+     * @param position the eye position
+     * @param look the point the camera looks at
      * @param up the up vector
      * @throws NullPointerException if any argument is {@code null}
      */
-    public void lookAt(Vector3D eye, Vector3D center, Vector3D up) {
-        if (eye == null || center == null || up == null) {
-            throw new NullPointerException("vector");
+    public void lookAt(Vector3D position, Vector3D look, Vector3D up) {
+        if (position == null || look == null || up == null) {
+            throw new NullPointerException();
         }
-        Vector3D forward = new Vector3D(center);
-        forward.add(-eye.getX(), -eye.getY(), -eye.getZ());
+        int px = FastMath.floatToInnerInt(position.getX());
+        int py = FastMath.floatToInnerInt(position.getY());
+        int pz = FastMath.floatToInnerInt(position.getZ());
+        int lx = FastMath.floatToInnerInt(look.getX());
+        int ly = FastMath.floatToInnerInt(look.getY());
+        int lz = FastMath.floatToInnerInt(look.getZ());
+        int ux = FastMath.floatToInnerInt(up.getX());
+        int uy = FastMath.floatToInnerInt(up.getY());
+        int uz = FastMath.floatToInnerInt(up.getZ());
+        if (ux == 0 && uy == 0 && uz == 0) {
+            throw new IllegalArgumentException();
+        }
+        int fx = lx - px;
+        int fy = ly - py;
+        int fz = lz - pz;
+        if (fx == 0 && fy == 0 && fz == 0) {
+            throw new IllegalArgumentException();
+        }
+        int crossX = fy * uz - fz * uy;
+        int crossY = fz * ux - fx * uz;
+        int crossZ = fx * uy - fy * ux;
+        if (crossX == 0 && crossY == 0 && crossZ == 0) {
+            throw new IllegalArgumentException();
+        }
+        Vector3D forward = new Vector3D(FastMath.innerIntToFloat(fx), FastMath.innerIntToFloat(fy), FastMath.innerIntToFloat(fz));
         forward.normalize();
         Vector3D side = new Vector3D();
-        side.cross(forward, up);
-        side.normalize();
+        side.cross(forward, new Vector3D(FastMath.innerIntToFloat(ux), FastMath.innerIntToFloat(uy), FastMath.innerIntToFloat(uz)));
+        try {
+            side.normalize();
+        } catch (ArithmeticException e) {
+            throw new IllegalArgumentException();
+        }
         Vector3D actualUp = new Vector3D();
         actualUp.cross(forward, side);
-        actualUp.normalize();
-        setIdentity();
+        try {
+            actualUp.normalize();
+        } catch (ArithmeticException e) {
+            throw new IllegalArgumentException();
+        }
         matrix[0] = side.getX();
         matrix[1] = side.getY();
         matrix[2] = side.getZ();
@@ -279,9 +378,13 @@ public class Transform {
         matrix[8] = forward.getX();
         matrix[9] = forward.getY();
         matrix[10] = forward.getZ();
-        matrix[3] = -side.dot(eye);
-        matrix[7] = -actualUp.dot(eye);
-        matrix[11] = -forward.dot(eye);
+        Vector3D quantizedPosition = new Vector3D(
+                FastMath.innerIntToFloat(px),
+                FastMath.innerIntToFloat(py),
+                FastMath.innerIntToFloat(pz));
+        matrix[3] = FastMath.sub(0.0f, side.dot(quantizedPosition));
+        matrix[7] = FastMath.sub(0.0f, actualUp.dot(quantizedPosition));
+        matrix[11] = FastMath.sub(0.0f, forward.dot(quantizedPosition));
     }
 
     /**
@@ -289,18 +392,21 @@ public class Transform {
      * another vector. The fourth row is ignored and the operation is treated
      * as a 4x3 transform.
      *
-     * @param source the source point vector
-     * @param destination the destination vector
+     * @param v the source point vector
+     * @param result the destination vector
      * @throws NullPointerException if either argument is {@code null}
      */
-    public void transVector(Vector3D source, Vector3D destination) {
-        if (source == null || destination == null) {
-            throw new NullPointerException("vector");
+    public void transVector(Vector3D v, Vector3D result) {
+        if (v == null || result == null) {
+            throw new NullPointerException();
         }
-        destination.set(
-                matrix[0] * source.getX() + matrix[1] * source.getY() + matrix[2] * source.getZ() + matrix[3],
-                matrix[4] * source.getX() + matrix[5] * source.getY() + matrix[6] * source.getZ() + matrix[7],
-                matrix[8] * source.getX() + matrix[9] * source.getY() + matrix[10] * source.getZ() + matrix[11]
+        float x = v.getX();
+        float y = v.getY();
+        float z = v.getZ();
+        result.set(
+                FastMath.add(FastMath.add(FastMath.add(FastMath.mul(matrix[0], x), FastMath.mul(matrix[1], y)), FastMath.mul(matrix[2], z)), matrix[3]),
+                FastMath.add(FastMath.add(FastMath.add(FastMath.mul(matrix[4], x), FastMath.mul(matrix[5], y)), FastMath.mul(matrix[6], z)), matrix[7]),
+                FastMath.add(FastMath.add(FastMath.add(FastMath.mul(matrix[8], x), FastMath.mul(matrix[9], y)), FastMath.mul(matrix[10], z)), matrix[11])
         );
     }
 
@@ -309,7 +415,7 @@ public class Transform {
     }
 
     private void multiply(float[] other) {
-        float[] result = Software3DContext.multiply(matrix, other);
+        float[] result = multiplyMatrices(matrix, other);
         System.arraycopy(result, 0, matrix, 0, 16);
     }
 
@@ -340,12 +446,68 @@ public class Transform {
         inverse[15] = matrix[0] * matrix[5] * matrix[10] - matrix[0] * matrix[6] * matrix[9] - matrix[4] * matrix[1] * matrix[10] + matrix[4] * matrix[2] * matrix[9] + matrix[8] * matrix[1] * matrix[6] - matrix[8] * matrix[2] * matrix[5];
         det = matrix[0] * inverse[0] + matrix[1] * inverse[4] + matrix[2] * inverse[8] + matrix[3] * inverse[12];
         if (det == 0f) {
-            return Software3DContext.identity();
+            return null;
         }
         det = 1f / det;
         for (int i = 0; i < inverse.length; i++) {
             inverse[i] *= det;
         }
         return inverse;
+    }
+
+    private static float[] multiplyMatrices(float[] left, float[] right) {
+        float[] result = new float[16];
+        for (int row = 0; row < 4; row++) {
+            for (int column = 0; column < 4; column++) {
+                int base = row * 4;
+                result[base + column] = FastMath.add(
+                        FastMath.add(FastMath.mul(left[base], right[column]), FastMath.mul(left[base + 1], right[column + 4])),
+                        FastMath.add(FastMath.mul(left[base + 2], right[column + 8]), FastMath.mul(left[base + 3], right[column + 12])));
+            }
+        }
+        return result;
+    }
+
+    private static void requireFinite(float value) {
+        if (Float.isNaN(value) || Float.isInfinite(value)) {
+            throw new IllegalArgumentException();
+        }
+    }
+
+    private static void validateIndex(int index) {
+        if (index < 0 || index >= 16) {
+            throw new IllegalArgumentException();
+        }
+    }
+
+    private static boolean isZeroVector(float x, float y, float z) {
+        return FastMath.floatToInnerInt(x) == 0
+                && FastMath.floatToInnerInt(y) == 0
+                && FastMath.floatToInnerInt(z) == 0;
+    }
+
+    private static boolean isZeroQuaternion(float x, float y, float z, float w) {
+        return FastMath.floatToInnerInt(x) == 0
+                && FastMath.floatToInnerInt(y) == 0
+                && FastMath.floatToInnerInt(z) == 0
+                && FastMath.floatToInnerInt(w) == 0;
+    }
+
+    private static float[] normalizeQuaternion(float x, float y, float z, float w) {
+        int qx = FastMath.floatToInnerInt(x);
+        int qy = FastMath.floatToInnerInt(y);
+        int qz = FastMath.floatToInnerInt(z);
+        int qw = FastMath.floatToInnerInt(w);
+        long lengthSquared = (long) qx * (long) qx + (long) qy * (long) qy + (long) qz * (long) qz + (long) qw * (long) qw;
+        int length = (int) java.lang.Math.round(java.lang.Math.sqrt(lengthSquared));
+        if (length == 0) {
+            throw new IllegalArgumentException();
+        }
+        return new float[]{
+                FastMath.innerIntToFloat((int) ((((long) qx) << 12) / length)),
+                FastMath.innerIntToFloat((int) ((((long) qy) << 12) / length)),
+                FastMath.innerIntToFloat((int) ((((long) qz) << 12) / length)),
+                FastMath.innerIntToFloat((int) ((((long) qw) << 12) / length))
+        };
     }
 }
