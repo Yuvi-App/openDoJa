@@ -26,7 +26,7 @@ public final class LauncherUpdateServiceProbe {
 
     private static void verifySameStableReleaseIsNotReportedAsNew() throws Exception {
         LauncherUpdateService service = new LauncherUpdateService(
-                () -> new LauncherUpdateService.ReleaseInfo("0.1.2"),
+                () -> new LauncherUpdateService.ReleaseInfo("0.1.3"),
                 OpenDoJaLauncher.LATEST_RELEASE_URL);
 
         LauncherUpdateService.UpdateCheckResult result = service.checkForUpdates("0.1.2");
