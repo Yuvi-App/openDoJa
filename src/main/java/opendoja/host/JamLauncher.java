@@ -61,7 +61,7 @@ public final class JamLauncher {
             builder.scratchpadRoot(null)
                     .scratchpadPackedFile(null);
         }
-        applyOptionalDrawArea(builder, properties.getProperty("DrawArea"));
+        applyOptionalDrawArea(builder, properties.getProperty("DrawArea"), properties.getProperty("TargetDevice"));
         String appParam = properties.getProperty("AppParam");
         if (appParam != null && !appParam.isBlank()) {
             builder.args(appParam.trim().split("\\s+"));
@@ -259,11 +259,14 @@ public final class JamLauncher {
         return properties;
     }
 
-    private static void applyOptionalDrawArea(LaunchConfig.Builder builder, String rawDrawArea) {
+    private static void applyOptionalDrawArea(LaunchConfig.Builder builder, String rawDrawArea, String targetDevice) {
         int[] drawArea = parseDrawArea(rawDrawArea);
+        if (drawArea == null) {
+            drawArea = DoJaProfile.documentedDrawAreaForTargetDevice(targetDevice);
+        }
         if (builder == null || drawArea == null) {
-            // DrawArea is optional. When it is absent, leave the launch on the host's full default
-            // viewport rather than clamping it to a smaller compatibility rectangle.
+            // DrawArea is optional. When it is absent and the JAM does not expose a documented
+            // TargetDevice, leave the launch on the existing 240x240 host default viewport.
             return;
         }
         builder.viewport(drawArea[0], drawArea[1]);

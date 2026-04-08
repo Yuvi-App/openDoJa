@@ -2,6 +2,7 @@ package opendoja.host;
 
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -10,6 +11,7 @@ public final class DoJaProfile {
             "(?i)(503i|503|504i|504|505i|505|900i|900|901i|901|902i|902|903i|903|904i|904|905i|905|906i|906)");
     private static final Map<Long, DoJaProfile> DOCUMENTED_LEGACY_DISPLAY_RESOLUTION_PROFILES =
             documentedLegacyDisplayResolutionProfiles();
+    private static final Map<String, Long> DOCUMENTED_DEVICE_DRAW_AREAS = documentedDeviceDrawAreas();
 
     public enum Generation {
         UNKNOWN(0),
@@ -140,6 +142,23 @@ public final class DoJaProfile {
         return profile == null ? UNKNOWN : profile;
     }
 
+    /**
+     * Resolves a documented handset canvas size from the archived NTT DoCoMo
+     * {@code https://web.archive.org/web/20041101013339if_/http://www.nttdocomo.co.jp/p_s/imode/spec/info.html}
+     * table. This is intentionally keyed from explicit device metadata rather than the looser
+     * folder/package heuristics used elsewhere.
+     */
+    public static int[] documentedDrawAreaForTargetDevice(String targetDevice) {
+        if (targetDevice == null || targetDevice.isBlank()) {
+            return null;
+        }
+        Long resolution = DOCUMENTED_DEVICE_DRAW_AREAS.get(normalizeDocumentedDeviceKey(targetDevice));
+        if (resolution == null) {
+            return null;
+        }
+        return new int[]{resolutionWidth(resolution), resolutionHeight(resolution)};
+    }
+
     public static DoJaProfile parse(String rawValue) {
         if (rawValue == null) {
             return UNKNOWN;
@@ -213,7 +232,8 @@ public final class DoJaProfile {
 
     private static Map<Long, DoJaProfile> documentedLegacyDisplayResolutionProfiles() {
         Map<Long, DoJaProfile> profiles = new HashMap<>();
-        // Source: resources/info.html.
+        // Source:
+        // https://web.archive.org/web/20041101013339if_/http://www.nttdocomo.co.jp/p_s/imode/spec/info.html
         // Inserted oldest -> newest so overlapping legacy resolutions resolve to the newest
         // documented pre-3.0 profile for that size.
         putLegacyResolutionProfile(profiles, 120, 130, "DoJa-1.0");
@@ -237,11 +257,106 @@ public final class DoJaProfile {
         return Map.copyOf(profiles);
     }
 
+    private static Map<String, Long> documentedDeviceDrawAreas() {
+        Map<String, Long> drawAreas = new HashMap<>();
+        // Source canvas column:
+        // https://web.archive.org/web/20041101013339if_/http://www.nttdocomo.co.jp/p_s/imode/spec/info.html
+        putDocumentedDeviceDrawArea(drawAreas, "F503i", 120, 130);
+        putDocumentedDeviceDrawArea(drawAreas, "P503i", 120, 130);
+        putDocumentedDeviceDrawArea(drawAreas, "N503i", 120, 130);
+        putDocumentedDeviceDrawArea(drawAreas, "D503i", 132, 126);
+        putDocumentedDeviceDrawArea(drawAreas, "SO503i", 120, 120);
+        putDocumentedDeviceDrawArea(drawAreas, "P503iS", 120, 130);
+        putDocumentedDeviceDrawArea(drawAreas, "F503iS", 120, 130);
+        putDocumentedDeviceDrawArea(drawAreas, "N503iS", 120, 130);
+        putDocumentedDeviceDrawArea(drawAreas, "D503iS", 132, 126);
+        putDocumentedDeviceDrawArea(drawAreas, "SO503iS", 120, 120);
+        putDocumentedDeviceDrawArea(drawAreas, "FOMA N2001", 120, 130);
+        putDocumentedDeviceDrawArea(drawAreas, "FOMA N2002", 120, 130);
+        putDocumentedDeviceDrawArea(drawAreas, "FOMA P2101V", 176, 182);
+        putDocumentedDeviceDrawArea(drawAreas, "FOMA D2101V", 132, 130);
+        putDocumentedDeviceDrawArea(drawAreas, "FOMA P2002", 120, 130);
+        putDocumentedDeviceDrawArea(drawAreas, "FOMA SH2101V", 240, 160);
+        putDocumentedDeviceDrawArea(drawAreas, "FOMA T2101V", 176, 144);
+        putDocumentedDeviceDrawArea(drawAreas, "D504i", 132, 144);
+        putDocumentedDeviceDrawArea(drawAreas, "F504i", 132, 136);
+        putDocumentedDeviceDrawArea(drawAreas, "N504i", 160, 180);
+        putDocumentedDeviceDrawArea(drawAreas, "SO504i", 128, 128);
+        putDocumentedDeviceDrawArea(drawAreas, "P504i", 132, 144);
+        putDocumentedDeviceDrawArea(drawAreas, "P504iS", 132, 144);
+        putDocumentedDeviceDrawArea(drawAreas, "N504iS", 160, 180);
+        putDocumentedDeviceDrawArea(drawAreas, "F504iS", 132, 136);
+        putDocumentedDeviceDrawArea(drawAreas, "FOMA F2051", 176, 182);
+        putDocumentedDeviceDrawArea(drawAreas, "FOMA N2051", 176, 198);
+        putDocumentedDeviceDrawArea(drawAreas, "FOMA P2102V", 176, 198);
+        putDocumentedDeviceDrawArea(drawAreas, "FOMA N2701", 176, 198);
+        putDocumentedDeviceDrawArea(drawAreas, "FOMA F2102V", 176, 182);
+        putDocumentedDeviceDrawArea(drawAreas, "FOMA N2102V", 176, 198);
+        putDocumentedDeviceDrawArea(drawAreas, "D505i", 240, 270);
+        putDocumentedDeviceDrawArea(drawAreas, "SO505i", 240, 240);
+        putDocumentedDeviceDrawArea(drawAreas, "SH505i", 240, 252);
+        putDocumentedDeviceDrawArea(drawAreas, "N505i", 240, 240);
+        putDocumentedDeviceDrawArea(drawAreas, "F505i", 240, 268);
+        putDocumentedDeviceDrawArea(drawAreas, "P505i", 240, 266);
+        putDocumentedDeviceDrawArea(drawAreas, "D505iS", 240, 270);
+        putDocumentedDeviceDrawArea(drawAreas, "P505iS", 240, 266);
+        putDocumentedDeviceDrawArea(drawAreas, "N505iS", 240, 240);
+        putDocumentedDeviceDrawArea(drawAreas, "SO505iS", 240, 240);
+        putDocumentedDeviceDrawArea(drawAreas, "SH505iS", 240, 252);
+        putDocumentedDeviceDrawArea(drawAreas, "F505iGPS", 240, 268);
+        putDocumentedDeviceDrawArea(drawAreas, "D506i", 240, 270);
+        putDocumentedDeviceDrawArea(drawAreas, "F506i", 240, 268);
+        putDocumentedDeviceDrawArea(drawAreas, "N506i", 240, 270);
+        putDocumentedDeviceDrawArea(drawAreas, "P506iC", 240, 266);
+        putDocumentedDeviceDrawArea(drawAreas, "SH506iC", 240, 252);
+        putDocumentedDeviceDrawArea(drawAreas, "SO506iC", 240, 240);
+        putDocumentedDeviceDrawArea(drawAreas, "F900i", 240, 240);
+        putDocumentedDeviceDrawArea(drawAreas, "N900i", 240, 240);
+        putDocumentedDeviceDrawArea(drawAreas, "P900i", 240, 240);
+        putDocumentedDeviceDrawArea(drawAreas, "SH900i", 240, 252);
+        putDocumentedDeviceDrawArea(drawAreas, "F900iT", 240, 240);
+        putDocumentedDeviceDrawArea(drawAreas, "P900iV", 240, 240);
+        putDocumentedDeviceDrawArea(drawAreas, "N900iS", 240, 240);
+        putDocumentedDeviceDrawArea(drawAreas, "D900i", 240, 270);
+        putDocumentedDeviceDrawArea(drawAreas, "F900iC", 240, 240);
+        return Map.copyOf(drawAreas);
+    }
+
     private static void putLegacyResolutionProfile(Map<Long, DoJaProfile> profiles, int width, int height, String profile) {
         profiles.put(resolutionKey(width, height), parse(profile));
     }
 
+    private static void putDocumentedDeviceDrawArea(Map<String, Long> drawAreas, String targetDevice, int width, int height) {
+        long resolution = resolutionKey(width, height);
+        drawAreas.put(normalizeDocumentedDeviceKey(targetDevice), resolution);
+        String normalizedWithoutFoma = normalizeDocumentedDeviceKey(stripFomaPrefix(targetDevice));
+        if (!normalizedWithoutFoma.equals(normalizeDocumentedDeviceKey(targetDevice))) {
+            drawAreas.put(normalizedWithoutFoma, resolution);
+        }
+    }
+
+    private static String normalizeDocumentedDeviceKey(String targetDevice) {
+        return targetDevice == null ? ""
+                : targetDevice.replaceAll("[^A-Za-z0-9]", "").toUpperCase(Locale.ROOT);
+    }
+
+    private static String stripFomaPrefix(String targetDevice) {
+        if (targetDevice == null) {
+            return "";
+        }
+        String trimmed = targetDevice.trim();
+        return trimmed.regionMatches(true, 0, "FOMA", 0, 4) ? trimmed.substring(4).trim() : trimmed;
+    }
+
     private static long resolutionKey(int width, int height) {
         return (((long) width) << 32) | (height & 0xffffffffL);
+    }
+
+    private static int resolutionWidth(long resolution) {
+        return (int) (resolution >>> 32);
+    }
+
+    private static int resolutionHeight(long resolution) {
+        return (int) resolution;
     }
 }

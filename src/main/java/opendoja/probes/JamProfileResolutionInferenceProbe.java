@@ -28,7 +28,7 @@ public final class JamProfileResolutionInferenceProbe {
 
         LaunchConfig config = JamLauncher.buildLaunchConfig(jam, false);
         check("DoJa-2.0".equals(config.parameters().get("ProfileVer")),
-                "132x144 should infer DoJa-2.0 from resources/info.html");
+                "132x144 should infer DoJa-2.0 from the archived NTT DoCoMo handset table");
         check("DoJa-2.0".equals(DoJaProfile.fromParametersOrDocumentedDeviceIdentity(config.parameters()).toString()),
                 "132x144 should resolve as DoJa-2.0");
     }
