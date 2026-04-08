@@ -70,6 +70,10 @@ public final class JamLauncher {
             builder.parameter(name, properties.getProperty(name));
         }
         String inferredTargetDevice = inferTargetDevice(jamPath, properties);
+        String inferredProfileVersion = inferProfileVersion(properties);
+        if (inferredProfileVersion != null) {
+            builder.parameter("ProfileVer", inferredProfileVersion);
+        }
         if (inferredTargetDevice != null && !properties.containsKey("TargetDevice")) {
             builder.parameter("TargetDevice", inferredTargetDevice);
         }
@@ -129,13 +133,33 @@ public final class JamLauncher {
     }
 
     private static String inferTargetDevice(Path jamPath, Properties properties) {
+        String inferred = metadataDeviceIdentity(properties);
+        if (inferred != null) {
+            return inferred;
+        }
+        return firstDeviceHint(jamPath.toString());
+    }
+
+    private static String inferProfileVersion(Properties properties) {
+        String configured = properties.getProperty("ProfileVer");
+        if (configured != null && !configured.isBlank()) {
+            return null;
+        }
+        if (metadataDeviceIdentity(properties) != null) {
+            return null;
+        }
+        int[] drawArea = parseDrawArea(properties.getProperty("DrawArea"));
+        if (drawArea == null) {
+            return null;
+        }
+        DoJaProfile inferred = DoJaProfile.fromDocumentedLegacyDisplayResolution(drawArea[0], drawArea[1]);
+        return inferred.isKnown() ? inferred.toString() : null;
+    }
+
+    private static String metadataDeviceIdentity(Properties properties) {
         String configured = properties.getProperty("TargetDevice");
         if (configured != null && !configured.isBlank()) {
             return configured.trim();
-        }
-        String inferred = firstDeviceHint(jamPath.toString());
-        if (inferred != null) {
-            return inferred;
         }
         String packageUrl = properties.getProperty("PackageURL");
         if (packageUrl != null && !packageUrl.isBlank()) {
@@ -236,18 +260,27 @@ public final class JamLauncher {
     }
 
     private static void applyOptionalDrawArea(LaunchConfig.Builder builder, String rawDrawArea) {
-        if (builder == null || rawDrawArea == null || rawDrawArea.isBlank()) {
+        int[] drawArea = parseDrawArea(rawDrawArea);
+        if (builder == null || drawArea == null) {
             // DrawArea is optional. When it is absent, leave the launch on the host's full default
             // viewport rather than clamping it to a smaller compatibility rectangle.
             return;
         }
-        String[] parts = rawDrawArea.trim().split("x");
+        builder.viewport(drawArea[0], drawArea[1]);
+    }
+
+    private static int[] parseDrawArea(String rawDrawArea) {
+        if (rawDrawArea == null || rawDrawArea.isBlank()) {
+            return null;
+        }
+        String[] parts = rawDrawArea.trim().split("[xX]");
         if (parts.length != 2) {
-            return;
+            return null;
         }
         try {
-            builder.viewport(Integer.parseInt(parts[0].trim()), Integer.parseInt(parts[1].trim()));
+            return new int[]{Integer.parseInt(parts[0].trim()), Integer.parseInt(parts[1].trim())};
         } catch (NumberFormatException ignored) {
+            return null;
         }
     }
 

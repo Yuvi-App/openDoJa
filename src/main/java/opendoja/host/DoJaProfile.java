@@ -1,12 +1,15 @@
 package opendoja.host;
 
 import java.util.Map;
+import java.util.HashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class DoJaProfile {
     private static final Pattern DOCUMENTED_SERIES = Pattern.compile(
             "(?i)(503i|503|504i|504|505i|505|900i|900|901i|901|902i|902|903i|903|904i|904|905i|905|906i|906)");
+    private static final Map<Long, DoJaProfile> DOCUMENTED_LEGACY_DISPLAY_RESOLUTION_PROFILES =
+            documentedLegacyDisplayResolutionProfiles();
 
     public enum Generation {
         UNKNOWN(0),
@@ -118,6 +121,25 @@ public final class DoJaProfile {
         };
     }
 
+    /**
+     * Legacy profile inference derived from
+     * <a href="https://web.archive.org/web/20041101013339if_/http://www.nttdocomo.co.jp/p_s/imode/spec/info.html">...</a>.
+     * We intentionally stop at the DoJa-1.0/2.0/2.1/2.2 rows and ignore any
+     * resolution with either dimension above 240 so this path never infers
+     * DoJa-3.0+ from the later 240x240/252/266/268/270-era handsets.
+     *
+     * When the same <=240 resolution appears in multiple legacy rows, later
+     * profiles overwrite earlier ones so the newest documented legacy profile
+     * wins unless some stronger source already supplied {@code ProfileVer}.
+     */
+    public static DoJaProfile fromDocumentedLegacyDisplayResolution(int width, int height) {
+        if (width <= 0 || height <= 0 || width > 240 || height > 240) {
+            return UNKNOWN;
+        }
+        DoJaProfile profile = DOCUMENTED_LEGACY_DISPLAY_RESOLUTION_PROFILES.get(resolutionKey(width, height));
+        return profile == null ? UNKNOWN : profile;
+    }
+
     public static DoJaProfile parse(String rawValue) {
         if (rawValue == null) {
             return UNKNOWN;
@@ -187,5 +209,39 @@ public final class DoJaProfile {
             return "UNKNOWN";
         }
         return "DoJa-" + major + "." + minor;
+    }
+
+    private static Map<Long, DoJaProfile> documentedLegacyDisplayResolutionProfiles() {
+        Map<Long, DoJaProfile> profiles = new HashMap<>();
+        // Source: resources/info.html.
+        // Inserted oldest -> newest so overlapping legacy resolutions resolve to the newest
+        // documented pre-3.0 profile for that size.
+        putLegacyResolutionProfile(profiles, 120, 130, "DoJa-1.0");
+        putLegacyResolutionProfile(profiles, 132, 126, "DoJa-1.0");
+        putLegacyResolutionProfile(profiles, 120, 120, "DoJa-1.0");
+        putLegacyResolutionProfile(profiles, 176, 182, "DoJa-1.0");
+        putLegacyResolutionProfile(profiles, 132, 130, "DoJa-1.0");
+        putLegacyResolutionProfile(profiles, 240, 160, "DoJa-1.0");
+        putLegacyResolutionProfile(profiles, 176, 144, "DoJa-1.0");
+
+        putLegacyResolutionProfile(profiles, 132, 144, "DoJa-2.0");
+        putLegacyResolutionProfile(profiles, 132, 136, "DoJa-2.0");
+        putLegacyResolutionProfile(profiles, 160, 180, "DoJa-2.0");
+        putLegacyResolutionProfile(profiles, 128, 128, "DoJa-2.0");
+
+        putLegacyResolutionProfile(profiles, 176, 182, "DoJa-2.1");
+        putLegacyResolutionProfile(profiles, 176, 198, "DoJa-2.1");
+
+        putLegacyResolutionProfile(profiles, 176, 182, "DoJa-2.2");
+        putLegacyResolutionProfile(profiles, 176, 198, "DoJa-2.2");
+        return Map.copyOf(profiles);
+    }
+
+    private static void putLegacyResolutionProfile(Map<Long, DoJaProfile> profiles, int width, int height, String profile) {
+        profiles.put(resolutionKey(width, height), parse(profile));
+    }
+
+    private static long resolutionKey(int width, int height) {
+        return (((long) width) << 32) | (height & 0xffffffffL);
     }
 }
