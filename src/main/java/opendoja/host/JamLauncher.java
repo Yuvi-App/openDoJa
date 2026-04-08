@@ -8,7 +8,6 @@ import java.io.StringReader;
 import java.net.URI;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
@@ -164,14 +163,19 @@ public final class JamLauncher {
 
     private static Properties loadJamProperties(Path jamPath) throws IOException {
         byte[] data = Files.readAllBytes(jamPath);
-        try {
-            return loadJamProperties(data, DoJaEncoding.DEFAULT_CHARSET);
-        } catch (CharacterCodingException ignored) {
-            // Most JAM/ADF files follow the handset default charset, but some titles
-            // are using UTF-8. Keep the historical decode path first and only fall
-            // back when the legacy decoder proves the file is not actually encoded that way.
-            return loadJamProperties(data, StandardCharsets.UTF_8);
+        CharacterCodingException lastCodingFailure = null;
+        for (String charsetName : DoJaEncoding.defaultEncodingCandidates()) {
+            try {
+                return loadJamProperties(data, Charset.forName(charsetName));
+            } catch (CharacterCodingException exception) {
+                lastCodingFailure = exception;
+            } catch (RuntimeException ignored) {
+            }
         }
+        if (lastCodingFailure != null) {
+            throw lastCodingFailure;
+        }
+        throw new IllegalStateException("No JAM property charsets configured");
     }
 
     private static Properties loadJamProperties(byte[] data, Charset charset) throws IOException {
