@@ -127,6 +127,12 @@ final class OpenDoJaLauncherFrame extends JFrame {
                 updateHttpOverrideDomain();
             }
         }));
+        settingsMenu.add(new JMenuItem(new AbstractAction("Phone Model...") {
+            @Override
+            public void actionPerformed(ActionEvent event) {
+                updateMicroeditionPlatformOverride();
+            }
+        }));
 
         JMenu helpMenu = new JMenu("Help");
         helpMenu.add(new JMenuItem(new AbstractAction("Keybinds") {
@@ -362,6 +368,7 @@ final class OpenDoJaLauncherFrame extends JFrame {
                             current.userId(),
                             current.fontType(),
                             current.httpOverrideDomain(),
+                            current.microeditionPlatformOverride(),
                             current.disableBytecodeVerification(),
                             current.disableOsDpiScaling()));
                 }
@@ -389,6 +396,7 @@ final class OpenDoJaLauncherFrame extends JFrame {
                             current.userId(),
                             fontType.id,
                             current.httpOverrideDomain(),
+                            current.microeditionPlatformOverride(),
                             current.disableBytecodeVerification(),
                             current.disableOsDpiScaling()));
                 }
@@ -416,6 +424,7 @@ final class OpenDoJaLauncherFrame extends JFrame {
                             current.userId(),
                             current.fontType(),
                             current.httpOverrideDomain(),
+                            current.microeditionPlatformOverride(),
                             current.disableBytecodeVerification(),
                             current.disableOsDpiScaling()));
                 }
@@ -442,6 +451,7 @@ final class OpenDoJaLauncherFrame extends JFrame {
                     current.userId(),
                     current.fontType(),
                     current.httpOverrideDomain(),
+                    current.microeditionPlatformOverride(),
                     disableBytecodeVerificationItem.isSelected(),
                     current.disableOsDpiScaling()));
         });
@@ -458,6 +468,7 @@ final class OpenDoJaLauncherFrame extends JFrame {
                     current.userId(),
                     current.fontType(),
                     current.httpOverrideDomain(),
+                    current.microeditionPlatformOverride(),
                     current.disableBytecodeVerification(),
                     disableOsDpiScalingItem.isSelected()));
         });
@@ -479,6 +490,7 @@ final class OpenDoJaLauncherFrame extends JFrame {
                 current.userId(),
                 current.fontType(),
                 current.httpOverrideDomain(),
+                current.microeditionPlatformOverride(),
                 current.disableBytecodeVerification(),
                 current.disableOsDpiScaling()));
     }
@@ -496,6 +508,7 @@ final class OpenDoJaLauncherFrame extends JFrame {
                 updated,
                 current.fontType(),
                 current.httpOverrideDomain(),
+                current.microeditionPlatformOverride(),
                 current.disableBytecodeVerification(),
                 current.disableOsDpiScaling()));
     }
@@ -512,6 +525,25 @@ final class OpenDoJaLauncherFrame extends JFrame {
                 current.terminalId(),
                 current.userId(),
                 current.fontType(),
+                updated,
+                current.microeditionPlatformOverride(),
+                current.disableBytecodeVerification(),
+                current.disableOsDpiScaling()));
+    }
+
+    private void updateMicroeditionPlatformOverride() {
+        LauncherSettings current = jamLaunchService.loadSettings();
+        String updated = settingsController.promptMicroeditionPlatformOverride(this, current.microeditionPlatformOverride());
+        if (updated == null) {
+            return;
+        }
+        jamLaunchService.saveSettings(new LauncherSettings(
+                current.hostScale(),
+                current.synthId(),
+                current.terminalId(),
+                current.userId(),
+                current.fontType(),
+                current.httpOverrideDomain(),
                 updated,
                 current.disableBytecodeVerification(),
                 current.disableOsDpiScaling()));

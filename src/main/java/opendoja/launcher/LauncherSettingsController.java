@@ -2,6 +2,7 @@ package opendoja.launcher;
 
 import opendoja.audio.mld.MLDSynth;
 import opendoja.host.OpenDoJaIdentity;
+import opendoja.host.OpenDoJaLaunchArgs;
 
 import java.awt.Component;
 import java.net.URI;
@@ -73,6 +74,15 @@ final class LauncherSettingsController {
             return null;
         }
         return normalized;
+    }
+
+    String promptMicroeditionPlatformOverride(Component parent, String currentValue) {
+        String entered = promptValue(parent, "Phone Model", currentValue,
+                "Enter the value to return for microedition.platform. Leave blank to use the JAM/default platform.");
+        if (entered == null) {
+            return null;
+        }
+        return OpenDoJaLaunchArgs.normalizeMicroeditionPlatformOverride(entered);
     }
 
     private String promptValue(Component parent, String title, String currentValue, String prompt) {

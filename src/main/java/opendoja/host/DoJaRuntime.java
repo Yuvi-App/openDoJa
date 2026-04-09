@@ -803,6 +803,10 @@ public final class DoJaRuntime {
     }
 
     private String launchMicroeditionPlatform() {
+        String override = OpenDoJaLaunchArgs.microeditionPlatformOverride();
+        if (!override.isBlank()) {
+            return override;
+        }
         String targetDevice = config.parameters().get("TargetDevice");
         if (targetDevice != null && !targetDevice.isBlank()) {
             return targetDevice.trim();

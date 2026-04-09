@@ -83,6 +83,8 @@ final class LauncherProcessSupport {
         appendProperty(command, overriddenProperties, OpenDoJaLaunchArgs.USER_ID, settings.userId());
         appendProperty(command, overriddenProperties, OpenDoJaLaunchArgs.FONT_TYPE, settings.fontType());
         appendProperty(command, overriddenProperties, OpenDoJaLaunchArgs.HTTP_OVERRIDE_DOMAIN, settings.httpOverrideDomain());
+        appendProperty(command, overriddenProperties, OpenDoJaLaunchArgs.MICROEDITION_PLATFORM_OVERRIDE,
+                settings.microeditionPlatformOverride());
         if (settings.disableOsDpiScaling()) {
             // Oracle's Java 2D troubleshooting docs recommend uiScale.enabled=false to disable
             // high-DPI scaling, while noting dpiaware=false no longer affects JDK 9+ on Windows.
