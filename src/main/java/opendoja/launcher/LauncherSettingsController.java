@@ -59,7 +59,7 @@ final class LauncherSettingsController {
 
     String promptHttpOverrideDomain(Component parent, String currentValue) {
         String entered = promptValue(parent, "HTTP Host Override", currentValue,
-                "Enter the exact hostname to rewrite to localhost. Leave blank to disable.");
+                "Enter the hostname to use for all outbound HTTP requests. Leave blank to disable.");
         if (entered == null) {
             return null;
         }
@@ -67,7 +67,7 @@ final class LauncherSettingsController {
         if (normalized == null) {
             JOptionPane.showMessageDialog(
                     parent,
-                    "Enter only a hostname such as example.com. Do not include a scheme, path, query, or port.",
+                    "Enter only a hostname such as example.com or localhost. Do not include a scheme, path, query, or port.",
                     "HTTP Host Override",
                     JOptionPane.ERROR_MESSAGE);
             return null;

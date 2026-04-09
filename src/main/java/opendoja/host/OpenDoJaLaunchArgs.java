@@ -124,7 +124,7 @@ public final class OpenDoJaLaunchArgs {
     public static final String GPS_TRACKING_SUPPORTED = "opendoja.gpsTrackingSupported";
     /** Integer scale factor for the host viewport. */
     public static final String HOST_SCALE = "opendoja.hostScale";
-    /** Hostname to rewrite to localhost for outbound HTTP requests. */
+    /** Hostname to force for outbound HTTP requests. */
     public static final String HTTP_OVERRIDE_DOMAIN = "opendoja.httpOverrideDomain";
     /** Simulated handset terminal ID returned to apps. */
     public static final String TERMINAL_ID = "opendoja.terminalId";

@@ -252,16 +252,15 @@ public final class DesktopHttpConnection implements HttpConnection {
         if (rawUrl == null) {
             return null;
         }
-        String configuredHost = OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.HTTP_OVERRIDE_DOMAIN, "").trim();
-        String requestHost = rawUrl.getHost();
-        if (configuredHost.isEmpty() || requestHost == null || !requestHost.equalsIgnoreCase(configuredHost)) {
+        String overrideHost = OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.HTTP_OVERRIDE_DOMAIN, "").trim();
+        if (overrideHost.isEmpty() || rawUrl.getHost() == null) {
             return rawUrl;
         }
         try {
             return new URI(
                     rawUrl.getProtocol(),
                     rawUrl.getUserInfo(),
-                    "localhost",
+                    overrideHost,
                     rawUrl.getPort(),
                     rawUrl.getPath(),
                     rawUrl.getQuery(),

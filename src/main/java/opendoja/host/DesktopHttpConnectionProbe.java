@@ -8,32 +8,32 @@ public final class DesktopHttpConnectionProbe {
     }
 
     public static void main(String[] args) throws Exception {
-        verifyMatchingHostRewritesToLocalhost();
-        verifyMismatchedHostIsLeftAlone();
+        verifyConfiguredHostOverridesAnyRequestHost();
+        verifyConfiguredHostPreservesOriginalPortAndPath();
         verifyBlankOverrideDisablesRewriting();
 
         System.out.println("Desktop HTTP connection probe OK");
     }
 
-    private static void verifyMatchingHostRewritesToLocalhost() throws Exception {
-        withOverride("Example.com", () -> {
+    private static void verifyConfiguredHostOverridesAnyRequestHost() throws Exception {
+        withOverride("override.example", () -> {
             DesktopHttpConnection connection = new DesktopHttpConnection(
-                    new URL("http://example.com:8080/path/file?a=1#frag"),
+                    new URL("http://game.example/path/file?a=1#frag"),
                     Connector.READ,
                     false);
-            check("http://localhost:8080/path/file?a=1#frag".equals(connection.getURL()),
-                    "matching host should rewrite to localhost while preserving port, path, query, and fragment");
+            check("http://override.example/path/file?a=1#frag".equals(connection.getURL()),
+                    "configured host should replace any outbound request host");
         });
     }
 
-    private static void verifyMismatchedHostIsLeftAlone() throws Exception {
-        withOverride("example.com", () -> {
+    private static void verifyConfiguredHostPreservesOriginalPortAndPath() throws Exception {
+        withOverride("localhost", () -> {
             DesktopHttpConnection connection = new DesktopHttpConnection(
-                    new URL("http://example.org/path"),
+                    new URL("http://another-host.test:8080/path"),
                     Connector.READ,
                     false);
-            check("http://example.org/path".equals(connection.getURL()),
-                    "non-matching hosts should not be rewritten");
+            check("http://localhost:8080/path".equals(connection.getURL()),
+                    "configured host should preserve the original scheme, port, and path");
         });
     }
 
