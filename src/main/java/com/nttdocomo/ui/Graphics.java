@@ -12,6 +12,7 @@ import opendoja.g3d.Software3DContext;
 import opendoja.g3d.SoftwareTexture;
 import opendoja.host.DoJaRuntime;
 import opendoja.host.OpenDoJaLog;
+import com.nttdocomo.ui.util3d.Transform;
 
 import java.awt.AlphaComposite;
 import java.awt.Color;
@@ -1513,32 +1514,73 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         }
         try {
             syncUiFogState();
-            float[] objectMatrix = transform == null ? null : invokeHidden(transform, "raw", float[].class);
-            if (object instanceof com.nttdocomo.ui.graphics3d.Figure figure) {
-                MascotFigure handle = invokeHidden(figure, "handle", MascotFigure.class);
-                prepare3DDepthFrame();
-                if (TRACE_3D_CALLS) {
-                    int polygons = handle == null || handle.model() == null ? -1 : handle.model().polygons().length;
-                    OpenDoJaLog.debug(Graphics.class, () -> "3D call renderObject3D type=Figure polygons=" + polygons
-                            + " textures=" + (handle == null ? -1 : handle.numTextures())
-                            + " pattern=" + (handle == null ? -1 : handle.patternMask())
-                            + " transform=" + (objectMatrix == null ? "null" : Arrays.toString(objectMatrix)));
-                }
-                threeD.renderUiFigure(delegate, surface.image(), originX, originY, surface.width(), surface.height(), handle, objectMatrix, invokeHiddenInt(object, "blendModeValue"), invokeHiddenFloat(object, "transparencyValue"));
-            } else if (object instanceof com.nttdocomo.ui.graphics3d.Primitive primitive) {
-                SoftwareTexture texture = invokeHidden(primitive, "textureHandle", SoftwareTexture.class);
-                prepare3DDepthFrame();
-                if (TRACE_3D_CALLS) {
-                    OpenDoJaLog.debug(Graphics.class, () -> "3D call renderObject3D type=Primitive primitiveType="
-                            + primitive.getPrimitiveType()
-                            + " count=" + primitive.size()
-                            + " transform=" + (objectMatrix == null ? "null" : Arrays.toString(objectMatrix)));
-                }
-                threeD.renderUiPrimitive(delegate, surface.image(), originX, originY, surface.width(), surface.height(), primitive.getPrimitiveType(), primitive.getPrimitiveParam(), primitive.size(), primitive.getVertexArray(), primitive.getColorArray(), primitive.getTextureCoordArray(), texture, objectMatrix, invokeHiddenInt(object, "blendModeValue"), invokeHiddenFloat(object, "transparencyValue"));
-            }
+            renderObject3DRecursive(object, transform == null ? null : matrixOf(transform));
         } catch (RuntimeException e) {
             throw traceFailure("renderObject3D", e);
         }
+    }
+
+    private void renderObject3DRecursive(com.nttdocomo.ui.graphics3d.DrawableObject3D object, float[] objectMatrix) {
+        if (object == null || object.getType() == com.nttdocomo.ui.graphics3d.Object3D.TYPE_NONE) {
+            return;
+        }
+        if (object instanceof com.nttdocomo.ui.graphics3d.Group group) {
+            float[] combined = composeGroupTransform(objectMatrix, group);
+            if (TRACE_3D_CALLS) {
+                OpenDoJaLog.debug(Graphics.class, () -> "3D call renderObject3D type=Group elements=" + group.getNumElements()
+                        + " transform=" + (combined == null ? "null" : Arrays.toString(combined)));
+            }
+            for (int i = 0; i < group.getNumElements(); i++) {
+                com.nttdocomo.ui.graphics3d.Object3D element = group.getElement(i);
+                if (element instanceof com.nttdocomo.ui.graphics3d.DrawableObject3D drawable) {
+                    renderObject3DRecursive(drawable, combined);
+                }
+            }
+            return;
+        }
+        if (object instanceof com.nttdocomo.ui.graphics3d.Figure figure) {
+            MascotFigure handle = invokeHidden(figure, "handle", MascotFigure.class);
+            prepare3DDepthFrame();
+            if (TRACE_3D_CALLS) {
+                int polygons = handle == null || handle.model() == null ? -1 : handle.model().polygons().length;
+                OpenDoJaLog.debug(Graphics.class, () -> "3D call renderObject3D type=Figure polygons=" + polygons
+                        + " textures=" + (handle == null ? -1 : handle.numTextures())
+                        + " pattern=" + (handle == null ? -1 : handle.patternMask())
+                        + " transform=" + (objectMatrix == null ? "null" : Arrays.toString(objectMatrix)));
+            }
+            threeD.renderUiFigure(delegate, surface.image(), originX, originY, surface.width(), surface.height(), handle, objectMatrix, invokeHiddenInt(object, "blendModeValue"), invokeHiddenFloat(object, "transparencyValue"));
+            return;
+        }
+        if (object instanceof com.nttdocomo.ui.graphics3d.Primitive primitive) {
+            SoftwareTexture texture = invokeHidden(primitive, "textureHandle", SoftwareTexture.class);
+            prepare3DDepthFrame();
+            if (TRACE_3D_CALLS) {
+                OpenDoJaLog.debug(Graphics.class, () -> "3D call renderObject3D type=Primitive primitiveType="
+                        + primitive.getPrimitiveType()
+                        + " count=" + primitive.size()
+                        + " transform=" + (objectMatrix == null ? "null" : Arrays.toString(objectMatrix)));
+            }
+            threeD.renderUiPrimitive(delegate, surface.image(), originX, originY, surface.width(), surface.height(),
+                    primitive.getPrimitiveType(), primitive.getPrimitiveParam(), primitive.size(),
+                    primitive.getVertexArray(), primitive.getColorArray(), primitive.getTextureCoordArray(), texture,
+                    objectMatrix, invokeHiddenInt(object, "blendModeValue"), invokeHiddenFloat(object, "transparencyValue"),
+                    invokeHiddenBoolean(primitive, "textureWrapEnabled"));
+        }
+    }
+
+    private static float[] composeGroupTransform(float[] parentMatrix, com.nttdocomo.ui.graphics3d.Group group) {
+        Transform groupTransform = new Transform();
+        group.getTransform(groupTransform);
+        float[] groupMatrix = matrixOf(groupTransform);
+        return parentMatrix == null ? groupMatrix : Software3DContext.multiply(parentMatrix, groupMatrix);
+    }
+
+    private static float[] matrixOf(Transform transform) {
+        float[] matrix = new float[16];
+        for (int i = 0; i < 16; i++) {
+            matrix[i] = transform.get(i);
+        }
+        return matrix;
     }
 
     /**
@@ -2475,6 +2517,10 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
 
     private static float invokeHiddenFloat(Object target, String methodName) {
         return invokeHidden(target, methodName, Float.class);
+    }
+
+    private static boolean invokeHiddenBoolean(Object target, String methodName) {
+        return invokeHidden(target, methodName, Boolean.class);
     }
 
     private static String describeTextures(SoftwareTexture[] textures) {

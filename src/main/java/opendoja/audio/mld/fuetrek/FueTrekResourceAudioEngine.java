@@ -594,12 +594,7 @@ public final class FueTrekResourceAudioEngine
         }
     }
 
-    private static final class DecodedResourceAudio {
-        final int[] frames;
-
-        DecodedResourceAudio(int[] frames) {
-            this.frames = frames;
-        }
+    private record DecodedResourceAudio(int[] frames) {
     }
 
     private static final class ActiveClip {

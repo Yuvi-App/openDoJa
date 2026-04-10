@@ -98,6 +98,7 @@ public class Primitive extends DrawableObject3D {
     private final int[] textureCoordArray;
     private final int[] pointSpriteArray;
     private Texture texture;
+    private boolean textureWrapEnabled;
 
     /**
      * Creates a primitive object with the specified type, parameter flags, and
@@ -297,5 +298,13 @@ public class Primitive extends DrawableObject3D {
 
     SoftwareTexture textureHandle() {
         return texture == null ? null : texture.handle();
+    }
+
+    void setTextureWrapEnabled(boolean textureWrapEnabled) {
+        this.textureWrapEnabled = textureWrapEnabled;
+    }
+
+    boolean textureWrapEnabled() {
+        return textureWrapEnabled;
     }
 }

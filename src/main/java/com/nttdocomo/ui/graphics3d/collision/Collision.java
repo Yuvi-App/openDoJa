@@ -178,28 +178,48 @@ public class Collision {
     }
 
     /**
-     * Tests whether a moving sphere hits a shape.
+     * Tests whether a sphere moving to a target center position hits a shape.
      *
      * @param shape the shape to test
      * @param sphere the sphere before movement
-     * @param velocity the movement vector applied to the sphere center
+     * @param position the target center position of the sphere after movement
      * @param notify {@code true} to notify the observer
      * @return {@code true} if a hit is detected
      */
-    public boolean isHit(Shape shape, Sphere sphere, Vector3D velocity, boolean notify) {
-        if (shape == null || sphere == null || velocity == null) {
+    public boolean isHit(Shape shape, Sphere sphere, Vector3D position, boolean notify) {
+        if (shape == null || sphere == null || position == null) {
             throw new NullPointerException();
         }
-        Sphere moved = new Sphere(sphere.getRadius());
-        moved.setCenter(sphere.getCenter(false));
-        Vector3D movedCenter = moved.getCenter(false);
-        movedCenter.add(velocity);
-        moved.setCenter(movedCenter);
-        boolean hit = isHit(shape, sphere, false) || isHit(shape, moved, false);
-        if (hit && notify && observer != null) {
-            observer.onHit(shape, sphere, CollisionSupport.distanceBetween(shape, sphere), CollisionSupport.intersection(shape, sphere), CollisionSupport.length(velocity));
+        CollisionSupport.requireSweepSupported(shape);
+        Vector3D start = sphere.getCenter(true);
+        Vector3D end = new Vector3D(position);
+        if (CollisionSupport.distance(start, end) <= 1e-6f) {
+            throw new IllegalArgumentException();
         }
-        return hit;
+
+        CollisionSupport.SweepHit sweepHit = null;
+        if (shape instanceof Sphere target) {
+            sweepHit = CollisionSupport.sweepSphereAgainstSphere(target, sphere, start, end);
+        } else {
+            sweepHit = CollisionSupport.sweepSphereAgainstShape(shape, sphere, start, end);
+        }
+        if (sweepHit != null) {
+            if (notify && observer != null) {
+                observer.onHit(shape, sphere, sweepHit.contactPos(), sweepHit.normal(), sweepHit.distance());
+            }
+            return true;
+        }
+
+        Sphere moved = CollisionSupport.positionedSphereLike(sphere, end);
+        boolean startHit = isHit(shape, sphere, false);
+        boolean endHit = isHit(shape, moved, false);
+        if ((startHit || endHit) && notify && observer != null) {
+            CollisionSupport.SweepHit endpointHit = startHit
+                    ? CollisionSupport.contactAt(shape, start, 0f, CollisionSupport.direction(start, end))
+                    : CollisionSupport.contactAt(shape, end, 1f, CollisionSupport.direction(start, end));
+            observer.onHit(shape, sphere, endpointHit.contactPos(), endpointHit.normal(), endpointHit.distance());
+        }
+        return startHit || endHit;
     }
 
     /**
@@ -227,9 +247,21 @@ final class CollisionSupport {
     private CollisionSupport() {
     }
 
+    static void requireSweepSupported(Shape shape) {
+        if (shape instanceof Cylinder || shape instanceof AABCylinder) {
+            throw new IllegalArgumentException();
+        }
+    }
+
     static float distanceBetween(Shape left, Shape right) {
         if (left instanceof Sphere ls && right instanceof Sphere rs) {
             return Collision.getDistance(ls, rs);
+        }
+        if (left instanceof Sphere sphere) {
+            return distancePointToShape(sphere.getCenter(true), right) - sphere.getRadius() * sphere.getScale();
+        }
+        if (right instanceof Sphere sphere) {
+            return distancePointToShape(sphere.getCenter(true), left) - sphere.getRadius() * sphere.getScale();
         }
         if (left instanceof Point lp) {
             return Collision.getDistance(lp, right);
@@ -409,11 +441,147 @@ final class CollisionSupport {
         return new Vector3D((left.getX() + right.getX()) * 0.5f, (left.getY() + right.getY()) * 0.5f, (left.getZ() + right.getZ()) * 0.5f);
     }
 
-    static float distancePointToSegment(Vector3D point, Vector3D start, Vector3D end) {
+    static Vector3D lerp(Vector3D start, Vector3D end, float t) {
+        return new Vector3D(
+                start.getX() + (end.getX() - start.getX()) * t,
+                start.getY() + (end.getY() - start.getY()) * t,
+                start.getZ() + (end.getZ() - start.getZ()) * t
+        );
+    }
+
+    static Sphere positionedSphereLike(Sphere source, Vector3D worldCenter) {
+        Sphere copy = new Sphere(source.getRadius() * source.getScale());
+        copy.setCenter(worldCenter);
+        copy.setRotate(source.getRotate());
+        copy.setHittingFromBackFaceEnabled(source.isHittingFromBackFaceEnabled());
+        return copy;
+    }
+
+    static SweepHit sweepSphereAgainstSphere(Sphere target, Sphere moving, Vector3D start, Vector3D end) {
+        Vector3D targetCenter = target.getCenter(true);
+        float combinedRadius = target.getRadius() * target.getScale() + moving.getRadius() * moving.getScale();
+        Vector3D travel = direction(start, end);
+        float travelLengthSquared = dot(travel, travel);
+        Vector3D offset = sub(start, targetCenter);
+        float c = dot(offset, offset) - combinedRadius * combinedRadius;
+        if (c <= 0f) {
+            Vector3D normal = normalizeOrFallback(direction(targetCenter, start), travel);
+            return contactAtResolved(target, start, 0f, normal);
+        }
+        float a = travelLengthSquared;
+        float b = 2f * dot(offset, travel);
+        float discriminant = b * b - 4f * a * c;
+        if (discriminant < 0f) {
+            return null;
+        }
+        float root = (float) java.lang.Math.sqrt(discriminant);
+        float t = (-b - root) / (2f * a);
+        if (t < 0f || t > 1f) {
+            return null;
+        }
+        Vector3D center = add(start, scale(travel, t));
+        Vector3D normal = normalizeOrFallback(direction(targetCenter, center), travel);
+        return contactAtResolved(target, center, t, normal);
+    }
+
+    static SweepHit sweepSphereAgainstShape(Shape shape, Sphere moving, Vector3D start, Vector3D end) {
+        float worldRadius = moving.getRadius() * moving.getScale();
+        if (distancePointToShape(start, shape) - worldRadius <= 0f) {
+            return contactAt(shape, start, 0f, direction(start, end));
+        }
+        float previousT = 0f;
+        final int coarseSteps = 64;
+        for (int step = 1; step <= coarseSteps; step++) {
+            float t = step / (float) coarseSteps;
+            Vector3D sample = lerp(start, end, t);
+            if (distancePointToShape(sample, shape) - worldRadius <= 0f) {
+                float low = previousT;
+                float high = t;
+                for (int i = 0; i < 18; i++) {
+                    float mid = (low + high) * 0.5f;
+                    Vector3D midPoint = lerp(start, end, mid);
+                    if (distancePointToShape(midPoint, shape) - worldRadius <= 0f) {
+                        high = mid;
+                    } else {
+                        low = mid;
+                    }
+                }
+                return contactAt(shape, lerp(start, end, high), high, direction(start, end));
+            }
+            previousT = t;
+        }
+        return null;
+    }
+
+    static SweepHit contactAt(Shape shape, Vector3D center, float contactPos, Vector3D travel) {
+        return contactAtResolved(shape, center, contactPos, normalAt(shape, center, travel));
+    }
+
+    private static SweepHit contactAtResolved(Shape shape, Vector3D center, float contactPos, Vector3D normal) {
+        float distance = distancePointToShape(center, shape);
+        return new SweepHit(contactPos, normal, distance);
+    }
+
+    static Vector3D normalAt(Shape shape, Vector3D center, Vector3D travel) {
+        if (shape instanceof Sphere sphere) {
+            return normalizeOrFallback(direction(sphere.getCenter(true), center), travel);
+        }
+        if (shape instanceof Plane plane) {
+            return plane.getNormal(true);
+        }
+        if (shape instanceof Triangle triangle) {
+            return triangle.getNormal(true);
+        }
+        if (shape instanceof Point point) {
+            return normalizeOrFallback(direction(point.getPosition(true), center), travel);
+        }
+        if (shape instanceof Line line) {
+            Vector3D start = line.getStartPosition(true);
+            Vector3D end = line.getEndPosition(true);
+            Vector3D closest = closestPointOnSegment(center, start, end);
+            return normalizeOrFallback(direction(closest, center), travel);
+        }
+        if (shape instanceof Box box) {
+            Vector3D closest = closestPointOnAabb(center, box.getCenter(true), box.getSize(), box.getScale());
+            return normalizeOrFallback(direction(closest, center), travel);
+        }
+        if (shape instanceof Capsule capsule) {
+            return normalizeOrFallback(direction(capsule.getCenter(true), center), travel);
+        }
+        return normalizeOrFallback(direction(centerOf(shape), center), travel);
+    }
+
+    static Vector3D closestPointOnSegment(Vector3D point, Vector3D start, Vector3D end) {
         Vector3D ab = sub(end, start);
         float denom = dot(ab, ab);
         float t = denom <= 1e-6f ? 0f : clamp(dot(sub(point, start), ab) / denom, 0f, 1f);
-        return distance(point, add(start, scale(ab, t)));
+        return add(start, scale(ab, t));
+    }
+
+    static Vector3D closestPointOnAabb(Vector3D point, Vector3D center, Vector3D size, float scale) {
+        Vector3D half = new Vector3D(size.getX() * scale * 0.5f, size.getY() * scale * 0.5f, size.getZ() * scale * 0.5f);
+        return new Vector3D(
+                clamp(point.getX(), center.getX() - half.getX(), center.getX() + half.getX()),
+                clamp(point.getY(), center.getY() - half.getY(), center.getY() + half.getY()),
+                clamp(point.getZ(), center.getZ() - half.getZ(), center.getZ() + half.getZ())
+        );
+    }
+
+    static Vector3D normalizeOrFallback(Vector3D candidate, Vector3D fallbackTravel) {
+        if (length(candidate) > 1e-6f) {
+            candidate.normalize();
+            return candidate;
+        }
+        Vector3D fallback = scale(fallbackTravel, -1f);
+        if (length(fallback) > 1e-6f) {
+            fallback.normalize();
+            return fallback;
+        }
+        return new Vector3D(0f, 1f, 0f);
+    }
+
+    static float distancePointToSegment(Vector3D point, Vector3D start, Vector3D end) {
+        return distance(point, closestPointOnSegment(point, start, end));
     }
 
     static float distancePointToTriangle(Vector3D point, Vector3D[] triangle) {
@@ -563,10 +731,13 @@ final class CollisionSupport {
     }
 
     static float distancePointToAabb(Vector3D point, Vector3D center, Vector3D size, float scale) {
-        Vector3D half = new Vector3D(size.getX() * scale * 0.5f, size.getY() * scale * 0.5f, size.getZ() * scale * 0.5f);
-        float dx = java.lang.Math.max(java.lang.Math.abs(point.getX() - center.getX()) - half.getX(), 0f);
-        float dy = java.lang.Math.max(java.lang.Math.abs(point.getY() - center.getY()) - half.getY(), 0f);
-        float dz = java.lang.Math.max(java.lang.Math.abs(point.getZ() - center.getZ()) - half.getZ(), 0f);
+        Vector3D closest = closestPointOnAabb(point, center, size, scale);
+        float dx = point.getX() - closest.getX();
+        float dy = point.getY() - closest.getY();
+        float dz = point.getZ() - closest.getZ();
         return (float) java.lang.Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    record SweepHit(float contactPos, Vector3D normal, float distance) {
     }
 }

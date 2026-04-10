@@ -16,7 +16,11 @@ public class Group extends DrawableObject3D {
      * Creates an empty group.
      */
     public Group() {
-        super(TYPE_GROUP);
+        this(TYPE_GROUP);
+    }
+
+    Group(int type) {
+        super(type);
     }
 
     /**

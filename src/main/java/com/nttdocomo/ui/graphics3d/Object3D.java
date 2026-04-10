@@ -1,5 +1,6 @@
 package com.nttdocomo.ui.graphics3d;
 
+import opendoja.g3d.D4ObjectLoader;
 import opendoja.g3d.MascotActionTableData;
 import opendoja.g3d.MascotFigure;
 import opendoja.g3d.MascotLoader;
@@ -95,6 +96,33 @@ public abstract class Object3D {
             }
             if (data[0] == 'B' && data[1] == 'M') {
                 return new Texture(new SoftwareTexture(data, true));
+            }
+            if (data[0] == 'D' && data[1] == '4') {
+                D4ObjectLoader.DecodedGroup loaded = D4ObjectLoader.load(data);
+                if (loaded == null) {
+                    return null;
+                }
+                Group group = new Group(TYPE_GROUP_MESH);
+                group.setTransform(loaded.transform());
+                for (D4ObjectLoader.DecodedPrimitive loadedPrimitive : loaded.elements()) {
+                    Primitive primitive = new Primitive(
+                            Primitive.PRIMITIVE_TRIANGLES,
+                            loadedPrimitive.primitiveParam(),
+                            loadedPrimitive.vertices().length / 9
+                    );
+                    System.arraycopy(loadedPrimitive.vertices(), 0, primitive.getVertexArray(), 0,
+                            loadedPrimitive.vertices().length);
+                    if (loadedPrimitive.textureCoords() != null) {
+                        System.arraycopy(loadedPrimitive.textureCoords(), 0, primitive.getTextureCoordArray(), 0,
+                                loadedPrimitive.textureCoords().length);
+                    }
+                    if (loadedPrimitive.textureHandle() != null) {
+                        primitive.setTexture(new Texture(loadedPrimitive.textureHandle()));
+                        primitive.setTextureWrapEnabled(loadedPrimitive.textureWrapEnabled());
+                    }
+                    group.addElement(primitive);
+                }
+                return group;
             }
             return null;
         } catch (IOException e) {
