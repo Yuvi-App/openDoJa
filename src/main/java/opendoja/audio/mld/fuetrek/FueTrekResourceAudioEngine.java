@@ -584,14 +584,7 @@ public final class FueTrekResourceAudioEngine
         final ArrayList<AuxMotionPoint> auxMotion = new ArrayList<>();
     }
 
-    private static final class StereoGain {
-        final int leftQ16;
-        final int rightQ16;
-
-        StereoGain(int leftQ16, int rightQ16) {
-            this.leftQ16 = leftQ16;
-            this.rightQ16 = rightQ16;
-        }
+    private record StereoGain(int leftQ16, int rightQ16) {
     }
 
     private record DecodedResourceAudio(int[] frames) {
