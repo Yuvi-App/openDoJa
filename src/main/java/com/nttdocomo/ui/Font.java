@@ -39,6 +39,7 @@ import java.util.Set;
  * {@link #getFont(int, int)}.</p>
  */
 public class Font {
+    static final int REPLACEMENT_CHARACTER = 0xFFFD;
     private static final float HANDSET_FONT_SCALE = OpenDoJaLaunchArgs.getFloat(OpenDoJaLaunchArgs.FONT_SCALE);
     private static final boolean BITMAP_FONT_ENABLED = LaunchConfig.FontType.resolveConfigured() == LaunchConfig.FontType.BITMAP;
     private static final Object TEXT_ANTIALIAS_HINT = resolveTextAntialiasHint();
@@ -432,12 +433,13 @@ public class Font {
     }
 
     void drawString(Graphics2D graphics, String text, int x, int y, int argbColor) {
-        if (text == null) {
+        String value = metricString(text);
+        if (value.isEmpty()) {
             return;
         }
         graphics.setFont(awtFont);
         graphics.setColor(new Color(argbColor, true));
-        graphics.drawString(text, x, y);
+        graphics.drawString(value, x, y);
     }
 
     /**
@@ -493,7 +495,18 @@ public class Font {
     }
 
     static String metricString(String text) {
-        return text == null ? "" : text;
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        // Some titles reveal Shift_JIS/DoJa text by byte count. If the current frame ends on a
+        // dangling lead byte, the host decoder surfaces a trailing U+FFFD that should stay invisible
+        // until the next byte completes the character.
+        // See https://github.com/GrenderG/openDoJa/issues/17
+        int end = text.length();
+        while (end > 0 && text.charAt(end - 1) == REPLACEMENT_CHARACTER) {
+            end--;
+        }
+        return end == text.length() ? text : text.substring(0, end);
     }
 
     static String requireXString(XString text, String name) {

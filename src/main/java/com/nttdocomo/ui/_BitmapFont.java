@@ -38,7 +38,6 @@ import java.util.Map;
 class _BitmapFont extends Font {
     private static final String RESOURCE_ROOT = "/opendoja/fonts/bitmap/";
     private static final int[] SUPPORTED_SIZES = {8, 10, 12, 16, 20, 24, 30};
-    private static final int REPLACEMENT_CHARACTER = 0xFFFD;
     private static final int SPACE = 0x0020;
     private static final int IDEOGRAPHIC_SPACE = 0x3000;
     private static final java.awt.Font PLACEHOLDER_FONT = new java.awt.Font(java.awt.Font.DIALOG, java.awt.Font.PLAIN, 12);
@@ -147,7 +146,7 @@ class _BitmapFont extends Font {
     }
 
     private BufferedImage rendered(String value, int argbColor) {
-        String text = value == null ? "" : value;
+        String text = Font.metricString(value);
         RenderKey key = new RenderKey(strike, argbColor, text);
         synchronized (RENDER_CACHE) {
             BufferedImage cached = RENDER_CACHE.get(key);
