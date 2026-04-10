@@ -15,6 +15,7 @@ import opendoja.host.OpenDoJaLog;
 
 import java.awt.AlphaComposite;
 import java.awt.Color;
+import java.awt.Composite;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
@@ -36,6 +37,7 @@ import java.util.Set;
 public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.nttdocomo.opt.ui.j3d.Graphics3D, com.nttdocomo.ui.ogl.GraphicsOGL {
     private static final boolean TRACE_FAILURES = opendoja.host.OpenDoJaLaunchArgs.getBoolean(opendoja.host.OpenDoJaLaunchArgs.TRACE_FAILURES);
     private static final boolean TRACE_3D_CALLS = opendoja.host.OpenDoJaLaunchArgs.getBoolean(opendoja.host.OpenDoJaLaunchArgs.DEBUG3D_CALLS);
+    private static final double DOJAAFFINE_FIXED_POINT_SCALE = 4096.0;
     private static final int LEGACY_OPT_COMMAND_LIST_VERSION_1 = 1;
     private static final int OPT_COMMAND_PREFIX_MASK = 0xFF00_0000;
     private static final int OPT_COMMAND_INLINE_VALUE_MASK = 0x00FF_FFFF;
@@ -1129,29 +1131,119 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
     /**
      * Draws image.
      */
-    public void drawImage(Image image, int[] points, int sx, int sy, int width, int height) {
-        if (points == null || points.length < 4) {
-            drawImage(image, 0, 0, sx, sy, width, height);
-            return;
-        }
-        int minX = points[0];
-        int minY = points[1];
-        int maxX = points[0];
-        int maxY = points[1];
-        for (int i = 0; i + 1 < points.length; i += 2) {
-            minX = Math.min(minX, points[i]);
-            minY = Math.min(minY, points[i + 1]);
-            maxX = Math.max(maxX, points[i]);
-            maxY = Math.max(maxY, points[i + 1]);
-        }
-        drawScaledImage(image, minX, minY, Math.max(1, maxX - minX), Math.max(1, maxY - minY), sx, sy, width, height);
+    public void drawImage(Image image, int[] matrix, int sx, int sy, int width, int height) {
+        validateAffineImageArguments(image, matrix);
+        validateAffineImageRegion(width, height);
+        drawAffineImageValidated(image, matrix, sx, sy, width, height);
     }
 
     /**
      * Draws image.
      */
-    public void drawImage(Image image, int[] points) {
-        drawImage(image, points, 0, 0, image.getWidth(), image.getHeight());
+    public void drawImage(Image image, int[] matrix) {
+        validateAffineImageArguments(image, matrix);
+        drawAffineImageValidated(image, matrix, 0, 0, image.getWidth(), image.getHeight());
+    }
+
+    private void drawAffineImageValidated(Image image, int[] matrix, int sx, int sy, int width, int height) {
+        BufferedImage source = image.renderForDisplay();
+        if (source == null) {
+            return;
+        }
+
+        int srcX1 = sx;
+        int srcY1 = sy;
+        int srcX2 = sx + width;
+        int srcY2 = sy + height;
+        int clippedSrcX1 = Math.max(0, srcX1);
+        int clippedSrcY1 = Math.max(0, srcY1);
+        int clippedSrcX2 = Math.min(source.getWidth(), srcX2);
+        int clippedSrcY2 = Math.min(source.getHeight(), srcY2);
+        if (clippedSrcX1 >= clippedSrcX2 || clippedSrcY1 >= clippedSrcY2) {
+            return;
+        }
+
+        BufferedImage clippedSource = source.getSubimage(
+                clippedSrcX1,
+                clippedSrcY1,
+                clippedSrcX2 - clippedSrcX1,
+                clippedSrcY2 - clippedSrcY1);
+
+        // The DoJa overload takes a six-element 4.12 fixed-point affine matrix, not destination
+        // corner points. When the requested source rectangle falls partly outside the image, keep
+        // the remaining pixels at their original local coordinates instead of scaling them to fill
+        // the full target area.
+        AffineTransform localTransform = createDoJaAffineTransform(matrix);
+        localTransform.translate(clippedSrcX1 - srcX1, clippedSrcY1 - srcY1);
+        Rectangle localBounds = transformedBounds(localTransform, clippedSource.getWidth(), clippedSource.getHeight());
+        AffineTransform oldTransform = delegate.getTransform();
+        Composite oldComposite = delegate.getComposite();
+        try {
+            applyFlipTransform(localBounds.x, localBounds.y, localBounds.width, localBounds.height);
+            AffineTransform drawTransform = new AffineTransform(localTransform);
+            drawTransform.preConcatenate(AffineTransform.getTranslateInstance(originX, originY));
+            if (image.getAlpha() < 255) {
+                delegate.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, image.getAlpha() / 255.0f));
+            }
+            delegate.drawImage(clippedSource, drawTransform, null);
+        } finally {
+            delegate.setComposite(oldComposite);
+            delegate.setTransform(oldTransform);
+        }
+        flushSurfacePresentation();
+    }
+
+    private static void validateAffineImageArguments(Image image, int[] matrix) {
+        if (image == null) {
+            throw new NullPointerException("image");
+        }
+        if (matrix == null) {
+            throw new NullPointerException("matrix");
+        }
+        if (matrix.length < 6) {
+            throw new ArrayIndexOutOfBoundsException("matrix");
+        }
+    }
+
+    private static void validateAffineImageRegion(int width, int height) {
+        if (width <= 0 || height <= 0) {
+            throw new IllegalArgumentException("width and height must be > 0");
+        }
+    }
+
+    private static AffineTransform createDoJaAffineTransform(int[] matrix) {
+        return new AffineTransform(
+                matrix[0] / DOJAAFFINE_FIXED_POINT_SCALE,
+                matrix[3] / DOJAAFFINE_FIXED_POINT_SCALE,
+                matrix[1] / DOJAAFFINE_FIXED_POINT_SCALE,
+                matrix[4] / DOJAAFFINE_FIXED_POINT_SCALE,
+                matrix[2] / DOJAAFFINE_FIXED_POINT_SCALE,
+                matrix[5] / DOJAAFFINE_FIXED_POINT_SCALE);
+    }
+
+    private static Rectangle transformedBounds(AffineTransform transform, int width, int height) {
+        double[] corners = {
+                0.0, 0.0,
+                width, 0.0,
+                0.0, height,
+                width, height
+        };
+        transform.transform(corners, 0, corners, 0, corners.length / 2);
+        double minX = corners[0];
+        double minY = corners[1];
+        double maxX = corners[0];
+        double maxY = corners[1];
+        for (int i = 2; i < corners.length; i += 2) {
+            minX = Math.min(minX, corners[i]);
+            minY = Math.min(minY, corners[i + 1]);
+            maxX = Math.max(maxX, corners[i]);
+            maxY = Math.max(maxY, corners[i + 1]);
+        }
+        int left = (int) Math.floor(minX);
+        int top = (int) Math.floor(minY);
+        int right = (int) Math.ceil(maxX);
+        int bottom = (int) Math.ceil(maxY);
+        return new Rectangle(left, top, Math.max(1, right - left), Math.max(1, bottom - top));
     }
 
     private void drawSubImage(Image image, int dx, int dy, int sx, int sy, int sw, int sh, int dw, int dh) {
