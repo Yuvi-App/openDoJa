@@ -376,8 +376,16 @@ public final class DoJaRuntime {
                         g.dispose();
                     }
                 }
+            } catch (Throwable throwable) {
+                OpenDoJaLog.error(DoJaRuntime.class, "Unhandled canvas paint failure", throwable);
             } finally {
+                LegacyDrawFlagState drawFlagState = inspectLegacyDrawFlag();
+                boolean replayLegacyRender = shouldReplayLegacyRender(canvas, drawFlagState);
+                recoverLegacyDrawFlag(drawFlagState);
                 renderQueued.set(false);
+                if (replayLegacyRender) {
+                    requestRender(canvas);
+                }
             }
         };
         if (shutdown.get()) {
@@ -546,6 +554,56 @@ public final class DoJaRuntime {
 
     private void ensureCanvasSurface(Canvas canvas) {
         invokeCanvasMethod(canvas, "ensureSurface", new Class<?>[]{int.class, int.class}, displayWidth(), displayHeight());
+    }
+
+    private void recoverLegacyDrawFlag(LegacyDrawFlagState drawFlagState) {
+        if (drawFlagState == null || drawFlagState.value() != 3) {
+            return;
+        }
+        try {
+            drawFlagState.field().setInt(null, 0);
+            OpenDoJaLog.debug(DoJaRuntime.class,
+                    "Recovered wedged legacy draw flag on " + drawFlagState.ownerName());
+        } catch (IllegalAccessException e) {
+            OpenDoJaLog.error(DoJaRuntime.class,
+                    "Failed to reset legacy draw flag on " + drawFlagState.ownerName(), e);
+        }
+    }
+
+    private boolean shouldReplayLegacyRender(Canvas canvas, LegacyDrawFlagState drawFlagState) {
+        if (shutdown.get() || currentFrame != canvas) {
+            return false;
+        }
+        return drawFlagState != null && drawFlagState.value() == 2;
+    }
+
+    private LegacyDrawFlagState inspectLegacyDrawFlag() {
+        IApplication currentApplication = application;
+        if (currentApplication == null) {
+            return null;
+        }
+        Class<?> type = currentApplication.getClass();
+        while (type != null) {
+            try {
+                java.lang.reflect.Field drawFlag = type.getDeclaredField("m_drawFlag");
+                if (!java.lang.reflect.Modifier.isStatic(drawFlag.getModifiers())
+                        || drawFlag.getType() != int.class) {
+                    return null;
+                }
+                drawFlag.setAccessible(true);
+                return new LegacyDrawFlagState(drawFlag, drawFlag.getInt(null), type.getName());
+            } catch (NoSuchFieldException e) {
+                type = type.getSuperclass();
+            } catch (IllegalAccessException e) {
+                OpenDoJaLog.error(DoJaRuntime.class,
+                        "Failed to inspect legacy draw flag on " + type.getName(), e);
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private record LegacyDrawFlagState(java.lang.reflect.Field field, int value, String ownerName) {
     }
 
     private BufferedImage getCanvasImage(Canvas canvas) {
