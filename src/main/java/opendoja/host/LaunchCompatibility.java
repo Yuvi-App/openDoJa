@@ -1,17 +1,12 @@
 package opendoja.host;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.StringReader;
 import java.lang.management.ManagementFactory;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
 import java.util.Properties;
 
 final class LaunchCompatibility {
@@ -117,7 +112,7 @@ final class LaunchCompatibility {
             return false;
         }
         try {
-            Properties properties = loadJamProperties(jamPath);
+            Properties properties = JamLauncher.loadJamProperties(jamPath);
             Map<String, String> parameters = new HashMap<>();
             for (String name : properties.stringPropertyNames()) {
                 parameters.put(name, properties.getProperty(name));
@@ -127,36 +122,6 @@ final class LaunchCompatibility {
         } catch (IOException | RuntimeException ignored) {
             return false;
         }
-    }
-
-    private static Properties loadJamProperties(Path jamPath) throws IOException {
-        byte[] data = Files.readAllBytes(jamPath);
-        CharacterCodingException lastCodingFailure = null;
-        for (String charsetName : DoJaEncoding.defaultEncodingCandidates()) {
-            try {
-                return loadJamProperties(data, Charset.forName(charsetName));
-            } catch (CharacterCodingException exception) {
-                lastCodingFailure = exception;
-            } catch (RuntimeException ignored) {
-            }
-        }
-        if (lastCodingFailure != null) {
-            throw lastCodingFailure;
-        }
-        throw new IllegalStateException("No JAM property charsets configured");
-    }
-
-    private static Properties loadJamProperties(byte[] data, Charset charset) throws IOException {
-        Properties properties = new Properties();
-        String text = charset.newDecoder()
-                .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
-                .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
-                .decode(java.nio.ByteBuffer.wrap(data))
-                .toString();
-        try (BufferedReader reader = new BufferedReader(new StringReader(text))) {
-            properties.load(reader);
-        }
-        return properties;
     }
 
     private static List<String> buildVerifyFallbackCommand(String mainClass, String[] args) {
