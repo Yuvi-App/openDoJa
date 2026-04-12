@@ -15,21 +15,21 @@ final class LaunchCompatibility {
             return;
         }
         System.setProperty(DoJaProfile.CURRENT_JAM_PATH_PROPERTY, jamPath.toAbsolutePath().normalize().toString());
-        boolean interpretLegacyBusyWaits = shouldUseInterpreterForLegacyJam();
         boolean disableExplicitGc = shouldDisableExplicitGc();
         boolean limitHotSpotTier = shouldLimitHotSpotTier();
         boolean disableOnStackReplacement = shouldDisableOnStackReplacement();
-        if (!interpretLegacyBusyWaits
-                && !disableExplicitGc && !limitHotSpotTier
-                && !disableOnStackReplacement) {
+        boolean disableLoopInvariantCodeMotion = shouldDisableLoopInvariantCodeMotion();
+        if (!disableExplicitGc && !limitHotSpotTier
+                && !disableOnStackReplacement
+                && !disableLoopInvariantCodeMotion) {
             return;
         }
 
         Process process = new ProcessBuilder(buildCompatibilityCommand(
-                        interpretLegacyBusyWaits,
                         disableExplicitGc,
                         limitHotSpotTier,
                         disableOnStackReplacement,
+                        disableLoopInvariantCodeMotion,
                         JamLauncher.class.getName(),
                         new String[]{jamPath.toString()}))
                 .inheritIO()
@@ -55,17 +55,18 @@ final class LaunchCompatibility {
         return true;
     }
 
-    private static List<String> buildCompatibilityCommand(boolean interpretLegacyBusyWaits,
-            boolean disableExplicitGc, boolean limitHotSpotTier,
-            boolean disableOnStackReplacement, String mainClass, String[] args) {
+    private static List<String> buildCompatibilityCommand(boolean disableExplicitGc, boolean limitHotSpotTier,
+            boolean disableOnStackReplacement, boolean disableLoopInvariantCodeMotion,
+            String mainClass, String[] args) {
         List<String> command = new ArrayList<>();
         command.add(Path.of(OpenDoJaLaunchArgs.get("java.home"), "bin", "java").toString());
         for (String arg : ManagementFactory.getRuntimeMXBean().getInputArguments()) {
             if (arg.startsWith("-D" + OpenDoJaLaunchArgs.LAUNCH_COMPAT_APPLIED + "=")
-                    || arg.equals("-Xint")
                     || arg.startsWith("-XX:TieredStopAtLevel=")
                     || arg.equals("-XX:+UseOnStackReplacement")
                     || arg.equals("-XX:-UseOnStackReplacement")
+                    || arg.equals("-XX:+UseLoopInvariantCodeMotion")
+                    || arg.equals("-XX:-UseLoopInvariantCodeMotion")
                     || arg.equals("-XX:+DisableExplicitGC")
                     || arg.equals("-XX:-DisableExplicitGC")) {
                 continue;
@@ -80,21 +81,22 @@ final class LaunchCompatibility {
             // stalls the single game thread and drags audio down with it.
             command.add("-XX:+DisableExplicitGC");
         }
-        if (interpretLegacyBusyWaits) {
-            // Some older DoJa titles rely on unsynchronized spin-loop handoffs between timer,
-            // paint, and worker threads. Whole-JVM interpretation preserves those reads, even
-            // though it is broader and slower than the eventual runtime-level fix should be.
-            command.add("-Xint");
-        } else if (limitHotSpotTier) {
+        if (limitHotSpotTier) {
             // The official emulator runs on JBlend rather than HotSpot C2. Stopping at tier 1
             // keeps legacy empty polling loops observable without per-title deoptimization.
             command.add("-XX:TieredStopAtLevel=1");
         }
-        if (!interpretLegacyBusyWaits && disableOnStackReplacement) {
+        if (disableOnStackReplacement) {
             // Older DoJa titles sometimes exchange control through unsynchronized busy-spin
             // handoffs. The proven HotSpot-specific failure is OSR compiling those loops into
             // stale-value spins, while whole-JVM interpretation regresses timing-sensitive apps.
             command.add("-XX:-UseOnStackReplacement");
+        }
+        if (disableLoopInvariantCodeMotion) {
+            // Under the tier-1 compatibility path, C1 can still hoist unsynchronized latch reads
+            // out of empty busy-wait loops. Keeping those reads inside the loop preserves the
+            // handset-era handoff behavior without falling back to whole-JVM interpretation.
+            command.add("-XX:-UseLoopInvariantCodeMotion");
         }
         command.add("-cp");
         command.add(OpenDoJaLaunchArgs.get("java.class.path"));
@@ -103,14 +105,6 @@ final class LaunchCompatibility {
             command.add(arg);
         }
         return command;
-    }
-
-    private static boolean shouldUseInterpreterForLegacyJam() {
-        if (explicitCompilationModeArgument() != null) {
-            return false;
-        }
-        DoJaProfile profile = DoJaProfile.current();
-        return profile.isKnown() && profile.isBefore(3, 0);
     }
 
     private static List<String> buildVerifyFallbackCommand(String mainClass, String[] args) {
@@ -177,24 +171,9 @@ final class LaunchCompatibility {
         return null;
     }
 
-    private static String explicitCompilationModeArgument() {
-        for (String arg : ManagementFactory.getRuntimeMXBean().getInputArguments()) {
-            if (arg.equals("-Xint")
-                    || arg.startsWith("-XX:TieredStopAtLevel=")
-                    || arg.equals("-XX:+TieredCompilation")
-                    || arg.equals("-XX:-TieredCompilation")
-                    || arg.equals("-XX:+UseOnStackReplacement")
-                    || arg.equals("-XX:-UseOnStackReplacement")) {
-                return arg;
-            }
-        }
-        return null;
-    }
-
     private static boolean shouldLimitHotSpotTier() {
         for (String arg : ManagementFactory.getRuntimeMXBean().getInputArguments()) {
-            if (arg.equals("-Xint")
-                    || arg.startsWith("-XX:TieredStopAtLevel=")
+            if (arg.startsWith("-XX:TieredStopAtLevel=")
                     || arg.equals("-XX:+TieredCompilation")
                     || arg.equals("-XX:-TieredCompilation")) {
                 return false;
@@ -205,9 +184,21 @@ final class LaunchCompatibility {
 
     private static boolean shouldDisableOnStackReplacement() {
         for (String arg : ManagementFactory.getRuntimeMXBean().getInputArguments()) {
-            if (arg.equals("-Xint")
-                    || arg.equals("-XX:+UseOnStackReplacement")
+            if (arg.equals("-XX:+UseOnStackReplacement")
                     || arg.equals("-XX:-UseOnStackReplacement")) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean shouldDisableLoopInvariantCodeMotion() {
+        if (!shouldLimitHotSpotTier()) {
+            return false;
+        }
+        for (String arg : ManagementFactory.getRuntimeMXBean().getInputArguments()) {
+            if (arg.equals("-XX:+UseLoopInvariantCodeMotion")
+                    || arg.equals("-XX:-UseLoopInvariantCodeMotion")) {
                 return false;
             }
         }
