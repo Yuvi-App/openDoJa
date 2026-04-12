@@ -1,5 +1,8 @@
 package opendoja.host;
 
+import java.io.IOException;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Locale;
@@ -7,6 +10,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class DoJaProfile {
+    static final String CURRENT_JAM_PATH_PROPERTY = "opendoja.currentJamPath";
     private static final Pattern DOCUMENTED_SERIES = Pattern.compile(
             "(?i)(503i|503|504i|504|505i|505|900i|900|901i|901|902i|902|903i|903|904i|904|905i|905|906i|906)");
     private static final Map<Long, DoJaProfile> DOCUMENTED_LEGACY_DISPLAY_RESOLUTION_PROFILES =
@@ -60,7 +64,23 @@ public final class DoJaProfile {
     }
 
     public static DoJaProfile current() {
-        return fromRuntime(DoJaRuntime.current());
+        DoJaRuntime runtime = DoJaRuntime.current();
+        if (runtime != null) {
+            return fromParametersOrDocumentedDeviceIdentity(runtime.parameters());
+        }
+        LaunchConfig prepared = DoJaRuntime.peekPreparedLaunch();
+        if (prepared != null) {
+            return fromParametersOrDocumentedDeviceIdentity(prepared.parameters());
+        }
+        String jamPath = System.getProperty(CURRENT_JAM_PATH_PROPERTY);
+        if (jamPath == null || jamPath.isBlank()) {
+            return UNKNOWN;
+        }
+        try {
+            return JamMetadataResolver.resolveProfile(Path.of(jamPath));
+        } catch (IOException | InvalidPathException e) {
+            return UNKNOWN;
+        }
     }
 
     public static DoJaProfile fromRuntime(DoJaRuntime runtime) {
@@ -205,17 +225,14 @@ public final class DoJaProfile {
     }
 
     public boolean isAtLeast(int major, int minor) {
-        return compareTo(major, minor) >= 0;
+        return isKnown() && compareTo(major, minor) >= 0;
     }
 
     public boolean isBefore(int major, int minor) {
-        return compareTo(major, minor) < 0;
+        return isKnown() && compareTo(major, minor) < 0;
     }
 
     private int compareTo(int otherMajor, int otherMinor) {
-        if (!isKnown()) {
-            return -1;
-        }
         if (major != otherMajor) {
             return Integer.compare(major, otherMajor);
         }

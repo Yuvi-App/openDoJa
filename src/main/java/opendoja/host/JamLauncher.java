@@ -2,24 +2,16 @@ package opendoja.host;
 
 import com.nttdocomo.ui.IApplication;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.StringReader;
 import java.net.URI;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public final class JamLauncher {
-    private static final Pattern DEVICE_HINT_PATTERN = Pattern.compile(
-            "(?i)(?:^|[^A-Za-z0-9])((?:FOMA\\s+)?[A-Z]?[0-9]{3,4}i?[A-Z]?(?:S|V|C)?)(?:[^A-Za-z0-9]|$)");
-
     private JamLauncher() {
     }
 
@@ -32,7 +24,7 @@ public final class JamLauncher {
     }
 
     public static LaunchConfig buildLaunchConfig(Path jamPath, boolean exitOnShutdown) throws IOException, ClassNotFoundException {
-        Properties properties = loadJamProperties(jamPath);
+        Properties properties = JamMetadataResolver.loadJamProperties(jamPath);
         return buildLaunchConfig(jamPath, properties, exitOnShutdown);
     }
 
@@ -68,16 +60,9 @@ public final class JamLauncher {
         if (appParam != null && !appParam.isBlank()) {
             builder.args(appParam.trim().split("\\s+"));
         }
-        for (String name : properties.stringPropertyNames()) {
-            builder.parameter(name, properties.getProperty(name));
-        }
-        String inferredTargetDevice = inferTargetDevice(jamPath, properties);
-        String inferredProfileVersion = inferProfileVersion(properties);
-        if (inferredProfileVersion != null) {
-            builder.parameter("ProfileVer", inferredProfileVersion);
-        }
-        if (inferredTargetDevice != null && !properties.containsKey("TargetDevice")) {
-            builder.parameter("TargetDevice", inferredTargetDevice);
+        Map<String, String> effectiveParameters = JamMetadataResolver.resolveEffectiveParameters(jamPath, properties);
+        for (Map.Entry<String, String> entry : effectiveParameters.entrySet()) {
+            builder.parameter(entry.getKey(), entry.getValue());
         }
         if (scratchpad != null && !scratchpad.found()) {
             ResolvedScratchpad missingScratchpad = scratchpad;
@@ -145,53 +130,6 @@ public final class JamLauncher {
         return resolved.toUri().toString();
     }
 
-    private static String inferTargetDevice(Path jamPath, Properties properties) {
-        String inferred = metadataDeviceIdentity(properties);
-        if (inferred != null) {
-            return inferred;
-        }
-        return firstDeviceHint(jamPath.toString());
-    }
-
-    private static String inferProfileVersion(Properties properties) {
-        String configured = properties.getProperty("ProfileVer");
-        if (configured != null && !configured.isBlank()) {
-            return null;
-        }
-        if (metadataDeviceIdentity(properties) != null) {
-            return null;
-        }
-        int[] drawArea = parseDrawArea(properties.getProperty("DrawArea"));
-        if (drawArea == null) {
-            return null;
-        }
-        DoJaProfile inferred = DoJaProfile.fromDocumentedLegacyDisplayResolution(drawArea[0], drawArea[1]);
-        return inferred.isKnown() ? inferred.toString() : null;
-    }
-
-    private static String metadataDeviceIdentity(Properties properties) {
-        String configured = properties.getProperty("TargetDevice");
-        if (configured != null && !configured.isBlank()) {
-            return configured.trim();
-        }
-        String packageUrl = properties.getProperty("PackageURL");
-        if (packageUrl != null && !packageUrl.isBlank()) {
-            return firstDeviceHint(packageUrl);
-        }
-        return null;
-    }
-
-    private static String firstDeviceHint(String candidate) {
-        if (candidate == null || candidate.isBlank()) {
-            return null;
-        }
-        Matcher matcher = DEVICE_HINT_PATTERN.matcher(candidate);
-        if (!matcher.find()) {
-            return null;
-        }
-        return matcher.group(1).trim();
-    }
-
     private static URI normalizePackageUri(URI packageUri) {
         if (!packageUri.isAbsolute()) {
             return packageUri;
@@ -257,34 +195,12 @@ public final class JamLauncher {
         return Class.forName(className, false, JamLauncher.class.getClassLoader());
     }
 
-    private static Properties loadJamProperties(Path jamPath) throws IOException {
-        byte[] data = Files.readAllBytes(jamPath);
-        CharacterCodingException lastCodingFailure = null;
-        for (String charsetName : DoJaEncoding.defaultEncodingCandidates()) {
-            try {
-                return loadJamProperties(data, Charset.forName(charsetName));
-            } catch (CharacterCodingException exception) {
-                lastCodingFailure = exception;
-            } catch (RuntimeException ignored) {
-            }
+    private static String stripExtension(String name) {
+        if (name == null) {
+            return "";
         }
-        if (lastCodingFailure != null) {
-            throw lastCodingFailure;
-        }
-        throw new IllegalStateException("No JAM property charsets configured");
-    }
-
-    private static Properties loadJamProperties(byte[] data, Charset charset) throws IOException {
-        Properties properties = new Properties();
-        String text = charset.newDecoder()
-                .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
-                .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
-                .decode(java.nio.ByteBuffer.wrap(data))
-                .toString();
-        try (BufferedReader reader = new BufferedReader(new StringReader(text))) {
-            properties.load(reader);
-        }
-        return properties;
+        int dot = name.lastIndexOf('.');
+        return dot < 0 ? name : name.substring(0, dot);
     }
 
     private static void applyOptionalDrawArea(LaunchConfig.Builder builder, String rawDrawArea, String targetDevice) {
@@ -349,11 +265,6 @@ public final class JamLauncher {
         int[] compact = new int[count];
         System.arraycopy(result, 0, compact, 0, count);
         return compact;
-    }
-
-    private static String stripExtension(String name) {
-        int lastDot = name.lastIndexOf('.');
-        return lastDot < 0 ? name : name.substring(0, lastDot);
     }
 
     private record ResolvedScratchpad(Path path, boolean found) {

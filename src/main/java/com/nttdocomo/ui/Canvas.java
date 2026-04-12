@@ -70,7 +70,7 @@ public abstract class Canvas extends Frame {
     public void repaint() {
         DoJaRuntime runtime = DoJaRuntime.current();
         if (runtime != null) {
-            runtime.requestRender(this);
+            runtime.requestRepaint(this);
         }
     }
 

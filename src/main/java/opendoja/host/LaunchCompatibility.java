@@ -14,6 +14,7 @@ final class LaunchCompatibility {
         if (OpenDoJaLaunchArgs.getBoolean(OpenDoJaLaunchArgs.LAUNCH_COMPAT_APPLIED)) {
             return;
         }
+        System.setProperty(DoJaProfile.CURRENT_JAM_PATH_PROPERTY, jamPath.toAbsolutePath().normalize().toString());
         boolean interpretLegacyBusyWaits = shouldUseInterpreterForLegacyJam();
         boolean disableExplicitGc = shouldDisableExplicitGc();
         boolean limitHotSpotTier = shouldLimitHotSpotTier();
@@ -80,9 +81,9 @@ final class LaunchCompatibility {
             command.add("-XX:+DisableExplicitGC");
         }
         if (interpretLegacyBusyWaits) {
-            // Early DoJa Apps exchange frame/timer ownership through unsynchronized
-            // empty polling loops. Running those apps in the interpreter keeps each flag load
-            // observable enough to preserve the handset-era handoff behavior.
+            // Some older DoJa titles rely on unsynchronized spin-loop handoffs between timer,
+            // paint, and worker threads. Whole-JVM interpretation preserves those reads, even
+            // though it is broader and slower than the eventual runtime-level fix should be.
             command.add("-Xint");
         } else if (limitHotSpotTier) {
             // The official emulator runs on JBlend rather than HotSpot C2. Stopping at tier 1
@@ -90,9 +91,9 @@ final class LaunchCompatibility {
             command.add("-XX:TieredStopAtLevel=1");
         }
         if (!interpretLegacyBusyWaits && disableOnStackReplacement) {
-            // HotSpot OSR can still compile empty scene polling loops into a stale-value spin even
-            // when tiering is capped. Disabling OSR keeps those loops on the normal entry path so
-            // cross-thread scene handoffs used by legacy titles like DDR remain observable.
+            // Older DoJa titles sometimes exchange control through unsynchronized busy-spin
+            // handoffs. The proven HotSpot-specific failure is OSR compiling those loops into
+            // stale-value spins, while whole-JVM interpretation regresses timing-sensitive apps.
             command.add("-XX:-UseOnStackReplacement");
         }
         command.add("-cp");
