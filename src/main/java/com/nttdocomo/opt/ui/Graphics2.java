@@ -57,6 +57,26 @@ public class Graphics2 extends Graphics {
         super(surface);
     }
 
+    @Override
+    protected boolean usesOptRenderMode() {
+        return true;
+    }
+
+    @Override
+    protected int currentOptRenderOperator() {
+        return renderOperator;
+    }
+
+    @Override
+    protected int currentOptRenderSourceRatio() {
+        return srcRatio;
+    }
+
+    @Override
+    protected int currentOptRenderDestinationRatio() {
+        return dstRatio;
+    }
+
     /**
      * Sets the drawing origin used by this graphics context.
      *

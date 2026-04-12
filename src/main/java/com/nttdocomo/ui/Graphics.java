@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Represents the graphics context used for canvases and images.
@@ -40,6 +41,9 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
     private static final boolean TRACE_3D_CALLS = opendoja.host.OpenDoJaLaunchArgs.getBoolean(opendoja.host.OpenDoJaLaunchArgs.DEBUG3D_CALLS);
     private static final double DOJAAFFINE_FIXED_POINT_SCALE = 4096.0;
     private static final int LEGACY_OPT_COMMAND_LIST_VERSION_1 = 1;
+    private static final int OPT_RENDER_OP_REPL = 0;
+    private static final int OPT_RENDER_OP_ADD = 1;
+    private static final int OPT_RENDER_OP_SUB = 2;
     private static final int OPT_COMMAND_PREFIX_MASK = 0xFF00_0000;
     private static final int OPT_COMMAND_INLINE_VALUE_MASK = 0x00FF_FFFF;
     private static final int OPT_COMMAND_RENDER_COUNT_MASK = 0x00FF_0000;
@@ -184,10 +188,7 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
     protected Graphics(DesktopSurface surface) {
         this.surface = surface;
         this.delegate = surface.image().createGraphics();
-        this.delegate.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
-        this.delegate.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-        this.delegate.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, Font.textAntialiasHint());
-        this.delegate.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_OFF);
+        configureDelegate(this.delegate);
         this.delegate.setColor(new Color(color, true));
         this.delegate.setFont(font.awtFont());
         clearClip();
@@ -794,6 +795,10 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
      * Draws line.
      */
     public void drawLine(int x1, int y1, int x2, int y2) {
+        Rectangle bounds = rectangleFromPoints(originX + x1, originY + y1, originX + x2, originY + y2);
+        if (drawWithOptRenderMode(bounds, graphics -> graphics.drawLine(originX + x1, originY + y1, originX + x2, originY + y2))) {
+            return;
+        }
         delegate.drawLine(originX + x1, originY + y1, originX + x2, originY + y2);
         flushSurfacePresentation();
     }
@@ -814,9 +819,21 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         }
         int[] drawX = new int[n];
         int[] drawY = new int[n];
+        int minX = Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxY = Integer.MIN_VALUE;
         for (int i = 0; i < n; i++) {
             drawX[i] = originX + xs[i];
             drawY[i] = originY + ys[i];
+            minX = Math.min(minX, drawX[i]);
+            minY = Math.min(minY, drawY[i]);
+            maxX = Math.max(maxX, drawX[i]);
+            maxY = Math.max(maxY, drawY[i]);
+        }
+        Rectangle bounds = rectangleFromPoints(minX, minY, maxX, maxY);
+        if (drawWithOptRenderMode(bounds, graphics -> graphics.drawPolyline(drawX, drawY, n))) {
+            return;
         }
         delegate.drawPolyline(drawX, drawY, n);
         flushSurfacePresentation();
@@ -826,6 +843,10 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
      * Draws rect.
      */
     public void drawRect(int x, int y, int width, int height) {
+        Rectangle bounds = normalizedRectangle(originX + x, originY + y, width + 1, height + 1);
+        if (drawWithOptRenderMode(bounds, graphics -> graphics.drawRect(originX + x, originY + y, width, height))) {
+            return;
+        }
         delegate.drawRect(originX + x, originY + y, width, height);
         flushSurfacePresentation();
     }
@@ -835,6 +856,14 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
      */
     public void drawString(String text, int x, int y) {
         if (text == null) {
+            return;
+        }
+        Rectangle bounds = new Rectangle(
+                originX + x,
+                originY + y - font.getAscent(),
+                Math.max(1, font.stringWidth(text)),
+                Math.max(1, font.getHeight()));
+        if (drawWithOptRenderMode(bounds, graphics -> font.drawString(graphics, text, originX + x, originY + y, color))) {
             return;
         }
         font.drawString(delegate, text, originX + x, originY + y, color);
@@ -869,6 +898,10 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
      * Fills rect.
      */
     public void fillRect(int x, int y, int width, int height) {
+        Rectangle bounds = normalizedRectangle(originX + x, originY + y, width, height);
+        if (drawWithOptRenderMode(bounds, graphics -> graphics.fillRect(originX + x, originY + y, width, height))) {
+            return;
+        }
         delegate.fillRect(originX + x, originY + y, width, height);
         flushSurfacePresentation();
     }
@@ -1050,6 +1083,10 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
      * Draws arc.
      */
     public void drawArc(int x, int y, int width, int height, int startAngle, int arcAngle) {
+        Rectangle bounds = normalizedRectangle(originX + x, originY + y, width, height);
+        if (drawWithOptRenderMode(bounds, graphics -> graphics.drawArc(originX + x, originY + y, width, height, startAngle, arcAngle))) {
+            return;
+        }
         delegate.drawArc(originX + x, originY + y, width, height, startAngle, arcAngle);
         flushSurfacePresentation();
     }
@@ -1058,6 +1095,10 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
      * Fills arc.
      */
     public void fillArc(int x, int y, int width, int height, int startAngle, int arcAngle) {
+        Rectangle bounds = normalizedRectangle(originX + x, originY + y, width, height);
+        if (drawWithOptRenderMode(bounds, graphics -> graphics.fillArc(originX + x, originY + y, width, height, startAngle, arcAngle))) {
+            return;
+        }
         delegate.fillArc(originX + x, originY + y, width, height, startAngle, arcAngle);
         flushSurfacePresentation();
     }
@@ -1179,6 +1220,29 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         Rectangle localBounds = transformedBounds(localTransform, clippedSource.getWidth(), clippedSource.getHeight());
         AffineTransform oldTransform = delegate.getTransform();
         Composite oldComposite = delegate.getComposite();
+        Rectangle bounds = normalizedRectangle(
+                originX + localBounds.x,
+                originY + localBounds.y,
+                localBounds.width,
+                localBounds.height);
+        if (drawWithOptRenderMode(bounds, graphics -> {
+            AffineTransform drawTransform = new AffineTransform(localTransform);
+            drawTransform.preConcatenate(AffineTransform.getTranslateInstance(originX, originY));
+            AffineTransform savedTransform = graphics.getTransform();
+            Composite savedComposite = graphics.getComposite();
+            try {
+                applyFlipTransform(graphics, localBounds.x, localBounds.y, localBounds.width, localBounds.height);
+                if (image.getAlpha() < 255) {
+                    graphics.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, image.getAlpha() / 255.0f));
+                }
+                graphics.drawImage(clippedSource, drawTransform, null);
+            } finally {
+                graphics.setComposite(savedComposite);
+                graphics.setTransform(savedTransform);
+            }
+        })) {
+            return;
+        }
         try {
             applyFlipTransform(localBounds.x, localBounds.y, localBounds.width, localBounds.height);
             AffineTransform drawTransform = new AffineTransform(localTransform);
@@ -1269,6 +1333,23 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         int destY1 = originY + dy + Math.round((clippedSrcY1 - srcY1) * (dh / (float) sh));
         int destX2 = originX + dx + Math.round((clippedSrcX2 - srcX1) * (dw / (float) sw));
         int destY2 = originY + dy + Math.round((clippedSrcY2 - srcY1) * (dh / (float) sh));
+        Rectangle bounds = rectangleFromPoints(destX1, destY1, destX2, destY2);
+        if (drawWithOptRenderMode(bounds, graphics -> {
+            AffineTransform savedTransform = graphics.getTransform();
+            Composite savedComposite = graphics.getComposite();
+            try {
+                applyFlipTransform(graphics, dx, dy, dw, dh);
+                if (image.getAlpha() < 255) {
+                    graphics.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, image.getAlpha() / 255.0f));
+                }
+                graphics.drawImage(source, destX1, destY1, destX2, destY2, clippedSrcX1, clippedSrcY1, clippedSrcX2, clippedSrcY2, null);
+            } finally {
+                graphics.setComposite(savedComposite);
+                graphics.setTransform(savedTransform);
+            }
+        })) {
+            return;
+        }
         AffineTransform oldTransform = delegate.getTransform();
         try {
             applyFlipTransform(dx, dy, dw, dh);
@@ -1303,6 +1384,155 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
             return;
         }
         surface.flush(copyImage(surface.image()), false);
+    }
+
+    protected boolean usesOptRenderMode() {
+        return false;
+    }
+
+    protected int currentOptRenderOperator() {
+        return OPT_RENDER_OP_REPL;
+    }
+
+    protected int currentOptRenderSourceRatio() {
+        return 255;
+    }
+
+    protected int currentOptRenderDestinationRatio() {
+        return 255;
+    }
+
+    private static void configureDelegate(Graphics2D graphics) {
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, Font.textAntialiasHint());
+        graphics.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_OFF);
+    }
+
+    private boolean drawWithOptRenderMode(Rectangle bounds, Consumer<Graphics2D> painter) {
+        if (!needsOptRenderModeBlend()) {
+            return false;
+        }
+        Rectangle targetBounds = intersectSurfaceBounds(bounds);
+        if (targetBounds == null) {
+            return true;
+        }
+        BufferedImage layer = new BufferedImage(targetBounds.width, targetBounds.height, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = layer.createGraphics();
+        try {
+            configureDelegate(graphics);
+            graphics.setColor(new Color(color, true));
+            graphics.setFont(font.awtFont());
+            graphics.translate(-targetBounds.x, -targetBounds.y);
+            Rectangle clipBounds = delegate.getClipBounds();
+            if (clipBounds != null) {
+                graphics.setClip(clipBounds);
+            }
+            painter.accept(graphics);
+        } finally {
+            graphics.dispose();
+        }
+        blendOptRenderLayer(layer, targetBounds.x, targetBounds.y);
+        flushSurfacePresentation();
+        return true;
+    }
+
+    private boolean needsOptRenderModeBlend() {
+        return usesOptRenderMode()
+                && (currentOptRenderOperator() != OPT_RENDER_OP_REPL || currentOptRenderSourceRatio() != 255);
+    }
+
+    private Rectangle intersectSurfaceBounds(Rectangle bounds) {
+        if (bounds == null) {
+            return null;
+        }
+        Rectangle clipped = bounds.intersection(new Rectangle(0, 0, surface.width(), surface.height()));
+        Rectangle clipBounds = delegate.getClipBounds();
+        if (clipBounds != null) {
+            clipped = clipped.intersection(clipBounds);
+        }
+        return clipped.isEmpty() ? null : clipped;
+    }
+
+    private void blendOptRenderLayer(BufferedImage layer, int destX, int destY) {
+        int[] destination = ((DataBufferInt) surface.image().getRaster().getDataBuffer()).getData();
+        int[] source = ((DataBufferInt) layer.getRaster().getDataBuffer()).getData();
+        int surfaceWidth = surface.width();
+        int layerWidth = layer.getWidth();
+        for (int y = 0; y < layer.getHeight(); y++) {
+            int destIndex = (destY + y) * surfaceWidth + destX;
+            int sourceIndex = y * layerWidth;
+            for (int x = 0; x < layerWidth; x++, destIndex++, sourceIndex++) {
+                int srcArgb = source[sourceIndex];
+                int srcAlpha = (srcArgb >>> 24) & 0xFF;
+                if (srcAlpha == 0) {
+                    continue;
+                }
+                destination[destIndex] = blendOptRenderPixel(destination[destIndex], srcArgb);
+            }
+        }
+    }
+
+    private int blendOptRenderPixel(int dstArgb, int srcArgb) {
+        int srcAlpha = (srcArgb >>> 24) & 0xFF;
+        if (srcAlpha == 0) {
+            return dstArgb;
+        }
+        int srcRatio = currentOptRenderSourceRatio();
+        int dstRatio = currentOptRenderDestinationRatio();
+        int uncoveredNumerator = (255 - srcAlpha) * 255;
+        int coveredDstNumerator = srcAlpha * dstRatio;
+        int srcNumerator = srcAlpha * srcRatio;
+
+        int dstRed = (dstArgb >>> 16) & 0xFF;
+        int dstGreen = (dstArgb >>> 8) & 0xFF;
+        int dstBlue = dstArgb & 0xFF;
+        int srcRed = (srcArgb >>> 16) & 0xFF;
+        int srcGreen = (srcArgb >>> 8) & 0xFF;
+        int srcBlue = srcArgb & 0xFF;
+
+        int outRed = blendOptRenderChannel(dstRed, srcRed, uncoveredNumerator, coveredDstNumerator, srcNumerator);
+        int outGreen = blendOptRenderChannel(dstGreen, srcGreen, uncoveredNumerator, coveredDstNumerator, srcNumerator);
+        int outBlue = blendOptRenderChannel(dstBlue, srcBlue, uncoveredNumerator, coveredDstNumerator, srcNumerator);
+
+        int dstAlpha = (dstArgb >>> 24) & 0xFF;
+        int outAlpha = switch (currentOptRenderOperator()) {
+            case OPT_RENDER_OP_REPL -> clamp(((dstAlpha * (255 - srcAlpha)) + srcNumerator + 127) / 255, 0, 255);
+            case OPT_RENDER_OP_ADD, OPT_RENDER_OP_SUB -> Math.max(dstAlpha, (srcNumerator + 127) / 255);
+            default -> Math.max(dstAlpha, srcAlpha);
+        };
+        return (outAlpha << 24) | (outRed << 16) | (outGreen << 8) | outBlue;
+    }
+
+    private int blendOptRenderChannel(int dst, int src, int uncoveredNumerator, int coveredDstNumerator, int srcNumerator) {
+        long numerator = switch (currentOptRenderOperator()) {
+            case OPT_RENDER_OP_REPL -> (long) dst * uncoveredNumerator + (long) src * srcNumerator;
+            case OPT_RENDER_OP_ADD -> (long) dst * (uncoveredNumerator + coveredDstNumerator) + (long) src * srcNumerator;
+            case OPT_RENDER_OP_SUB -> (long) dst * (uncoveredNumerator + coveredDstNumerator) - (long) src * srcNumerator;
+            default -> (long) src * 65025L;
+        };
+        if (numerator <= 0L) {
+            return 0;
+        }
+        long maxNumerator = 255L * 65025L;
+        if (numerator >= maxNumerator) {
+            return 255;
+        }
+        return (int) ((numerator + 32512L) / 65025L);
+    }
+
+    private static Rectangle normalizedRectangle(int x, int y, int width, int height) {
+        int left = width >= 0 ? x : x + width;
+        int top = height >= 0 ? y : y + height;
+        int actualWidth = Math.abs(width);
+        int actualHeight = Math.abs(height);
+        return new Rectangle(left, top, Math.max(1, actualWidth), Math.max(1, actualHeight));
+    }
+
+    private static Rectangle rectangleFromPoints(int x1, int y1, int x2, int y2) {
+        int left = Math.min(x1, x2);
+        int top = Math.min(y1, y2);
+        return new Rectangle(left, top, Math.max(1, Math.abs(x2 - x1) + 1), Math.max(1, Math.abs(y2 - y1) + 1));
     }
 
     private static int clampOglChannel(float value) {
@@ -1349,35 +1579,39 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
     }
 
     private void applyFlipTransform(int dx, int dy, int dw, int dh) {
+        applyFlipTransform(delegate, dx, dy, dw, dh);
+    }
+
+    private void applyFlipTransform(Graphics2D graphics, int dx, int dy, int dw, int dh) {
         switch (flipMode) {
             case FLIP_NONE -> {
             }
             case FLIP_HORIZONTAL -> {
-                delegate.translate(originX + dx + dw, originY + dy);
-                delegate.scale(-1, 1);
-                delegate.translate(-(originX + dx), -(originY + dy));
+                graphics.translate(originX + dx + dw, originY + dy);
+                graphics.scale(-1, 1);
+                graphics.translate(-(originX + dx), -(originY + dy));
             }
             case FLIP_VERTICAL -> {
-                delegate.translate(originX + dx, originY + dy + dh);
-                delegate.scale(1, -1);
-                delegate.translate(-(originX + dx), -(originY + dy));
+                graphics.translate(originX + dx, originY + dy + dh);
+                graphics.scale(1, -1);
+                graphics.translate(-(originX + dx), -(originY + dy));
             }
             case FLIP_ROTATE -> {
-                delegate.rotate(Math.toRadians(180), originX + dx + dw / 2.0, originY + dy + dh / 2.0);
+                graphics.rotate(Math.toRadians(180), originX + dx + dw / 2.0, originY + dy + dh / 2.0);
             }
             case FLIP_ROTATE_RIGHT -> {
-                delegate.rotate(Math.toRadians(90), originX + dx + dw / 2.0, originY + dy + dh / 2.0);
+                graphics.rotate(Math.toRadians(90), originX + dx + dw / 2.0, originY + dy + dh / 2.0);
             }
             case FLIP_ROTATE_LEFT -> {
-                delegate.rotate(Math.toRadians(-90), originX + dx + dw / 2.0, originY + dy + dh / 2.0);
+                graphics.rotate(Math.toRadians(-90), originX + dx + dw / 2.0, originY + dy + dh / 2.0);
             }
             case FLIP_ROTATE_RIGHT_HORIZONTAL -> {
-                delegate.rotate(Math.toRadians(90), originX + dx + dw / 2.0, originY + dy + dh / 2.0);
-                delegate.scale(-1, 1);
+                graphics.rotate(Math.toRadians(90), originX + dx + dw / 2.0, originY + dy + dh / 2.0);
+                graphics.scale(-1, 1);
             }
             case FLIP_ROTATE_RIGHT_VERTICAL -> {
-                delegate.rotate(Math.toRadians(90), originX + dx + dw / 2.0, originY + dy + dh / 2.0);
-                delegate.scale(1, -1);
+                graphics.rotate(Math.toRadians(90), originX + dx + dw / 2.0, originY + dy + dh / 2.0);
+                graphics.scale(1, -1);
             }
             default -> {
             }
