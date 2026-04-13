@@ -74,6 +74,7 @@ final class LaunchCompatibility {
             command.add(arg);
         }
         appendCurrentOpenDoJaProperties(command);
+        appendFileEncoding(command);
         command.add("-D" + OpenDoJaLaunchArgs.LAUNCH_COMPAT_APPLIED + "=true");
         if (disableExplicitGc) {
             // Games issue System.gc() liberally around UI/resource transitions as a lightweight
@@ -119,6 +120,7 @@ final class LaunchCompatibility {
             command.add(arg);
         }
         appendCurrentOpenDoJaProperties(command);
+        appendFileEncoding(command);
         command.add("-D" + OpenDoJaLaunchArgs.VERIFY_FALLBACK_APPLIED + "=true");
         command.add("-Xverify:none");
         command.add("-cp");
@@ -144,6 +146,22 @@ final class LaunchCompatibility {
                 command.add("-D" + name + "=" + value);
             }
         }
+    }
+
+    private static void appendFileEncoding(List<String> command) {
+        for (String arg : command) {
+            if (arg.startsWith("-Dfile.encoding=")) {
+                return;
+            }
+        }
+        String fileEncoding = DoJaEncoding.explicitFileEncodingLaunchArgument();
+        if (fileEncoding == null || fileEncoding.isBlank()) {
+            fileEncoding = DoJaEncoding.defaultCharsetName();
+        }
+        if (fileEncoding == null || fileEncoding.isBlank()) {
+            return;
+        }
+        command.add("-Dfile.encoding=" + fileEncoding);
     }
 
     private static boolean shouldDisableExplicitGc() {

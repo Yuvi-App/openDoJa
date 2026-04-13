@@ -140,6 +140,7 @@ public class AudioPresenter implements MediaPresenter, AutoCloseable {
     private MLDPCMPlayer mldPlayer;
     private Sequencer sequencer;
     private int pausedPosition;
+    private MediaManager.PreparedSound.Kind activeSoundKind = MediaManager.PreparedSound.Kind.UNKNOWN;
     private int syncEventChannel = -1;
     private int syncEventKey = -1;
     private int lastMldSyncTimeMillis = Integer.MIN_VALUE;
@@ -258,6 +259,7 @@ public class AudioPresenter implements MediaPresenter, AutoCloseable {
         stopPlayback();
         if (!(resource instanceof MediaManager.BasicMediaSound sound)) {
             playing = false;
+            activeSoundKind = MediaManager.PreparedSound.Kind.UNKNOWN;
             notifyListener(AUDIO_STOPPED, 0);
             return;
         }
@@ -268,11 +270,13 @@ public class AudioPresenter implements MediaPresenter, AutoCloseable {
             setActivePlaybackToken(playbackToken);
             if (time >= singlePlaybackDurationMillis(prepared)) {
                 playing = false;
+                activeSoundKind = MediaManager.PreparedSound.Kind.UNKNOWN;
                 clearActivePlaybackToken(playbackToken);
                 notifyListener(AUDIO_PLAYING, 0);
                 notifyListener(AUDIO_COMPLETE, 0);
                 return;
             }
+            activeSoundKind = prepared.kind();
             if (prepared.kind() == MediaManager.PreparedSound.Kind.MIDI) {
                 sequencer = MidiSystem.getSequencer();
                 sequencer.open();
@@ -311,10 +315,12 @@ public class AudioPresenter implements MediaPresenter, AutoCloseable {
             scheduleSyncEvents(prepared, time);
         } catch (UIException e) {
             playing = false;
+            activeSoundKind = MediaManager.PreparedSound.Kind.UNKNOWN;
             stopPlayback();
             throw e;
         } catch (Exception e) {
             playing = false;
+            activeSoundKind = MediaManager.PreparedSound.Kind.UNKNOWN;
             clearActivePlaybackToken(playbackToken);
             if (TRACE_AUDIO_FAILURES) {
                 OpenDoJaLog.error(AudioPresenter.class, "Audio playback failed", e);
@@ -328,17 +334,17 @@ public class AudioPresenter implements MediaPresenter, AutoCloseable {
      */
     public void pause() {
         nextCallbackGeneration();
-        if (sampledPlayer != null) {
+        if (activeSoundKind == MediaManager.PreparedSound.Kind.SAMPLED && sampledPlayer != null) {
             sampledPlayer.pause();
             playing = false;
             cancelSyncEvents();
             notifyListener(AUDIO_PAUSED, 0);
-        } else if (mldPlayer != null) {
+        } else if (activeSoundKind == MediaManager.PreparedSound.Kind.MLD && mldPlayer != null) {
             mldPlayer.pause();
             playing = false;
             cancelSyncEvents();
             notifyListener(AUDIO_PAUSED, 0);
-        } else if (sequencer != null) {
+        } else if (activeSoundKind == MediaManager.PreparedSound.Kind.MIDI && sequencer != null) {
             pausedPosition = (int) sequencer.getTickPosition();
             sequencer.stop();
             playing = false;
@@ -352,15 +358,15 @@ public class AudioPresenter implements MediaPresenter, AutoCloseable {
      */
     public void restart() {
         nextCallbackGeneration();
-        if (sampledPlayer != null) {
+        if (activeSoundKind == MediaManager.PreparedSound.Kind.SAMPLED && sampledPlayer != null) {
             sampledPlayer.restart();
             playing = true;
             notifyListener(AUDIO_RESTARTED, 0);
-        } else if (mldPlayer != null) {
+        } else if (activeSoundKind == MediaManager.PreparedSound.Kind.MLD && mldPlayer != null) {
             mldPlayer.restart();
             playing = true;
             notifyListener(AUDIO_RESTARTED, 0);
-        } else if (sequencer != null) {
+        } else if (activeSoundKind == MediaManager.PreparedSound.Kind.MIDI && sequencer != null) {
             sequencer.setTickPosition(pausedPosition);
             sequencer.start();
             playing = true;
@@ -375,13 +381,13 @@ public class AudioPresenter implements MediaPresenter, AutoCloseable {
      * @return the current playback time in milliseconds
      */
     public int getCurrentTime() {
-        if (sampledPlayer != null) {
+        if (activeSoundKind == MediaManager.PreparedSound.Kind.SAMPLED && sampledPlayer != null) {
             return sampledPlayer.getCurrentTimeMillis();
         }
-        if (mldPlayer != null) {
+        if (activeSoundKind == MediaManager.PreparedSound.Kind.MLD && mldPlayer != null) {
             return mldPlayer.getCurrentTimeMillis();
         }
-        if (sequencer != null) {
+        if (activeSoundKind == MediaManager.PreparedSound.Kind.MIDI && sequencer != null) {
             return (int) (sequencer.getMicrosecondPosition() / 1_000L);
         }
         return 0;
@@ -393,13 +399,13 @@ public class AudioPresenter implements MediaPresenter, AutoCloseable {
      * @return the total playback time in milliseconds
      */
     public int getTotalTime() {
-        if (sampledPlayer != null) {
+        if (activeSoundKind == MediaManager.PreparedSound.Kind.SAMPLED && sampledPlayer != null) {
             return sampledPlayer.getTotalTimeMillis();
         }
-        if (mldPlayer != null) {
+        if (activeSoundKind == MediaManager.PreparedSound.Kind.MLD && mldPlayer != null) {
             return mldPlayer.getTotalTimeMillis();
         }
-        if (sequencer != null) {
+        if (activeSoundKind == MediaManager.PreparedSound.Kind.MIDI && sequencer != null) {
             return (int) (sequencer.getMicrosecondLength() / 1_000L);
         }
         return 0;
@@ -441,6 +447,7 @@ public class AudioPresenter implements MediaPresenter, AutoCloseable {
 
     private void stopPlayback() {
         playing = false;
+        activeSoundKind = MediaManager.PreparedSound.Kind.UNKNOWN;
         lastMldSyncTimeMillis = Integer.MIN_VALUE;
         cancelSyncEvents();
         clearActivePlaybackToken();
