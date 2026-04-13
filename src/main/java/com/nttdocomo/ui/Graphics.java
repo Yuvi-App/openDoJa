@@ -1,11 +1,15 @@
 package com.nttdocomo.ui;
 
 import com.nttdocomo.lang.XString;
+import com.nttdocomo.opt.ui.j3d._Opt3DInternalAccess;
 import com.nttdocomo.opt.ui.j3d.PrimitiveArray;
+import com.nttdocomo.ui.graphics3d._Graphics3DInternalAccess;
+import com.nttdocomo.ui.graphics3d._PrimitiveRenderStateAccess;
 import com.nttdocomo.ui.ogl.DirectBuffer;
 import com.nttdocomo.ui.ogl.DirectBufferFactory;
 import com.nttdocomo.ui.ogl.FloatBuffer;
 import com.nttdocomo.ui.ogl.ShortBuffer;
+import com.nttdocomo.ui.util3d._TransformInternalAccess;
 import opendoja.host.DesktopSurface;
 import opendoja.g3d.MascotFigure;
 import opendoja.g3d.Software3DContext;
@@ -24,8 +28,6 @@ import java.awt.Shape;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -1696,7 +1698,7 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
     @Override
     public void setTransform(com.nttdocomo.ui.util3d.Transform transform) {
         try {
-            float[] matrix = transform == null ? Software3DContext.identity() : invokeHidden(transform, "raw", float[].class);
+            float[] matrix = transform == null ? Software3DContext.identity() : _TransformInternalAccess.raw(transform);
             threeD.setUiTransform(matrix);
             if (TRACE_3D_CALLS) {
                 OpenDoJaLog.debug(Graphics.class, () -> "3D call setTransform matrix=" + Arrays.toString(matrix));
@@ -1715,7 +1717,8 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
             return;
         }
         try {
-            threeD.addUiLight(invokeHiddenInt(light, "mode"), invokeHiddenFloat(light, "intensity"), invokeHiddenInt(light, "color"));
+            _Graphics3DInternalAccess.LightState lightState = _Graphics3DInternalAccess.lightState(light);
+            threeD.addUiLight(lightState.mode(), lightState.intensity(), lightState.color());
         } catch (RuntimeException e) {
             throw traceFailure("addLight", e);
         }
@@ -1773,7 +1776,8 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
             return;
         }
         if (object instanceof com.nttdocomo.ui.graphics3d.Figure figure) {
-            MascotFigure handle = invokeHidden(figure, "handle", MascotFigure.class);
+            MascotFigure handle = _Graphics3DInternalAccess.handle(figure);
+            _Graphics3DInternalAccess.DrawableRenderState renderState = _Graphics3DInternalAccess.drawableRenderState(figure);
             prepare3DDepthFrame();
             if (TRACE_3D_CALLS) {
                 int polygons = handle == null || handle.model() == null ? -1 : handle.model().polygons().length;
@@ -1782,11 +1786,13 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
                         + " pattern=" + (handle == null ? -1 : handle.patternMask())
                         + " transform=" + (objectMatrix == null ? "null" : Arrays.toString(objectMatrix)));
             }
-            threeD.renderUiFigure(delegate, surface.image(), originX, originY, surface.width(), surface.height(), handle, objectMatrix, invokeHiddenInt(object, "blendModeValue"), invokeHiddenFloat(object, "transparencyValue"));
+            threeD.renderUiFigure(delegate, surface.image(), originX, originY, surface.width(), surface.height(),
+                    handle, objectMatrix, renderState.blendMode(), renderState.transparency());
             return;
         }
         if (object instanceof com.nttdocomo.ui.graphics3d.Primitive primitive) {
-            SoftwareTexture texture = invokeHidden(primitive, "textureHandle", SoftwareTexture.class);
+            _PrimitiveRenderStateAccess.PrimitiveRenderState renderState = _PrimitiveRenderStateAccess.snapshot(primitive);
+            _Graphics3DInternalAccess.DrawableRenderState drawableState = _Graphics3DInternalAccess.drawableRenderState(primitive);
             prepare3DDepthFrame();
             if (TRACE_3D_CALLS) {
                 OpenDoJaLog.debug(Graphics.class, () -> "3D call renderObject3D type=Primitive primitiveType="
@@ -1796,14 +1802,14 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
             }
             threeD.renderUiPrimitive(delegate, surface.image(), originX, originY, surface.width(), surface.height(),
                     primitive.getPrimitiveType(), primitive.getPrimitiveParam(), primitive.size(),
-                    primitive.getVertexArray(), primitive.getColorArray(), primitive.getTextureCoordArray(), texture,
-                    objectMatrix, invokeHiddenInt(object, "blendModeValue"), invokeHiddenFloat(object, "transparencyValue"),
-                    invokeHiddenBoolean(primitive, "textureWrapEnabled"),
-                    invokeHiddenFloat(primitive, "textureCoordinateTranslateU"),
-                    invokeHiddenFloat(primitive, "textureCoordinateTranslateV"),
-                    invokeHiddenBoolean(primitive, "depthTestEnabled"),
-                    invokeHiddenBoolean(primitive, "depthWriteEnabled"),
-                    invokeHiddenBoolean(primitive, "doubleSided"));
+                    primitive.getVertexArray(), primitive.getColorArray(), primitive.getTextureCoordArray(), renderState.textureHandle(),
+                    objectMatrix, drawableState.blendMode(), drawableState.transparency(),
+                    renderState.textureWrapEnabled(),
+                    renderState.textureCoordinateTranslateU(),
+                    renderState.textureCoordinateTranslateV(),
+                    renderState.depthTestEnabled(),
+                    renderState.depthWriteEnabled(),
+                    renderState.doubleSided());
         }
     }
 
@@ -1828,7 +1834,7 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
     @Override
     public void setViewTrans(com.nttdocomo.opt.ui.j3d.AffineTrans transform) {
         try {
-            float[] matrix = transform == null ? Software3DContext.identity() : invokeHidden(transform, "toFloatMatrix", float[].class);
+            float[] matrix = transform == null ? Software3DContext.identity() : _Opt3DInternalAccess.toFloatMatrix(transform);
             if (TRACE_3D_CALLS) {
                 OpenDoJaLog.debug(Graphics.class, () -> "3D call setViewTrans matrix=" + Arrays.toString(matrix));
             }
@@ -1950,7 +1956,7 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
             return;
         }
         try {
-            MascotFigure handle = invokeHidden(figure, "handle", MascotFigure.class);
+            MascotFigure handle = _Opt3DInternalAccess.handle(figure);
             prepare3DDepthFrame();
             if (TRACE_3D_CALLS) {
                 OpenDoJaLog.debug(Graphics.class, () -> "3D call renderFigure " + describeOptFigure(handle));
@@ -1993,7 +1999,7 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         if (texture == null) {
             throw new NullPointerException("texture");
         }
-        SoftwareTexture handle = invokeHidden(texture, "handle", SoftwareTexture.class);
+        SoftwareTexture handle = _Opt3DInternalAccess.handle(texture);
         if (!handle.sphereMap()) {
             throw new IllegalArgumentException("texture must be an environment-mapping texture");
         }
@@ -2095,10 +2101,10 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
     @Override
     public void setPrimitiveTextureArray(com.nttdocomo.opt.ui.j3d.Texture texture) {
         if (TRACE_3D_CALLS) {
-            SoftwareTexture handle = texture == null ? null : invokeHidden(texture, "handle", SoftwareTexture.class);
+            SoftwareTexture handle = texture == null ? null : _Opt3DInternalAccess.handle(texture);
             OpenDoJaLog.debug(Graphics.class, () -> "3D call setPrimitiveTextureArray single texture=" + describeTexture(handle));
         }
-        threeD.setPrimitiveTextures(texture == null ? null : new SoftwareTexture[]{invokeHidden(texture, "handle", SoftwareTexture.class)});
+        threeD.setPrimitiveTextures(texture == null ? null : new SoftwareTexture[]{_Opt3DInternalAccess.handle(texture)});
     }
 
     /**
@@ -2115,7 +2121,7 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         }
         SoftwareTexture[] converted = new SoftwareTexture[textures.length];
         for (int i = 0; i < textures.length; i++) {
-            converted[i] = invokeHidden(textures[i], "handle", SoftwareTexture.class);
+            converted[i] = _Opt3DInternalAccess.handle(textures[i]);
         }
         if (TRACE_3D_CALLS) {
             OpenDoJaLog.debug(Graphics.class, () -> "3D call setPrimitiveTextureArray array=" + describeTextures(converted));
@@ -2740,28 +2746,6 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         return Math.max(min, Math.min(max, value));
     }
 
-    private static <T> T invokeHidden(Object target, String methodName, Class<T> returnType) {
-        try {
-            Method method = findHiddenMethod(target.getClass(), methodName);
-            method.setAccessible(true);
-            return returnType.cast(method.invoke(target));
-        } catch (IllegalAccessException | InvocationTargetException e) {
-            throw new IllegalStateException("Failed to invoke " + target.getClass().getName() + "#" + methodName, e);
-        }
-    }
-
-    private static int invokeHiddenInt(Object target, String methodName) {
-        return invokeHidden(target, methodName, Integer.class);
-    }
-
-    private static float invokeHiddenFloat(Object target, String methodName) {
-        return invokeHidden(target, methodName, Float.class);
-    }
-
-    private static boolean invokeHiddenBoolean(Object target, String methodName) {
-        return invokeHidden(target, methodName, Boolean.class);
-    }
-
     private static String describeTextures(SoftwareTexture[] textures) {
         if (textures == null) {
             return "null";
@@ -2815,29 +2799,18 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         );
     }
 
-    private static Method findHiddenMethod(Class<?> type, String methodName) {
-        Class<?> current = type;
-        while (current != null) {
-            try {
-                return current.getDeclaredMethod(methodName);
-            } catch (NoSuchMethodException ignored) {
-                current = current.getSuperclass();
-            }
-        }
-        throw new IllegalStateException("Failed to locate hidden method " + type.getName() + "#" + methodName);
-    }
-
     private void syncUiFogState() {
         if (uiFog == null) {
             threeD.setUiFog(null, 0f, 0f, 0f, 0);
             return;
         }
+        _Graphics3DInternalAccess.FogState fogState = _Graphics3DInternalAccess.fogState(uiFog);
         threeD.setUiFog(
-                invokeHidden(uiFog, "mode", Integer.class),
-                invokeHidden(uiFog, "linearNear", Float.class),
-                invokeHidden(uiFog, "linearFar", Float.class),
-                invokeHidden(uiFog, "density", Float.class),
-                invokeHidden(uiFog, "color", Integer.class)
+                fogState.mode(),
+                fogState.linearNear(),
+                fogState.linearFar(),
+                fogState.density(),
+                fogState.color()
         );
     }
 
