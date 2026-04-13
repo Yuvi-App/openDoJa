@@ -49,7 +49,6 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
     private static final int OPT_COMMAND_PREFIX_MASK = 0xFF00_0000;
     private static final int OPT_COMMAND_INLINE_VALUE_MASK = 0x00FF_FFFF;
     private static final int OPT_COMMAND_RENDER_COUNT_MASK = 0x00FF_0000;
-    private static final long OPT_RENDER_SYNC_INTERVAL_NANOS = 16_000_000L;
     private static final int OPT_COMMAND_ATTR_MASK =
             com.nttdocomo.opt.ui.j3d.Graphics3D.ATTR_LIGHT
                     | com.nttdocomo.opt.ui.j3d.Graphics3D.ATTR_SPHERE_MAP
@@ -1590,20 +1589,13 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         // `Graphics3D.flush()` is the pass boundary for staged opt draws inside one locked frame.
         // Finish any deferred blended primitive batches before ending the shared depth frame.
         flushPending3DPasses();
-        if (pendingOptRenderedContent) {
-            pendingOptRenderedContent = false;
-            // `Graphics3D.flush()` applies the pending render result, but some titles also issue
-            // state-only flushes between draw submissions. Only pace flushes that actually follow
-            // 3D rendering work. The official emulator exposes a hidden Render3D/frameDuration
-            // path, and the only recovered native sync interval is `16000us`, so keep rendered
-            // opt passes on that cadence only.
-            surface.waitForRenderSync(OPT_RENDER_SYNC_INTERVAL_NANOS);
-        }
+        pendingOptRenderedContent = false;
         DoJaRuntime runtime = DoJaRuntime.current();
         if (runtime != null && runtime.surfaceLock().isHeldByCurrentThread()) {
-            // opt.ui.j3d titles can issue multiple flushes inside one locked Canvas frame to
-            // separate 3D passes. Do not present mid-frame, but do end the shared z-frame so a
-            // later orthographic/translucent pass does not depth-test against the earlier scene.
+            // DoJa documents `Graphics3D.flush()` as applying pending 3D results, not as a
+            // display-sync boundary. Titles like Chase HQ 3D split one Canvas frame into several
+            // opt passes, so syncing every flush would multiply the frame time. Keep the pass
+            // boundary semantics here, but leave frame pacing to the eventual Canvas present.
             surface.endDepthFrame();
             return;
         }
