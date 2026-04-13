@@ -414,6 +414,23 @@ public final class Software3DContext {
                 transformed[destination + 2] = point[2];
             }
             float[] textureCoords = polygon.textureCoords();
+            int effectiveBlendMode = allowMaterialBlend ? (blendMode | polygon.blendMode()) : blendMode;
+            BlendOp effectiveBlendOp = resolveBlendMode(effectiveBlendMode, blendSemantics);
+            SoftwareTexture polygonTexture = textureCoords == null ? null : figure.texture(polygon.textureIndex());
+            ToonShaderParams toonShader = resolveToonShader(polygonTexture, defaultToonShader);
+            int color = polygonTexture != null
+                    ? scaleColor(0xFFFFFFFF, transparency, lightScale)
+                    : scaleColor(polygon.color(), transparency, lightScale);
+            if (projection != null && indices.length == 4) {
+                // MBAC figure quads are defined over a fixed internal diagonal. Preserve that
+                // two-triangle topology through clipping instead of clipping raw a,b,c,d order
+                // as one polygon, or near-plane cuts can open coverage gaps in the surface.
+                addProjectedPerspectiveFigureQuad(projected, transformed, textureCoords, color, polygonTexture,
+                        centerX, centerY, originX, originY, surfaceWidth, surfaceHeight, projection, invertScreenY,
+                        polygon.doubleSided() || !CULL_FIGURES, polygonTexture != null && polygon.transparent(),
+                        effectiveBlendOp, true, fog, sphereTexture, toonShader);
+                continue;
+            }
             if (projection != null) {
                 ClippedPolygon clipped = clipPerspectivePolygon(transformed, textureCoords, null, projection,
                         centerX, centerY, surfaceWidth, surfaceHeight);
@@ -454,25 +471,19 @@ public final class Software3DContext {
                 projectedMaxY = java.lang.Math.max(projectedMaxY, ys[i]);
             }
             avgDepth /= vertexCount;
-            int effectiveBlendMode = allowMaterialBlend ? (blendMode | polygon.blendMode()) : blendMode;
-            BlendOp effectiveBlendOp = resolveBlendMode(effectiveBlendMode, blendSemantics);
-            SoftwareTexture polygonTexture = textureCoords == null ? null : figure.texture(polygon.textureIndex());
-            ToonShaderParams toonShader = resolveToonShader(polygonTexture, defaultToonShader);
             if (polygonTexture != null) {
-                int modulationColor = scaleColor(0xFFFFFFFF, transparency, lightScale);
                 if (indices.length == 4 && vertexCount == 4) {
-                    addProjectedFigureQuad(projected, xs, ys, depthValues, modulationColor, avgDepth, polygonTexture, textureCoords,
+                    addProjectedFigureQuad(projected, xs, ys, depthValues, color, avgDepth, polygonTexture, textureCoords,
                             projection != null, polygon.doubleSided() || !CULL_FIGURES, polygon.transparent(),
                             effectiveBlendOp, true, fog, sphereTexture, toonShader);
                 } else {
-                    addProjectedFaces(projected, xs, ys, depthValues, modulationColor, avgDepth, polygonTexture, textureCoords,
+                    addProjectedFaces(projected, xs, ys, depthValues, color, avgDepth, polygonTexture, textureCoords,
                             null,
                             projection != null, polygon.doubleSided() || !CULL_FIGURES, polygon.transparent(),
                             effectiveBlendOp, true, true, fog, sphereTexture, toonShader);
                 }
                 continue;
             }
-            int color = scaleColor(polygon.color(), transparency, lightScale);
             if (indices.length == 4 && vertexCount == 4) {
                 addProjectedFigureQuad(projected, xs, ys, depthValues, color, avgDepth, null, null,
                         projection != null, polygon.doubleSided() || !CULL_FIGURES, false,
@@ -1220,9 +1231,9 @@ public final class Software3DContext {
             return;
         }
         boolean flipped = rasterArea < 0L;
-        boolean topLeft12 = isTopLeftEdge(fx1, fy1, fx2, fy2);
-        boolean topLeft20 = isTopLeftEdge(fx2, fy2, fx0, fy0);
-        boolean topLeft01 = isTopLeftEdge(fx0, fy0, fx1, fy1);
+        boolean topLeft12 = isCoverageTopLeftEdge(fx1, fy1, fx2, fy2, flipped);
+        boolean topLeft20 = isCoverageTopLeftEdge(fx2, fy2, fx0, fy0, flipped);
+        boolean topLeft01 = isCoverageTopLeftEdge(fx0, fy0, fx1, fy1, flipped);
         int minX = clamp((int) java.lang.Math.floor(java.lang.Math.min(x0, java.lang.Math.min(x1, x2))), 0, target.getWidth() - 1);
         int maxX = clamp((int) java.lang.Math.ceil(java.lang.Math.max(x0, java.lang.Math.max(x1, x2))), 0, target.getWidth() - 1);
         int minY = clamp((int) java.lang.Math.floor(java.lang.Math.min(y0, java.lang.Math.min(y1, y2))), 0, target.getHeight() - 1);
@@ -1313,9 +1324,9 @@ public final class Software3DContext {
             return;
         }
         boolean flipped = rasterArea < 0L;
-        boolean topLeft12 = isTopLeftEdge(fx1, fy1, fx2, fy2);
-        boolean topLeft20 = isTopLeftEdge(fx2, fy2, fx0, fy0);
-        boolean topLeft01 = isTopLeftEdge(fx0, fy0, fx1, fy1);
+        boolean topLeft12 = isCoverageTopLeftEdge(fx1, fy1, fx2, fy2, flipped);
+        boolean topLeft20 = isCoverageTopLeftEdge(fx2, fy2, fx0, fy0, flipped);
+        boolean topLeft01 = isCoverageTopLeftEdge(fx0, fy0, fx1, fy1, flipped);
         int minX = clamp((int) java.lang.Math.floor(java.lang.Math.min(x0, java.lang.Math.min(x1, x2))), 0, target.getWidth() - 1);
         int maxX = clamp((int) java.lang.Math.ceil(java.lang.Math.max(x0, java.lang.Math.max(x1, x2))), 0, target.getWidth() - 1);
         int minY = clamp((int) java.lang.Math.floor(java.lang.Math.min(y0, java.lang.Math.min(y1, y2))), 0, target.getHeight() - 1);
@@ -1380,6 +1391,10 @@ public final class Software3DContext {
 
     private static boolean isTopLeftEdge(int ax, int ay, int bx, int by) {
         return ay < by || (ay == by && ax > bx);
+    }
+
+    private static boolean isCoverageTopLeftEdge(int ax, int ay, int bx, int by, boolean flipped) {
+        return flipped ? isTopLeftEdge(bx, by, ax, ay) : isTopLeftEdge(ax, ay, bx, by);
     }
 
     private static int toRasterFixed(float coordinate) {
@@ -1766,6 +1781,80 @@ public final class Software3DContext {
                 ? (float) (rawAngle * java.lang.Math.PI / 2048.0)
                 : (float) java.lang.Math.toRadians(rawAngle);
         return java.lang.Math.max((float) java.lang.Math.toRadians(1f), java.lang.Math.min((float) java.lang.Math.toRadians(179f), radians));
+    }
+
+    private static void addProjectedPerspectiveFigureQuad(List<ProjectedPolygon> projected, float[] transformed,
+                                                          float[] textureCoords, int color, SoftwareTexture texture,
+                                                          float centerX, float centerY, int originX, int originY,
+                                                          int surfaceWidth, int surfaceHeight, Projection projection,
+                                                          boolean invertScreenY, boolean doubleSided,
+                                                          boolean transparentPaletteZero, BlendOp blendOp,
+                                                          boolean depthWrite, FogState fog,
+                                                          SoftwareTexture sphereTexture, ToonShaderParams toonShader) {
+        // Match the native/GL figure path: split the quad first, then clip each source triangle.
+        addProjectedPerspectiveFigureTriangle(projected, trianglePoints(transformed, 0, 1, 2),
+                triangleUv(textureCoords, 0, 1, 2), color, texture, centerX, centerY, originX, originY,
+                surfaceWidth, surfaceHeight, projection, invertScreenY, doubleSided, transparentPaletteZero,
+                blendOp, depthWrite, fog, sphereTexture, toonShader);
+        addProjectedPerspectiveFigureTriangle(projected, trianglePoints(transformed, 2, 1, 3),
+                triangleUv(textureCoords, 2, 1, 3), color, texture, centerX, centerY, originX, originY,
+                surfaceWidth, surfaceHeight, projection, invertScreenY, doubleSided, transparentPaletteZero,
+                blendOp, depthWrite, fog, sphereTexture, toonShader);
+    }
+
+    private static void addProjectedPerspectiveFigureTriangle(List<ProjectedPolygon> projected, float[] transformed,
+                                                              float[] textureCoords, int color, SoftwareTexture texture,
+                                                              float centerX, float centerY, int originX, int originY,
+                                                              int surfaceWidth, int surfaceHeight, Projection projection,
+                                                              boolean invertScreenY, boolean doubleSided,
+                                                              boolean transparentPaletteZero, BlendOp blendOp,
+                                                              boolean depthWrite, FogState fog,
+                                                              SoftwareTexture sphereTexture, ToonShaderParams toonShader) {
+        ClippedPolygon clipped = clipPerspectivePolygon(transformed, textureCoords, null, projection,
+                centerX, centerY, surfaceWidth, surfaceHeight);
+        if (clipped == null) {
+            return;
+        }
+        float[] points = clipped.points();
+        int vertexCount = points.length / 3;
+        float[] xs = new float[vertexCount];
+        float[] ys = new float[vertexCount];
+        float[] depthValues = new float[vertexCount];
+        float avgDepth = 0f;
+        for (int i = 0; i < vertexCount; i++) {
+            int source = i * 3;
+            float pointX = points[source];
+            float pointY = points[source + 1];
+            float pointZ = points[source + 2];
+            float cameraDepth = pointZ + projection.depthOffset();
+            xs[i] = originX + centerX + (pointX * projection.scaleX() / cameraDepth);
+            ys[i] = projectScreenY(originY, centerY, pointY * projection.scaleY() / cameraDepth, invertScreenY);
+            depthValues[i] = 1.0f / java.lang.Math.max(0.0001f, cameraDepth);
+            avgDepth += cameraDepth;
+        }
+        avgDepth /= vertexCount;
+        addProjectedFaces(projected, xs, ys, depthValues, color, avgDepth, texture, clipped.textureCoords(),
+                null, true, doubleSided, transparentPaletteZero, blendOp, true, depthWrite,
+                fog, sphereTexture, toonShader);
+    }
+
+    private static float[] trianglePoints(float[] points, int a, int b, int c) {
+        return new float[]{
+                points[a * 3], points[a * 3 + 1], points[a * 3 + 2],
+                points[b * 3], points[b * 3 + 1], points[b * 3 + 2],
+                points[c * 3], points[c * 3 + 1], points[c * 3 + 2]
+        };
+    }
+
+    private static float[] triangleUv(float[] uv, int a, int b, int c) {
+        if (uv == null || uv.length < 8) {
+            return null;
+        }
+        return new float[]{
+                uv[a * 2], uv[a * 2 + 1],
+                uv[b * 2], uv[b * 2 + 1],
+                uv[c * 2], uv[c * 2 + 1]
+        };
     }
 
     private static float[] transformPoint(float[] matrix, float x, float y, float z) {
