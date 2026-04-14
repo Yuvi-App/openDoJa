@@ -389,7 +389,7 @@ public final class DoJaRuntime {
                         canvas.paint(g);
                     } finally {
                         g.unlock(true);
-                        g.dispose();
+                        g.refreshDelegateAfterHostPaint();
                     }
                 }
             } catch (Throwable throwable) {

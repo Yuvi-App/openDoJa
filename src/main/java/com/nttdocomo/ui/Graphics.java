@@ -154,7 +154,7 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
     public static final int FLIP_ROTATE_RIGHT_VERTICAL = 7;
 
     private final DesktopSurface surface;
-    private final Graphics2D delegate;
+    private Graphics2D delegate;
     private final Software3DContext threeD = new Software3DContext();
     private boolean pendingOptRenderedContent;
     private int originX;
@@ -741,6 +741,26 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
      */
     public void dispose() {
         delegate.dispose();
+    }
+
+    /**
+     * Host-only lifecycle hook, not part of the original DoJa API. Runtime-owned
+     * paint callbacks may need to release the Java2D delegate without invalidating
+     * the DoJa wrapper seen by application code.
+     */
+    public void refreshDelegateAfterHostPaint() {
+        Shape clip = delegate.getClip();
+        delegate.dispose();
+        delegate = surface.image().createGraphics();
+        configureDelegate(delegate);
+        delegate.setColor(new Color(color, true));
+        delegate.setFont(font.awtFont());
+        if (clip == null) {
+            delegate.setClip(null);
+        } else {
+            delegate.setClip(clip);
+        }
+        syncOptRendererState();
     }
 
     /**
