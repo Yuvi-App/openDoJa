@@ -105,19 +105,64 @@ final class ScratchpadStorage {
         return PackedLayout.single();
     }
 
-    private PackedLayout configuredLayoutFor(long fileSize) {
+    private PackedLayout configuredLayoutFor(long fileSize) throws IOException {
         long declaredPayloadBytes = declaredPayloadBytes(configuredSizes);
-        if (fileSize == declaredPayloadBytes + HEADER_BYTES) {
-            return PackedLayout.configured(configuredSizes, HEADER_BYTES, false);
-        }
+        // Exact declared size is a raw device-visible scratchpad payload with no host header.
         if (fileSize == declaredPayloadBytes) {
             return PackedLayout.configured(configuredSizes, 0L, false);
         }
+        // Headered files must prove that the first 64 bytes are a little-endian dojaemu segment table.
+        // Size alone is not enough: an oversized raw or corrupt file must not be shifted by 64 bytes.
+        if (fileSize >= declaredPayloadBytes + HEADER_BYTES && hasConfiguredHeader()) {
+            // Extra bytes after the declared logical payload are outside the app-visible scratchpad.
+            if (fileSize > declaredPayloadBytes + HEADER_BYTES) {
+                warnConfiguredSizeMismatch(fileSize, declaredPayloadBytes,
+                        "; detected a matching 64-byte header and ignoring trailing bytes");
+            }
+            return PackedLayout.configured(configuredSizes, HEADER_BYTES, false);
+        }
+        // Preserve the historical mismatch fallback while making the questionable layout visible in logs.
         warnConfiguredSizeMismatch(fileSize, declaredPayloadBytes);
         return PackedLayout.configured(configuredSizes, 0L, false);
     }
 
+    private boolean hasConfiguredHeader() throws IOException {
+        byte[] header;
+        try (InputStream input = Files.newInputStream(packedFile)) {
+            header = input.readNBytes(HEADER_BYTES);
+        }
+        if (header.length < HEADER_BYTES) {
+            return false;
+        }
+        return headerMatchesConfiguredSizes(header);
+    }
+
+    private boolean headerMatchesConfiguredSizes(byte[] header) {
+        for (int i = 0; i < HEADER_ENTRIES; i++) {
+            int actual = readLittleEndianInt(header, i * Integer.BYTES);
+            if (i < configuredSizes.length) {
+                if (actual != Math.max(0, configuredSizes[i])) {
+                    return false;
+                }
+            } else if (actual != -1) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static int readLittleEndianInt(byte[] bytes, int offset) {
+        return (bytes[offset] & 0xFF)
+                | ((bytes[offset + 1] & 0xFF) << 8)
+                | ((bytes[offset + 2] & 0xFF) << 16)
+                | ((bytes[offset + 3] & 0xFF) << 24);
+    }
+
     private void warnConfiguredSizeMismatch(long fileSize, long declaredPayloadBytes) {
+        warnConfiguredSizeMismatch(fileSize, declaredPayloadBytes, "");
+    }
+
+    private void warnConfiguredSizeMismatch(long fileSize, long declaredPayloadBytes, String detail) {
         if (warnedHeaderMismatch) {
             return;
         }
@@ -128,7 +173,7 @@ final class ScratchpadStorage {
                         + " bytes but file size is " + fileSize
                         + "; expected either " + declaredPayloadBytes
                         + " (raw) or " + (declaredPayloadBytes + HEADER_BYTES)
-                        + " (with 64-byte dojaemu header)");
+                        + " (with 64-byte dojaemu header)" + detail);
     }
 
     private static long declaredPayloadBytes(int[] sizes) {

@@ -14,6 +14,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,6 +34,7 @@ public final class JamScratchpadProbe {
         verifyParentSpFallbackWrite();
         verifyMissingScratchpadWarningAndCreation();
         verifyDojaemuHeaderIsPreservedAndMapped();
+        verifyHeaderedScratchpadWithTrailingBytesUsesPayloadOffset();
         verifyDeclaredSizeMismatchWarning();
         verifyMissingResourceStaysMissingAndScratchpadStillReads();
 
@@ -206,6 +208,16 @@ public final class JamScratchpadProbe {
                 "scratchpad size mismatches should log a warning");
     }
 
+    private static void verifyHeaderedScratchpadWithTrailingBytesUsesPayloadOffset() throws Exception {
+        Path root = Files.createTempDirectory("jam-sp-header-trailing");
+        Path jam = root.resolve("Trailing.jam");
+        Path scratchpad = root.resolve("Trailing.sp");
+        writeJam(jam, "SPsize=4\n");
+        Files.write(scratchpad, littleEndianDojaemuScratchpad("DATA", "TAIL"));
+
+        launchAndReadBytes(jam, "DATA");
+    }
+
     private static void verifyMissingResourceStaysMissingAndScratchpadStillReads() throws Exception {
         Path root = Files.createTempDirectory("jam-sp-resource-fallback");
         Path jam = root.resolve("Fallback.jam");
@@ -268,6 +280,23 @@ public final class JamScratchpadProbe {
         }
     }
 
+    private static void launchAndReadBytes(Path jam, String expected) throws Exception {
+        IApplication app = JamLauncher.launch(jam, false);
+        try (InputStream in = Connector.openInputStream("scratchpad:///0:pos=0")) {
+            byte[] bytes = in.readAllBytes();
+            check(Arrays.equals(expected.getBytes(StandardCharsets.UTF_8), bytes),
+                    "unexpected scratchpad payload bytes");
+        } finally {
+            DoJaRuntime runtime = DoJaRuntime.current();
+            if (runtime != null) {
+                runtime.shutdown();
+            }
+        }
+        if (app == null) {
+            throw new IllegalStateException("Jam launch returned null application");
+        }
+    }
+
     private static void writeJam(Path jam, String extraProperties) throws Exception {
         StringBuilder builder = new StringBuilder();
         builder.append("AppClass=").append(ProbeApp.class.getName()).append('\n');
@@ -286,12 +315,27 @@ public final class JamScratchpadProbe {
 
     private static byte[] dojaemuScratchpad(String payload) {
         byte[] bytes = payload.getBytes(StandardCharsets.UTF_8);
-        ByteBuffer buffer = ByteBuffer.allocate(64 + bytes.length);
+        ByteBuffer buffer = ByteBuffer.allocate(64 + bytes.length)
+                .order(ByteOrder.LITTLE_ENDIAN);
         buffer.putInt(bytes.length);
         for (int i = 1; i < 16; i++) {
             buffer.putInt(-1);
         }
         buffer.put(bytes);
+        return buffer.array();
+    }
+
+    private static byte[] littleEndianDojaemuScratchpad(String payload, String trailing) {
+        byte[] bytes = payload.getBytes(StandardCharsets.UTF_8);
+        byte[] trailingBytes = trailing.getBytes(StandardCharsets.UTF_8);
+        ByteBuffer buffer = ByteBuffer.allocate(64 + bytes.length + trailingBytes.length)
+                .order(ByteOrder.LITTLE_ENDIAN);
+        buffer.putInt(bytes.length);
+        for (int i = 1; i < 16; i++) {
+            buffer.putInt(-1);
+        }
+        buffer.put(bytes);
+        buffer.put(trailingBytes);
         return buffer.array();
     }
 
