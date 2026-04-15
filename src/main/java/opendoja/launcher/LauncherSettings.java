@@ -49,7 +49,7 @@ record LauncherSettings(
                 1);
     }
 
-    LauncherSettings(int hostScale,
+    LauncherSettings(String hostScale,
                      String synthId,
                      String terminalId,
                      String userId,
@@ -62,6 +62,23 @@ record LauncherSettings(
                      boolean disableBytecodeVerification,
                      boolean disableOsDpiScaling) {
         this(hostScale, synthId, terminalId, userId, fontType, httpOverrideDomain, fileEncodingOverride,
+                microeditionPlatformOverride, openGlesRendererMode, showOpenGlesFps,
+                disableBytecodeVerification, disableOsDpiScaling, 1);
+    }
+
+    LauncherSettings(int hostScale,
+                     String synthId,
+                     String terminalId,
+                     String userId,
+                     String fontType,
+                     String httpOverrideDomain,
+                     String fileEncodingOverride,
+                     String microeditionPlatformOverride,
+                     OpenGlesRendererMode openGlesRendererMode,
+                     boolean showOpenGlesFps,
+                     boolean disableBytecodeVerification,
+                     boolean disableOsDpiScaling) {
+        this(Integer.toString(hostScale), synthId, terminalId, userId, fontType, httpOverrideDomain, fileEncodingOverride,
                 microeditionPlatformOverride, openGlesRendererMode, showOpenGlesFps,
                 disableBytecodeVerification, disableOsDpiScaling, 1);
     }
@@ -82,10 +99,14 @@ record LauncherSettings(
         return candidate == null ? "" : candidate.trim();
     }
 
-    LauncherSettings withHostScale(int hostScale) {
+    LauncherSettings withHostScale(String hostScale) {
         return new LauncherSettings(hostScale, synthId, terminalId, userId, fontType, httpOverrideDomain,
                 fileEncodingOverride, microeditionPlatformOverride, openGlesRendererMode, showOpenGlesFps,
                 disableBytecodeVerification, disableOsDpiScaling, openGlesSupersampleScale);
+    }
+
+    LauncherSettings withHostScale(int hostScale) {
+        return withHostScale(Integer.toString(hostScale));
     }
 
     LauncherSettings withSynthId(String synthId) {

@@ -347,20 +347,7 @@ final class OpenDoJaLauncherFrame extends JFrame {
             JRadioButtonMenuItem item = new JRadioButtonMenuItem(new AbstractAction((scale * 100) + "%") {
                 @Override
                 public void actionPerformed(ActionEvent event) {
-                    LauncherSettings current = jamLaunchService.loadSettings();
-                    jamLaunchService.saveSettings(new LauncherSettings(
-                            Integer.toString(selectedScale),
-                            current.synthId(),
-                            current.terminalId(),
-                            current.userId(),
-                            current.fontType(),
-                            current.httpOverrideDomain(),
-                            current.fileEncodingOverride(),
-                            current.microeditionPlatformOverride(),
-                            current.openGlesRendererMode(),
-                            current.showOpenGlesFps(),
-                            current.disableBytecodeVerification(),
-                            current.disableOsDpiScaling()));
+                    saveSettings(current -> current.withHostScale(selectedScale));
                 }
             });
             item.setSelected(!HostScale.isFullscreen(settings.hostScale())
@@ -371,20 +358,7 @@ final class OpenDoJaLauncherFrame extends JFrame {
         JRadioButtonMenuItem fullscreenItem = new JRadioButtonMenuItem(new AbstractAction(HostScale.label(HostScale.FULLSCREEN_ID)) {
             @Override
             public void actionPerformed(ActionEvent event) {
-                LauncherSettings current = jamLaunchService.loadSettings();
-                jamLaunchService.saveSettings(new LauncherSettings(
-                        HostScale.FULLSCREEN_ID,
-                        current.synthId(),
-                        current.terminalId(),
-                        current.userId(),
-                        current.fontType(),
-                        current.httpOverrideDomain(),
-                        current.fileEncodingOverride(),
-                        current.microeditionPlatformOverride(),
-                        current.openGlesRendererMode(),
-                        current.showOpenGlesFps(),
-                        current.disableBytecodeVerification(),
-                        current.disableOsDpiScaling()));
+                saveSettings(current -> current.withHostScale(HostScale.FULLSCREEN_ID));
             }
         });
         fullscreenItem.setSelected(HostScale.isFullscreen(settings.hostScale()));

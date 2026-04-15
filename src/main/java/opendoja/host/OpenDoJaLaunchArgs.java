@@ -97,6 +97,7 @@ public final class OpenDoJaLaunchArgs {
     public static final String FUETREK_MIX_PROFILE = "opendoja.fuetrekMixProfile";
     /** OpenGL ES backend mode: software or hardware. */
     public static final String OPEN_GLES_RENDERER = "opendoja.openGlesRenderer";
+    /** Whether the OpenGLES FPS overlay is shown. */
     public static final String SHOW_OPEN_GLES_FPS = "opendoja.showOpenGlesFps";
     /** Internal supersample scale used by the hardware OpenGL ES renderer. */
     public static final String OPEN_GLES_SUPERSAMPLE_SCALE = "opendoja.openGlesSupersampleScale";
