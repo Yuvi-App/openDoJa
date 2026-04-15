@@ -1,8 +1,8 @@
 package opendoja.launcher;
 
 import opendoja.audio.mld.MLDSynth;
-import opendoja.host.OpenDoJaIdentity;
 import opendoja.host.LaunchConfig;
+import opendoja.host.OpenDoJaIdentity;
 import opendoja.host.OpenDoJaLaunchArgs;
 import opendoja.host.OpenGlesRendererMode;
 

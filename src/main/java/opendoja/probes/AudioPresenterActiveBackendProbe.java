@@ -2,12 +2,7 @@ package opendoja.probes;
 
 import com.nttdocomo.ui.AudioPresenter;
 
-import javax.sound.midi.MidiDevice;
-import javax.sound.midi.MidiUnavailableException;
-import javax.sound.midi.Receiver;
-import javax.sound.midi.Sequencer;
-import javax.sound.midi.Track;
-import javax.sound.midi.Transmitter;
+import javax.sound.midi.*;
 import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;

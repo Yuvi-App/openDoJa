@@ -2,11 +2,7 @@ package opendoja.host;
 
 import com.nttdocomo.ui.Display;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public final class DesktopKeyInputAdapter {
     private final Scheduler scheduler;

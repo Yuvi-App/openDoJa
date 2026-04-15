@@ -1,12 +1,8 @@
 package opendoja.probes;
 
-import opendoja.g3d.MascotFigure;
-import opendoja.g3d.MascotLoader;
-import opendoja.g3d.MbacModel;
-import opendoja.g3d.Software3DContext;
-import opendoja.g3d.SoftwareTexture;
+import opendoja.g3d.*;
 
-import java.awt.Graphics2D;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -15,12 +11,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.HexFormat;
+import java.util.*;
 import java.util.List;
-import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 

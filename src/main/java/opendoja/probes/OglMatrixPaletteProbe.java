@@ -2,10 +2,10 @@ package opendoja.probes;
 
 import com.nttdocomo.ui.Graphics;
 import com.nttdocomo.ui.Image;
+import com.nttdocomo.ui.ogl.ByteBuffer;
 import com.nttdocomo.ui.ogl.DirectBufferFactory;
 import com.nttdocomo.ui.ogl.FloatBuffer;
 import com.nttdocomo.ui.ogl.GraphicsOGL;
-import com.nttdocomo.ui.ogl.ByteBuffer;
 
 /**
  * Verifies that OES_matrix_palette weighted positions use the loaded palette

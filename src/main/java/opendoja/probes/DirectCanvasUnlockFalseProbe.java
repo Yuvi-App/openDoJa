@@ -1,10 +1,6 @@
 package opendoja.probes;
 
-import com.nttdocomo.ui.Canvas;
-import com.nttdocomo.ui.Display;
-import com.nttdocomo.ui.Frame;
-import com.nttdocomo.ui.Graphics;
-import com.nttdocomo.ui.IApplication;
+import com.nttdocomo.ui.*;
 import opendoja.host.DesktopLauncher;
 
 import java.util.concurrent.TimeUnit;

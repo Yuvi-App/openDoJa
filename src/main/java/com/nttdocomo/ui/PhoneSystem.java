@@ -5,7 +5,7 @@ import com.nttdocomo.system.StoreException;
 import opendoja.host.DoJaRuntime;
 import opendoja.host.system.DoJaSystemRegistry;
 
-import java.awt.Toolkit;
+import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;

@@ -1,31 +1,16 @@
 package com.acrodea.xf3.def;
 
-import com.acrodea.xf3.xfeActor;
-import com.acrodea.xf3.xfeCamera;
-import com.acrodea.xf3.xfeController;
-import com.acrodea.xf3.xfeGroup;
-import com.acrodea.xf3.xfeMatrixTransformation;
-import com.acrodea.xf3.xfeNode;
-import com.acrodea.xf3.xfeNodeList;
-import com.acrodea.xf3.xfePRSAnimationController;
-import com.acrodea.xf3.xfeParameterDataSet;
-import com.acrodea.xf3.xfeRoot;
-import com.acrodea.xf3.xfeZone;
-import com.acrodea.xf3.math.xfMatrix4;
 import com.acrodea.xf3.loader.xfeXF2ChunkLoader;
 import com.acrodea.xf3.loader.xfeXF2Context;
 import com.acrodea.xf3.loader.xfeXF2ParameterizedControllerLoader;
 import com.acrodea.xf3.loader.xfeXF2Reader;
+import com.acrodea.xf3.math.xfMatrix4;
+import com.acrodea.xf3.*;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class xfeDefaultXF2Loader {

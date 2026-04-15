@@ -1,14 +1,8 @@
 package opendoja.launcher;
 
-import javax.swing.BorderFactory;
-import javax.swing.JDialog;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.ListSelectionModel;
-import javax.swing.JOptionPane;
+import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
-import java.awt.Component;
-import java.awt.Dimension;
+import java.awt.*;
 
 final class KeybindSettingsController {
     void showDialog(Component parent) {

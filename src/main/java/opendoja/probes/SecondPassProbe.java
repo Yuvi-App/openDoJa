@@ -1,17 +1,11 @@
 package opendoja.probes;
 
-import com.nttdocomo.io.ConnectionException;
-import com.nttdocomo.opt.ui.PointingDevice;
-import com.nttdocomo.ui.Audio3D;
-import com.nttdocomo.ui.AudioPresenter;
-import com.nttdocomo.ui.Canvas;
-import com.nttdocomo.ui.ExifData;
-import com.nttdocomo.ui.Graphics;
-import com.nttdocomo.ui.ShortTimer;
-import com.nttdocomo.ui.UIException;
 import com.nttdocomo.device.location.Degree;
 import com.nttdocomo.device.location.Location;
 import com.nttdocomo.device.location.LocationProvider;
+import com.nttdocomo.io.ConnectionException;
+import com.nttdocomo.opt.ui.PointingDevice;
+import com.nttdocomo.ui.*;
 import com.nttdocomo.ui.sound3d.PolarPosition;
 
 import java.util.Enumeration;

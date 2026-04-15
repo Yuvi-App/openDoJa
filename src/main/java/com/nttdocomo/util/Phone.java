@@ -1,8 +1,8 @@
 package com.nttdocomo.util;
 
 import com.nttdocomo.lang.XString;
-import opendoja.host.OpenDoJaIdentity;
 import opendoja.host.DoJaRuntime;
+import opendoja.host.OpenDoJaIdentity;
 import opendoja.host.system.DoJaExternalActionSupport;
 
 /**

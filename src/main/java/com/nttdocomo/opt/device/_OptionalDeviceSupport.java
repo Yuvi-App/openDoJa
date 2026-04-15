@@ -10,13 +10,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 final class _OptionalDeviceSupport {
     private static final FingerprintAuthenticator FINGERPRINT_AUTHENTICATOR = new FingerprintAuthenticator();

@@ -5,7 +5,7 @@ import opendoja.host.DesktopSurface;
 import opendoja.host.OpenDoJaLaunchArgs;
 import opendoja.host.OpenGlesRendererMode;
 
-import java.awt.Rectangle;
+import java.awt.*;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 

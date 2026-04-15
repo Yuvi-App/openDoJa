@@ -8,7 +8,7 @@ import com.nttdocomo.device.gesturereader.GestureReader;
 import com.nttdocomo.opt.device.Pulsemeter;
 import opendoja.host.DoJaRuntime;
 
-import java.awt.Dimension;
+import java.awt.*;
 import java.util.Arrays;
 import java.util.Comparator;
 

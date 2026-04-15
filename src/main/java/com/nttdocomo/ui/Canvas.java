@@ -3,7 +3,7 @@ package com.nttdocomo.ui;
 import opendoja.host.DesktopSurface;
 import opendoja.host.DoJaRuntime;
 
-import javax.swing.JOptionPane;
+import javax.swing.*;
 
 /**
  * Defines the display surface for the low-level API.

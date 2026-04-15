@@ -7,7 +7,7 @@ import opendoja.host.JamLauncher;
 import opendoja.host.LaunchConfig;
 
 import javax.imageio.ImageIO;
-import java.awt.Graphics2D;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;

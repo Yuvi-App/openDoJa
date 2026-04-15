@@ -1,7 +1,7 @@
 package com.nttdocomo.ui;
 
-import opendoja.audio.SampledPCMPlayer;
 import opendoja.audio.MidiEventPlayer;
+import opendoja.audio.SampledPCMPlayer;
 import opendoja.audio.mld.MLDPCMPlayer;
 import opendoja.host.DoJaProfile;
 import opendoja.host.DoJaRuntime;

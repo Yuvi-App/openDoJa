@@ -1,10 +1,6 @@
 package opendoja.probes;
 
-import com.nttdocomo.ui.AudioPresenter;
-import com.nttdocomo.ui.Font;
-import com.nttdocomo.ui.MediaImage;
-import com.nttdocomo.ui.MediaManager;
-import com.nttdocomo.ui.MediaSound;
+import com.nttdocomo.ui.*;
 import opendoja.audio.MidiEventPlayer;
 import opendoja.host.DoJaRuntime;
 import opendoja.host.LaunchConfig;

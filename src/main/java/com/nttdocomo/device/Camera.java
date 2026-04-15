@@ -1,6 +1,5 @@
 package com.nttdocomo.device;
 
-import com.nttdocomo.lang.UnsupportedOperationException;
 import com.nttdocomo.system.InterruptedOperationException;
 import com.nttdocomo.ui.MediaImage;
 import com.nttdocomo.ui.MediaManager;
@@ -12,22 +11,16 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.Graphics2D;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Provides the means for calling the handset's native camera function and

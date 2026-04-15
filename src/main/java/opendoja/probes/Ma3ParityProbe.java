@@ -1,22 +1,17 @@
 package opendoja.probes;
 
 import opendoja.audio.mld.MLD;
-import opendoja.audio.mld.ma3.MA3SamplerProvider;
 import opendoja.audio.mld.MLDPlayer;
 import opendoja.audio.mld.MLDPlayerEvent;
-import opendoja.audio.mld.ma3.MA3Rom;
 import opendoja.audio.mld.Sampler;
+import opendoja.audio.mld.ma3.MA3Rom;
+import opendoja.audio.mld.ma3.MA3SamplerProvider;
 
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.*;
 
 public final class Ma3ParityProbe {
     private static final int EVENT_BANK_CHANGE = 0xE1;

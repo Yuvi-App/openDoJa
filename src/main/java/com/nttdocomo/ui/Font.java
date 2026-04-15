@@ -2,15 +2,10 @@ package com.nttdocomo.ui;
 
 import com.nttdocomo.lang.XString;
 import opendoja.host.DoJaProfile;
-import opendoja.host.OpenDoJaLaunchArgs;
 import opendoja.host.LaunchConfig;
+import opendoja.host.OpenDoJaLaunchArgs;
 
-import java.awt.AWTError;
-import java.awt.Color;
-import java.awt.Graphics2D;
-import java.awt.GraphicsEnvironment;
-import java.awt.HeadlessException;
-import java.awt.RenderingHints;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.HashSet;
 import java.util.Locale;

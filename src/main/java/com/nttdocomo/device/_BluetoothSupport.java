@@ -2,17 +2,8 @@ package com.nttdocomo.device;
 
 import com.nttdocomo.io.SPPConnection;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.io.*;
+import java.util.*;
 
 final class _BluetoothSupport {
     private static final _BluetoothSupport INSTANCE = new _BluetoothSupport();

@@ -1,14 +1,7 @@
 package opendoja.probes;
 
 import com.nttdocomo.ui.graphics3d.Figure;
-import com.nttdocomo.ui.graphics3d.collision.BoundingVolume;
-import com.nttdocomo.ui.graphics3d.collision.Collision;
-import com.nttdocomo.ui.graphics3d.collision.CollisionObserver;
-import com.nttdocomo.ui.graphics3d.collision.IntersectionAttribute;
-import com.nttdocomo.ui.graphics3d.collision.Plane;
-import com.nttdocomo.ui.graphics3d.collision.Ray;
-import com.nttdocomo.ui.graphics3d.collision.Shape;
-import com.nttdocomo.ui.graphics3d.collision.Sphere;
+import com.nttdocomo.ui.graphics3d.collision.*;
 import com.nttdocomo.ui.util3d.Vector3D;
 
 public final class CollisionPlaneSweepObserverProbe {

@@ -1,7 +1,6 @@
 package opendoja.host;
 
-import java.awt.Dimension;
-import java.awt.Rectangle;
+import java.awt.*;
 
 public record ExternalFrameLayout(
         boolean enabled,

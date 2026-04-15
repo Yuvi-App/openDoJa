@@ -5,7 +5,7 @@ import com.nttdocomo.opt.ui.j3d.PrimitiveArray;
 import opendoja.g3d.Software3DContext;
 import opendoja.g3d.SoftwareTexture;
 
-import java.awt.Graphics2D;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 
 /**

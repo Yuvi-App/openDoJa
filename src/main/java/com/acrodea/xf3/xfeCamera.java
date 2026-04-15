@@ -1,8 +1,8 @@
 package com.acrodea.xf3;
 
-import com.acrodea.xf3.math.xfRectangleInt;
 import com.acrodea.xf3.math.xfMath;
 import com.acrodea.xf3.math.xfMatrix4;
+import com.acrodea.xf3.math.xfRectangleInt;
 
 public class xfeCamera extends xfeGroup {
     private final xfePreferredView preferredView = new xfePreferredView();

@@ -1,9 +1,9 @@
 package opendoja.probes;
 
-import com.nttdocomo.ui.MediaImage;
-import com.nttdocomo.ui.MediaManager;
 import com.nttdocomo.ui.Graphics;
 import com.nttdocomo.ui.Image;
+import com.nttdocomo.ui.MediaImage;
+import com.nttdocomo.ui.MediaManager;
 import opendoja.host.DoJaRuntime;
 import opendoja.host.LaunchConfig;
 

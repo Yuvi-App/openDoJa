@@ -1,37 +1,17 @@
 package com.nttdocomo.ui;
 
 import com.nttdocomo.lang.XString;
-import com.nttdocomo.ui.ogl.ByteBuffer;
 import com.nttdocomo.ui.ogl.DirectBuffer;
-import com.nttdocomo.ui.ogl.DirectBufferFactory;
-import com.nttdocomo.ui.ogl.FloatBuffer;
-import com.nttdocomo.ui.ogl.IntBuffer;
-import com.nttdocomo.ui.ogl.ShortBuffer;
-import opendoja.host.DesktopSurface;
 import opendoja.g3d.DojaGraphics3DRenderer;
 import opendoja.g3d.OptJ3DRenderer;
-import opendoja.host.DoJaRuntime;
-import opendoja.host.OpenDoJaLog;
-import opendoja.host.OpenDoJaLaunchArgs;
-import opendoja.host.OpenGlesRendererMode;
+import opendoja.host.*;
 import opendoja.host.ogl.AcrodeaOglRenderer;
 import opendoja.host.ogl.OglRenderer;
 
-import java.awt.AlphaComposite;
-import java.awt.Color;
-import java.awt.Composite;
-import java.awt.Graphics2D;
-import java.awt.Rectangle;
-import java.awt.RenderingHints;
-import java.awt.Shape;
+import java.awt.*;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
-import java.util.ArrayDeque;
-import java.util.Arrays;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.function.Consumer;
 
 /**

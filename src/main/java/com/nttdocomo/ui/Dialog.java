@@ -2,7 +2,7 @@ package com.nttdocomo.ui;
 
 import com.nttdocomo.lang.UnsupportedOperationException;
 
-import javax.swing.JOptionPane;
+import javax.swing.*;
 
 /**
  * Defines a dialog.

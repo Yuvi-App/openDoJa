@@ -1,21 +1,11 @@
 package com.acrodea.xf3;
 
-import com.acrodea.xf3.math.xfRectangleInt;
 import com.acrodea.xf3.math.xfMath;
 import com.acrodea.xf3.math.xfMatrix4;
-import com.nttdocomo.ui.Display;
-import com.nttdocomo.ui.Graphics;
-import com.nttdocomo.ui.Image;
-import com.nttdocomo.ui.MediaManager;
-import com.nttdocomo.ui.UIException;
+import com.acrodea.xf3.math.xfRectangleInt;
+import com.nttdocomo.ui.*;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.IdentityHashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class xfeRoot extends xfeSubTree {
     private static final int DEFAULT_TINT = 0xFFFFFFFF;

@@ -8,12 +8,11 @@ import opendoja.host.DoJaRuntime;
 import opendoja.host.LaunchConfig;
 import opendoja.host.OpenDoJaLaunchArgs;
 
-import javax.swing.SwingUtilities;
-import java.awt.Dimension;
-import java.awt.Rectangle;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.KeyEvent;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.List;
 

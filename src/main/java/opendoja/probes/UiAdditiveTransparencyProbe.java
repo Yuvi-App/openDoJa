@@ -1,9 +1,9 @@
 package opendoja.probes;
 
-import com.nttdocomo.ui.Graphics;
-import com.nttdocomo.ui.Image;
 import com.nttdocomo.opt.ui.j3d.Graphics3D;
 import com.nttdocomo.opt.ui.j3d.PrimitiveArray;
+import com.nttdocomo.ui.Graphics;
+import com.nttdocomo.ui.Image;
 import com.nttdocomo.ui.graphics3d.DrawableObject3D;
 import com.nttdocomo.ui.graphics3d.Primitive;
 import com.nttdocomo.ui.util3d.Transform;

@@ -4,12 +4,12 @@ import opendoja.audio.mld.MLDSynth;
 import opendoja.host.OpenDoJaIdentity;
 import opendoja.host.OpenDoJaLaunchArgs;
 
-import java.awt.Component;
+import javax.swing.*;
+import java.awt.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Locale;
-import javax.swing.JOptionPane;
 
 final class LauncherSettingsController {
     private final KeybindSettingsController keybindSettingsController = new KeybindSettingsController();

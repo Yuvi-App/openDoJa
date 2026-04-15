@@ -8,11 +8,7 @@ import opendoja.host.OpenDoJaLog;
 
 import javax.microedition.io.ConnectionNotFoundException;
 import javax.microedition.io.Connector;
-import java.io.DataInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.PrintStream;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;

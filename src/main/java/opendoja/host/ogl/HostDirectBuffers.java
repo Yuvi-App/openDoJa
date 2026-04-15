@@ -1,10 +1,6 @@
 package opendoja.host.ogl;
 
-import com.nttdocomo.ui.ogl.ByteBuffer;
-import com.nttdocomo.ui.ogl.DirectBufferFactory;
-import com.nttdocomo.ui.ogl.FloatBuffer;
-import com.nttdocomo.ui.ogl.IntBuffer;
-import com.nttdocomo.ui.ogl.ShortBuffer;
+import com.nttdocomo.ui.ogl.*;
 import com.nttdocomo.ui.ogl.math.Matrix4f;
 
 public final class HostDirectBuffers {

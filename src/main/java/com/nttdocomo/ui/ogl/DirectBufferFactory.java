@@ -1,13 +1,7 @@
 package com.nttdocomo.ui.ogl;
 
 import com.nttdocomo.ui.ogl.math.Matrix4f;
-import opendoja.host.ogl.HostDirectBuffers.HostByteBuffer;
-import opendoja.host.ogl.HostDirectBuffers.HostDirectBufferBase;
-import opendoja.host.ogl.HostDirectBuffers.HostFloatBuffer;
-import opendoja.host.ogl.HostDirectBuffers.HostIntBuffer;
-import opendoja.host.ogl.HostDirectBuffers.HostShortBuffer;
-
-import java.nio.ByteOrder;
+import opendoja.host.ogl.HostDirectBuffers.*;
 
 /**
  * Allocates direct buffers for the DoJa OpenGL utility APIs.

@@ -1,9 +1,9 @@
 package opendoja.probes;
 
-import com.acrodea.xf3.xfeCamera;
-import com.acrodea.xf3.xfeGroup;
 import com.acrodea.xf3.math.xfMatrix4;
 import com.acrodea.xf3.math.xfVector3;
+import com.acrodea.xf3.xfeCamera;
+import com.acrodea.xf3.xfeGroup;
 import com.nttdocomo.ui.Display;
 import com.nttdocomo.ui.Frame;
 import com.nttdocomo.ui.ogl.math.Matrix4f;
@@ -11,15 +11,15 @@ import com.nttdocomo.ui.ogl.math.Point4f;
 import opendoja.host.DoJaRuntime;
 import opendoja.host.JamLauncher;
 
-import java.lang.reflect.Field;
+import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import javax.imageio.ImageIO;
 
 public final class BowlingStateProbe {
     private BowlingStateProbe() {

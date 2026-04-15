@@ -2,7 +2,6 @@ package com.nttdocomo.io;
 
 import opendoja.host.DoJaEncoding;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.file.Files;

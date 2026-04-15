@@ -1,7 +1,5 @@
 package opendoja.probes;
 
-import opendoja.host.DoJaRuntime;
-
 public final class DoJaRuntimeWindowLifecycleProbe {
     private DoJaRuntimeWindowLifecycleProbe() {
     }

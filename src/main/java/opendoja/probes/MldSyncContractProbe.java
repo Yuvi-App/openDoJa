@@ -1,11 +1,6 @@
 package opendoja.probes;
 
-import opendoja.audio.mld.MLD;
-import opendoja.audio.mld.MLDEvent;
-import opendoja.audio.mld.MLDPlayer;
-import opendoja.audio.mld.MLDPlayerEvent;
-import opendoja.audio.mld.MLDSynth;
-import opendoja.audio.mld.SamplerProvider;
+import opendoja.audio.mld.*;
 
 import java.lang.reflect.Field;
 import java.nio.file.Files;

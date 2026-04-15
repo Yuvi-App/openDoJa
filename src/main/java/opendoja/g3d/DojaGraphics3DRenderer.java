@@ -1,19 +1,11 @@
 package opendoja.g3d;
 
-import com.nttdocomo.ui.graphics3d.DrawableObject3D;
-import com.nttdocomo.ui.graphics3d.Figure;
-import com.nttdocomo.ui.graphics3d.Fog;
-import com.nttdocomo.ui.graphics3d.Group;
-import com.nttdocomo.ui.graphics3d.Light;
-import com.nttdocomo.ui.graphics3d.Object3D;
-import com.nttdocomo.ui.graphics3d.Primitive;
-import com.nttdocomo.ui.graphics3d._Graphics3DInternalAccess;
-import com.nttdocomo.ui.graphics3d._PrimitiveRenderStateAccess;
+import com.nttdocomo.ui.graphics3d.*;
 import com.nttdocomo.ui.util3d.Transform;
 import com.nttdocomo.ui.util3d._TransformInternalAccess;
 import opendoja.host.OpenDoJaLog;
 
-import java.awt.Graphics2D;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.Arrays;
 

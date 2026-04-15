@@ -2,16 +2,10 @@ package opendoja.probes;
 
 import com.acrodea.xf3.def.xfeDefaultHWAcceleratedGameGraphFactory;
 import com.acrodea.xf3.def.xfeDefaultXF2Loader;
-import com.acrodea.xf3.xfeActor;
-import com.acrodea.xf3.xfeCamera;
-import com.acrodea.xf3.xfeGameGraphNodeIterator;
-import com.acrodea.xf3.xfeGroup;
-import com.acrodea.xf3.xfeNode;
-import com.acrodea.xf3.xfeNodeList;
-import com.acrodea.xf3.xfeRoot;
 import com.acrodea.xf3.loader.xfeXF2Context;
 import com.acrodea.xf3.loader.xfeXF2Reader;
 import com.acrodea.xf3.math.xfMatrix4;
+import com.acrodea.xf3.*;
 
 public final class Xf2DumpProbe {
     private Xf2DumpProbe() {

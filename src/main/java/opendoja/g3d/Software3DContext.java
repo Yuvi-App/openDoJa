@@ -3,12 +3,7 @@ package opendoja.g3d;
 import com.nttdocomo.opt.ui.j3d.PrimitiveArray;
 import opendoja.host.OpenDoJaLog;
 
-import java.awt.AlphaComposite;
-import java.awt.Color;
-import java.awt.Composite;
-import java.awt.Graphics2D;
-import java.awt.Rectangle;
-import java.awt.Shape;
+import java.awt.*;
 import java.awt.geom.Path2D;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;

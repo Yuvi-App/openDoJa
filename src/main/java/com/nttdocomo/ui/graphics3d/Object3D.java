@@ -1,7 +1,6 @@
 package com.nttdocomo.ui.graphics3d;
 
 import opendoja.g3d.D4ObjectLoader;
-import opendoja.g3d.MascotActionTableData;
 import opendoja.g3d.MascotFigure;
 import opendoja.g3d.MascotLoader;
 import opendoja.g3d.SoftwareTexture;

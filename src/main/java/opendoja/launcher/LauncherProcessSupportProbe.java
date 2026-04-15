@@ -2,11 +2,11 @@ package opendoja.launcher;
 
 import com.nttdocomo.ui.IApplication;
 import com.nttdocomo.ui.Image;
+import opendoja.audio.mld.MLDSynth;
 import opendoja.host.DoJaEncoding;
+import opendoja.host.LaunchConfig;
 import opendoja.host.OpenDoJaIdentity;
 import opendoja.host.OpenGlesRendererMode;
-import opendoja.host.LaunchConfig;
-import opendoja.audio.mld.MLDSynth;
 
 import java.net.URI;
 import java.nio.charset.Charset;

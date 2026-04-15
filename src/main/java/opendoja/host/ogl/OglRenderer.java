@@ -1,37 +1,12 @@
 package opendoja.host.ogl;
 
-import com.jogamp.opengl.GL;
-import com.jogamp.opengl.GL2;
-import com.jogamp.opengl.GLCapabilities;
-import com.jogamp.opengl.GLContext;
-import com.jogamp.opengl.GLDrawableFactory;
-import com.jogamp.opengl.GLOffscreenAutoDrawable;
-import com.jogamp.opengl.GLProfile;
-import com.nttdocomo.ui.ogl.ByteBuffer;
-import com.nttdocomo.ui.ogl.DirectBuffer;
-import com.nttdocomo.ui.ogl.DirectBufferFactory;
-import com.nttdocomo.ui.ogl.FloatBuffer;
-import com.nttdocomo.ui.ogl.GraphicsOGL;
-import com.nttdocomo.ui.ogl.IntBuffer;
-import com.nttdocomo.ui.ogl.ShortBuffer;
+import com.nttdocomo.ui.ogl.*;
 import opendoja.host.DesktopSurface;
 import opendoja.host.OpenDoJaLaunchArgs;
-import opendoja.host.OpenDoJaLog;
 import opendoja.host.OpenGlesRendererMode;
 
-import java.awt.Color;
-import java.awt.Graphics2D;
-import java.awt.Rectangle;
-import java.awt.Shape;
-import java.awt.image.BufferedImage;
-import java.awt.image.DataBufferInt;
-import java.nio.ByteOrder;
-import java.util.ArrayDeque;
-import java.util.Arrays;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.awt.*;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -62,8 +37,8 @@ public class OglRenderer {
     private final ClipVector clipVectorTemp = new ClipVector();
     private final ClipVector eyeVectorTemp = new ClipVector();
     private final ClipVector normalVectorTemp = new ClipVector();
-    private final DrawScratch drawScratch = new DrawScratch();
-    private final HardwareBackend hardware = new HardwareBackend();
+    private final OglSoftwareRenderer software = new OglSoftwareRenderer(this);
+    private final OglHardwareBackend hardware = new OglHardwareBackend(this);
 
     public OglRenderer(Host host) {
         this.host = Objects.requireNonNull(host, "host");
@@ -71,6 +46,26 @@ public class OglRenderer {
         ogl.viewportY = 0;
         ogl.viewportWidth = host.surface().width();
         ogl.viewportHeight = host.surface().height();
+    }
+
+    Host host() {
+        return host;
+    }
+
+    OglState oglState() {
+        return ogl;
+    }
+
+    int oglClearColor() {
+        return oglClearColor;
+    }
+
+    ClipVector eyeVectorTemp() {
+        return eyeVectorTemp;
+    }
+
+    ClipVector normalVectorTemp() {
+        return normalVectorTemp;
     }
 
     public void close() {
@@ -1208,235 +1203,11 @@ private void drawOgl(int mode, int first, int count, OglIndexSource indexSource)
     }
     hardware.flush();
     host.onSoftwareSurfaceMutation();
-    int primitiveCount = count;
-    if (indexSource != null) {
-        primitiveCount = Math.min(Math.max(0, count), indexSource.elementCount());
-    }
-    DrawScratch scratch = drawScratch;
-    scratch.beginDraw(indexSource != null, primitiveCount);
-    Rectangle clip = host.delegate().getClipBounds();
-    BufferedImage target = host.surface().image();
-    int[] pixels = ((DataBufferInt) target.getRaster().getDataBuffer()).getData();
-    float[] depthBuffer = host.surface().depthBufferForFrame();
-    RasterVertex scratch0 = scratch.scratch0;
-    RasterVertex scratch1 = scratch.scratch1;
-    RasterVertex scratch2 = scratch.scratch2;
-    RasterVertex[] clipInput = scratch.clipInput;
-    RasterVertex[] clipScratch = scratch.clipScratch;
-    RasterVertex project0 = scratch.project0;
-    RasterVertex project1 = scratch.project1;
-    RasterVertex project2 = scratch.project2;
-    ClipVector clip0 = scratch.clip0;
-    ClipVector clip1 = scratch.clip1;
-    switch (mode) {
-        case GraphicsOGL.GL_TRIANGLES -> {
-            for (int i = 0; i + 2 < primitiveCount; i += 3) {
-                if (!populateRasterVertex(scratch0, clip0, resolveVertexIndex(first, indexSource, i))
-                        || !populateRasterVertex(scratch1, clip1, resolveVertexIndex(first, indexSource, i + 1))
-                        || !populateRasterVertex(scratch2, clip0, resolveVertexIndex(first, indexSource, i + 2))) {
-                    continue;
-                }
-                drawRasterTriangle(scratch0, scratch1, scratch2, pixels, depthBuffer, clip, target.getWidth(), target.getHeight(),
-                        clipInput, clipScratch, project0, project1, project2);
-            }
-        }
-        case GraphicsOGL.GL_TRIANGLE_STRIP -> {
-            if (primitiveCount < 3) {
-                return;
-            }
-            if (!populateRasterVertex(scratch0, clip0, resolveVertexIndex(first, indexSource, 0))
-                    || !populateRasterVertex(scratch1, clip1, resolveVertexIndex(first, indexSource, 1))) {
-                return;
-            }
-            RasterVertex previous0 = scratch0;
-            RasterVertex previous1 = scratch1;
-            RasterVertex next = scratch2;
-            ClipVector nextClip = clip0;
-            for (int i = 2; i < primitiveCount; i++) {
-                if (!populateRasterVertex(next, nextClip, resolveVertexIndex(first, indexSource, i))) {
-                    continue;
-                }
-                RasterVertex v0 = previous0;
-                RasterVertex v1 = previous1;
-                RasterVertex v2 = next;
-                if ((i & 1) != 0) {
-                    RasterVertex swap = v1;
-                    v1 = v0;
-                    v0 = swap;
-                }
-                drawRasterTriangle(v0, v1, v2, pixels, depthBuffer, clip, target.getWidth(), target.getHeight(),
-                        clipInput, clipScratch, project0, project1, project2);
-                previous0 = previous1;
-                previous1 = next;
-                next = v0;
-                nextClip = next == scratch0 ? clip0 : clip1;
-            }
-        }
-        case GraphicsOGL.GL_LINE_LOOP ->
-                drawLineLoop(first, primitiveCount, indexSource, clip, target.getWidth(), target.getHeight(),
-                        scratch0, scratch1, scratch2, clip0, clip1);
-        default -> ogl.lastError = GraphicsOGL.GL_INVALID_ENUM;
-    }
+    software.draw(mode, first, count, indexSource);
 }
 
-private int resolveVertexIndex(int first, OglIndexSource elementIndices, int primitiveIndex) {
-    if (elementIndices == null) {
-        return first + primitiveIndex;
-    }
-    int index = elementIndices.indexAt(primitiveIndex);
-    if (index < 0) {
-        ogl.lastError = GraphicsOGL.GL_INVALID_VALUE;
-        return 0;
-    }
-    return index;
-}
-
-private boolean populateRasterVertex(RasterVertex targetVertex, ClipVector clipVector, int vertexIndex) {
-    if (drawScratch.tryLoadCachedVertex(vertexIndex, targetVertex)) {
-        return true;
-    }
-    OglPointer vertexPointer = ogl.vertexPointer;
-    if (vertexPointer == null) {
-        return false;
-    }
-    if (vertexPointer.type() != GraphicsOGL.GL_FLOAT) {
-        ogl.lastError = GraphicsOGL.GL_INVALID_ENUM;
-        return false;
-    }
-    int positionSize = Math.max(1, vertexPointer.size());
-    float x = readFloatComponent(vertexPointer, vertexIndex, 0);
-    if (ogl.lastError != GraphicsOGL.GL_NO_ERROR) {
-        return false;
-    }
-    float y = positionSize > 1 ? readFloatComponent(vertexPointer, vertexIndex, 1) : 0f;
-    if (ogl.lastError != GraphicsOGL.GL_NO_ERROR) {
-        return false;
-    }
-    float z = positionSize > 2 ? readFloatComponent(vertexPointer, vertexIndex, 2) : 0f;
-    if (ogl.lastError != GraphicsOGL.GL_NO_ERROR) {
-        return false;
-    }
-    float u = 0f;
-    float v = 0f;
-    OglPointer texCoordPointer = ogl.texCoordArrayEnabled
-            ? ogl.texCoordPointer
-            : null;
-    if (texCoordPointer != null) {
-        if (texCoordPointer.type() != GraphicsOGL.GL_FLOAT) {
-            ogl.lastError = GraphicsOGL.GL_INVALID_ENUM;
-            return false;
-        }
-        int texSize = Math.max(1, texCoordPointer.size());
-        u = readFloatComponent(texCoordPointer, vertexIndex, 0);
-        if (ogl.lastError != GraphicsOGL.GL_NO_ERROR) {
-            return false;
-        }
-        if (texSize > 1) {
-            v = readFloatComponent(texCoordPointer, vertexIndex, 1);
-            if (ogl.lastError != GraphicsOGL.GL_NO_ERROR) {
-                return false;
-            }
-        }
-    }
-    boolean useExtensionMatrices = positionSize >= 3 && ogl.usesExtensionMatrices();
-    transformVertex(clipVector, eyeVectorTemp, x, y, z, vertexIndex, useExtensionMatrices);
-    float w = Math.abs(clipVector.w) < 0.000001f ? (clipVector.w < 0f ? -0.000001f : 0.000001f) : clipVector.w;
-    float ndcX = clipVector.x / w;
-    float ndcY = clipVector.y / w;
-    float ndcZ = clipVector.z / w;
-    float windowDepth = ogl.depthRangeNear + (((ndcZ + 1f) * 0.5f) * (ogl.depthRangeFar - ogl.depthRangeNear));
-    float depth = 1f - windowDepth;
-    float reciprocalW = 1f / Math.max(0.000001f, Math.abs(w));
-    int primaryColor = resolvePrimaryColor(vertexIndex);
-    if (ogl.lastError != GraphicsOGL.GL_NO_ERROR) {
-        return false;
-    }
-    int backColor = primaryColor;
-    if (ogl.lightingEnabled()) {
-        int sourceColor = primaryColor;
-        primaryColor = resolveLitColor(vertexIndex, eyeVectorTemp, sourceColor, false);
-        if (ogl.lastError != GraphicsOGL.GL_NO_ERROR) {
-            return false;
-        }
-        backColor = ogl.lightModelTwoSide
-                ? resolveLitColor(vertexIndex, eyeVectorTemp, sourceColor, true)
-                : primaryColor;
-        if (ogl.lastError != GraphicsOGL.GL_NO_ERROR) {
-            return false;
-        }
-    }
-    targetVertex.set(
-            clipVector.x,
-            clipVector.y,
-            clipVector.z,
-            clipVector.w,
-            viewportX(ndcX),
-            viewportY(ndcY),
-            depth,
-            reciprocalW,
-            u,
-            v,
-            primaryColor,
-            backColor
-    );
-    drawScratch.cacheVertex(vertexIndex, targetVertex);
-    return true;
-}
-
-private int resolvePrimaryColor(int vertexIndex) {
-    if (!ogl.colorArrayEnabled || ogl.colorPointer == null) {
-        return ogl.color;
-    }
-    OglPointer colorPointer = ogl.colorPointer;
-    if (colorPointer.type() != GraphicsOGL.GL_UNSIGNED_BYTE) {
-        ogl.lastError = GraphicsOGL.GL_INVALID_ENUM;
-        return 0;
-    }
-    int red = colorPointer.size() > 0 ? readUnsignedByteComponent(colorPointer, vertexIndex, 0) : 255;
-    if (ogl.lastError != GraphicsOGL.GL_NO_ERROR) {
-        return 0;
-    }
-    int green = colorPointer.size() > 1 ? readUnsignedByteComponent(colorPointer, vertexIndex, 1) : red;
-    if (ogl.lastError != GraphicsOGL.GL_NO_ERROR) {
-        return 0;
-    }
-    int blue = colorPointer.size() > 2 ? readUnsignedByteComponent(colorPointer, vertexIndex, 2) : red;
-    if (ogl.lastError != GraphicsOGL.GL_NO_ERROR) {
-        return 0;
-    }
-    int alpha = colorPointer.size() > 3 ? readUnsignedByteComponent(colorPointer, vertexIndex, 3) : 255;
-    if (ogl.lastError != GraphicsOGL.GL_NO_ERROR) {
-        return 0;
-    }
-    return (alpha << 24) | (red << 16) | (green << 8) | blue;
-}
-
-private int resolveLitColor(int vertexIndex, ClipVector eyePosition, int sourceColor, boolean backFace) {
-    float sourceRed = packedComponent(sourceColor, 0);
-    float sourceGreen = packedComponent(sourceColor, 1);
-    float sourceBlue = packedComponent(sourceColor, 2);
-    float sourceAlpha = packedComponent(sourceColor, 3);
-    boolean colorMaterial = ogl.colorMaterialTracksAmbientAndDiffuse();
-    float ambientRed = colorMaterial ? sourceRed : ogl.materialAmbient[0];
-    float ambientGreen = colorMaterial ? sourceGreen : ogl.materialAmbient[1];
-    float ambientBlue = colorMaterial ? sourceBlue : ogl.materialAmbient[2];
-    float diffuseRed = colorMaterial ? sourceRed : ogl.materialDiffuse[0];
-    float diffuseGreen = colorMaterial ? sourceGreen : ogl.materialDiffuse[1];
-    float diffuseBlue = colorMaterial ? sourceBlue : ogl.materialDiffuse[2];
-    float diffuseAlpha = colorMaterial ? sourceAlpha : ogl.materialDiffuse[3];
-    resolveEyeNormal(normalVectorTemp, vertexIndex, backFace);
-    if (ogl.lastError != GraphicsOGL.GL_NO_ERROR) {
-        return 0;
-    }
-    return computeLightingColor(eyePosition, normalVectorTemp.x, normalVectorTemp.y, normalVectorTemp.z,
-            ambientRed, ambientGreen, ambientBlue,
-            diffuseRed, diffuseGreen, diffuseBlue, diffuseAlpha,
-            ogl.materialSpecular[0], ogl.materialSpecular[1], ogl.materialSpecular[2],
-            ogl.materialEmission[0], ogl.materialEmission[1], ogl.materialEmission[2],
-            ogl.materialShininess);
-}
-
-private void transformVertex(ClipVector target, ClipVector eyeTarget, float x, float y, float z, int vertexIndex, boolean useExtensionMatrices) {
+    // Shared transform and buffer-decoding helpers used by both backends.
+void transformVertex(ClipVector target, ClipVector eyeTarget, float x, float y, float z, int vertexIndex, boolean useExtensionMatrices) {
     if (ogl.usesMatrixPalette()) {
         float eyeX = 0f;
         float eyeY = 0f;
@@ -1485,7 +1256,7 @@ private void transformVertex(ClipVector target, ClipVector eyeTarget, float x, f
     multiply(target, ogl.projectionMatrix, eyeTarget.x, eyeTarget.y, eyeTarget.z, eyeTarget.w);
 }
 
-private void transformNormal(ClipVector target, float nx, float ny, float nz, int vertexIndex) {
+void transformNormal(ClipVector target, float nx, float ny, float nz, int vertexIndex) {
     if (ogl.usesMatrixPalette()) {
         float eyeNx = 0f;
         float eyeNy = 0f;
@@ -1554,7 +1325,7 @@ private void transformNormalByMatrix(float[] normalMatrix, boolean valid, float 
     }
 }
 
-private void resolveEyeNormal(ClipVector target, int vertexIndex, boolean backFace) {
+void resolveEyeNormal(ClipVector target, int vertexIndex, boolean backFace) {
     float nx;
     float ny;
     float nz;
@@ -1596,7 +1367,7 @@ private void resolveEyeNormal(ClipVector target, int vertexIndex, boolean backFa
     }
 }
 
-private int computeLightingColor(ClipVector eyePosition, float normalX, float normalY, float normalZ,
+int computeLightingColor(ClipVector eyePosition, float normalX, float normalY, float normalZ,
                                  float ambientRed, float ambientGreen, float ambientBlue,
                                  float diffuseRed, float diffuseGreen, float diffuseBlue, float diffuseAlpha,
                                  float specularRed, float specularGreen, float specularBlue,
@@ -1703,7 +1474,7 @@ private int computeLightingColor(ClipVector eyePosition, float normalX, float no
     return packColor(red, green, blue, diffuseAlpha);
 }
 
-private float readFloatComponent(OglPointer pointer, int vertexIndex, int componentIndex) {
+float readFloatComponent(OglPointer pointer, int vertexIndex, int componentIndex) {
     int byteOffset = pointer.componentByteOffset(vertexIndex, componentIndex);
     if (pointer.bufferObject() != null) {
         return readFloat(pointer.bufferObject().data(), byteOffset);
@@ -1736,7 +1507,7 @@ private float readFloatComponent(OglPointer pointer, int vertexIndex, int compon
     return 0f;
 }
 
-private float readNormalComponent(OglPointer pointer, int vertexIndex, int componentIndex) {
+float readNormalComponent(OglPointer pointer, int vertexIndex, int componentIndex) {
     int byteOffset = pointer.componentByteOffset(vertexIndex, componentIndex);
     if (pointer.bufferObject() != null) {
         return readTypedFloat(pointer.type(), pointer.bufferObject().data(), byteOffset);
@@ -1752,7 +1523,7 @@ private float readNormalComponent(OglPointer pointer, int vertexIndex, int compo
     };
 }
 
-private int readUnsignedByteComponent(OglPointer pointer, int vertexIndex, int componentIndex) {
+int readUnsignedByteComponent(OglPointer pointer, int vertexIndex, int componentIndex) {
     int byteOffset = pointer.componentByteOffset(vertexIndex, componentIndex);
     if (pointer.bufferObject() != null) {
         return readUnsignedByte(pointer.bufferObject().data(), byteOffset);
@@ -1872,7 +1643,7 @@ private float readFloat(byte[] data, int byteOffset) {
     return Float.intBitsToFloat(bits);
 }
 
-private void drawRasterTriangle(RasterVertex v0, RasterVertex v1, RasterVertex v2, int[] pixels, float[] depthBuffer,
+void drawRasterTriangle(RasterVertex v0, RasterVertex v1, RasterVertex v2, int[] pixels, float[] depthBuffer,
                                 Rectangle clip, int width, int height, RasterVertex[] clipInput,
                                 RasterVertex[] clipScratch, RasterVertex project0, RasterVertex project1,
                                 RasterVertex project2) {
@@ -1966,7 +1737,7 @@ private RasterVertex projectClipVertex(RasterVertex projected, RasterVertex clip
     return projected;
 }
 
-private static RasterVertex[] createRasterVertexArray(int length) {
+static RasterVertex[] createRasterVertexArray(int length) {
     RasterVertex[] vertices = new RasterVertex[length];
     for (int i = 0; i < vertices.length; i++) {
         vertices[i] = new RasterVertex();
@@ -1974,11 +1745,11 @@ private static RasterVertex[] createRasterVertexArray(int length) {
     return vertices;
 }
 
-private float viewportX(float ndcX) {
+float viewportX(float ndcX) {
     return ogl.viewportX + (((ndcX + 1f) * 0.5f) * ogl.viewportWidth);
 }
 
-private float viewportY(float ndcY) {
+float viewportY(float ndcY) {
     float bottomLeftY = ogl.viewportY + (((ndcY + 1f) * 0.5f) * ogl.viewportHeight);
     return host.surface().height() - bottomLeftY;
 }
@@ -2076,13 +1847,13 @@ private void rasterizeProjectedTriangle(RasterVertex v0, RasterVertex v1, Raster
     }
 }
 
-private void drawLineLoop(int first, int primitiveCount, OglIndexSource elementIndices, Rectangle clip, int width, int height,
+void drawLineLoop(int first, int primitiveCount, OglIndexSource elementIndices, Rectangle clip, int width, int height,
                           RasterVertex firstVertex, RasterVertex previousVertex, RasterVertex currentVertex,
                           ClipVector clip0, ClipVector clip1) {
     if (primitiveCount < 2) {
         return;
     }
-    if (!populateRasterVertex(firstVertex, clip0, resolveVertexIndex(first, elementIndices, 0))) {
+    if (!software.populateRasterVertex(firstVertex, clip0, software.resolveVertexIndex(first, elementIndices, 0))) {
         return;
     }
     previousVertex.copyFrom(firstVertex);
@@ -2094,7 +1865,7 @@ private void drawLineLoop(int first, int primitiveCount, OglIndexSource elementI
     }
     try {
         for (int i = 1; i < primitiveCount; i++) {
-            if (!populateRasterVertex(currentVertex, clip1, resolveVertexIndex(first, elementIndices, i))) {
+            if (!software.populateRasterVertex(currentVertex, clip1, software.resolveVertexIndex(first, elementIndices, i))) {
                 continue;
             }
             host.delegate().drawLine(clamp(Math.round(previousVertex.x), 0, width - 1),
@@ -2419,7 +2190,7 @@ private static float textureComponent(int packed, int channel, int baseFormat) {
     };
 }
 
-private static float packedComponent(int packed, int channel) {
+static float packedComponent(int packed, int channel) {
     int shift = switch (channel) {
         case 0 -> 16;
         case 1 -> 8;
@@ -2429,7 +2200,7 @@ private static float packedComponent(int packed, int channel) {
     return ((packed >>> shift) & 0xFF) / 255f;
 }
 
-private float[] unpackColor(int packed) {
+float[] unpackColor(int packed) {
     return new float[]{
             ((packed >>> 16) & 0xFF) / 255f,
             ((packed >>> 8) & 0xFF) / 255f,
@@ -2599,10 +2370,6 @@ private static int clamp(int value, int min, int max) {
     return Math.max(min, Math.min(max, value));
 }
 
-private interface HardwareGlCall {
-    boolean execute(GL2 gl);
-}
-
 private static final class SharedGlObjectStore {
     private final AtomicInteger nextTextureId = new AtomicInteger(1);
     private final AtomicInteger nextBufferId = new AtomicInteger(1);
@@ -2622,1059 +2389,7 @@ private static final class SharedGlObjectStore {
     }
 }
 
-private final class HardwareBackend {
-    private final Map<Integer, HardwareTexture> textureCache = new HashMap<>();
-    private GLOffscreenAutoDrawable drawable;
-    private boolean available;
-    private boolean failureLogged;
-    private boolean surfaceDirty = true;
-    private boolean readbackPending;
-    private int drawableWidth = -1;
-    private int drawableHeight = -1;
-    private int surfaceTextureId;
-    private int surfaceTextureWidth = -1;
-    private int surfaceTextureHeight = -1;
-    private java.nio.ByteBuffer readbackBuffer;
-    private java.nio.ByteBuffer surfaceUploadBuffer;
-    private java.nio.ByteBuffer textureUploadBuffer;
-    private float[] vertexScratch = new float[0];
-    private float[] normalScratch = new float[0];
-    private float[] texCoordScratch = new float[0];
-    private byte[] colorScratch = new byte[0];
-    private short[] indexScratch = new short[0];
-    private final float[] viewportProjectionScratch = new float[16];
-    private final float[] viewportTransformScratch = new float[16];
-    private java.nio.ByteBuffer vertexBufferBytes;
-    private java.nio.ByteBuffer normalBufferBytes;
-    private java.nio.ByteBuffer texCoordBufferBytes;
-    private java.nio.ByteBuffer colorBufferBytes;
-    private java.nio.ByteBuffer indexBufferBytes;
-    private int[] lastHardwareSnapshot;
-    private int[] outsideLockOverlaySnapshot;
-    private Rectangle outsideLockOverlayBounds;
-
-    boolean clear(int mask) {
-        if ((mask & (GraphicsOGL.GL_COLOR_BUFFER_BIT | GraphicsOGL.GL_DEPTH_BUFFER_BIT)) == 0) {
-            return true;
-        }
-        return withContext(gl -> {
-            prepareFramebuffer(gl);
-            applyViewportState(gl);
-            applyClipState(gl);
-            int glMask = 0;
-            if ((mask & GraphicsOGL.GL_COLOR_BUFFER_BIT) != 0) {
-                float[] clearColor = unpackColor(oglClearColor);
-                gl.glClearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
-                glMask |= GraphicsOGL.GL_COLOR_BUFFER_BIT;
-            }
-            if ((mask & GraphicsOGL.GL_DEPTH_BUFFER_BIT) != 0) {
-                gl.glDepthMask(true);
-                gl.glClearDepth(0d);
-                glMask |= GraphicsOGL.GL_DEPTH_BUFFER_BIT;
-            }
-            if (glMask != 0) {
-                gl.glClear(glMask);
-                if ((mask & GraphicsOGL.GL_DEPTH_BUFFER_BIT) != 0) {
-                    gl.glDepthMask(ogl.depthMask);
-                }
-                if ((mask & GraphicsOGL.GL_COLOR_BUFFER_BIT) != 0) {
-                    readbackPending = true;
-                }
-            }
-            return gl.glGetError() == GL.GL_NO_ERROR;
-        });
-    }
-
-    boolean draw(int mode, int first, int count, OglIndexSource indexSource) {
-        int primitiveCount = indexSource == null ? count : Math.min(Math.max(0, count), indexSource.elementCount());
-        if (primitiveCount <= 0) {
-            return true;
-        }
-        int glMode = toHardwarePrimitiveMode(mode);
-        if (glMode == -1) {
-            return false;
-        }
-        PreparedArrayState arrayState = prepareArrayState(first, primitiveCount, indexSource);
-        if (arrayState == null) {
-            return false;
-        }
-        return withContext(gl -> {
-            prepareFramebuffer(gl);
-            applyClipState(gl);
-            applyViewportState(gl);
-            applyRenderState(gl, arrayState.emulateMatrixPalette());
-            applyTextureState(gl);
-            bindArrayState(gl, arrayState);
-            try {
-                if (arrayState.indexBuffer() == null) {
-                    gl.glDrawArrays(glMode, arrayState.drawFirst(), arrayState.drawCount());
-                } else {
-                    gl.glDrawElements(glMode, arrayState.drawCount(), GraphicsOGL.GL_UNSIGNED_SHORT, arrayState.indexBuffer());
-                }
-            } finally {
-                unbindArrayState(gl);
-            }
-            readbackPending = true;
-            return gl.glGetError() == GL.GL_NO_ERROR;
-        });
-    }
-
-    void endDrawing() {
-        flush();
-    }
-
-    void prepareForSoftwareMutation() {
-        if (readbackPending) {
-            flush();
-        }
-    }
-
-    void flush() {
-        if (!readbackPending) {
-            return;
-        }
-        withContext(gl -> {
-            gl.glFlush();
-            readBackColorBuffer(gl);
-            int[] currentHardwareSnapshot = copySurfacePixels(host.surface().image());
-            int overlayPixels = reapplyOutsideLockOverlay(lastHardwareSnapshot, outsideLockOverlaySnapshot);
-            readbackPending = false;
-            surfaceDirty = false;
-            lastHardwareSnapshot = currentHardwareSnapshot;
-            return true;
-        });
-    }
-
-    void onTextureDeleted(int textureId) {
-        HardwareTexture removed = textureCache.remove(textureId);
-        if (removed == null || removed.textureId() == 0) {
-            return;
-        }
-        withContext(gl -> {
-            gl.glDeleteTextures(1, new int[]{removed.textureId()}, 0);
-            return true;
-        });
-    }
-
-    void onSoftwareSurfaceMutation() {
-        surfaceDirty = true;
-    }
-
-    void onPresentedSoftwareOverlay(Rectangle bounds) {
-        outsideLockOverlaySnapshot = copySurfacePixels(host.surface().image());
-        Rectangle surfaceBounds = new Rectangle(0, 0, host.surface().width(), host.surface().height());
-        if (bounds != null) {
-            outsideLockOverlayBounds = bounds.intersection(surfaceBounds);
-        } else {
-            Rectangle clip = host.delegate().getClipBounds();
-            outsideLockOverlayBounds = clip == null ? surfaceBounds : clip.intersection(surfaceBounds);
-        }
-        surfaceDirty = true;
-    }
-
-    void onHostDelegateRecreated() {
-        surfaceDirty = true;
-    }
-
-    void close() {
-        if (drawable == null) {
-            textureCache.clear();
-            surfaceTextureId = 0;
-            surfaceTextureWidth = -1;
-            surfaceTextureHeight = -1;
-            readbackBuffer = null;
-            surfaceUploadBuffer = null;
-            textureUploadBuffer = null;
-            available = false;
-            return;
-        }
-        withContext(gl -> {
-            int[] textureIds = new int[textureCache.size() + (surfaceTextureId == 0 ? 0 : 1)];
-            int offset = 0;
-            for (HardwareTexture texture : textureCache.values()) {
-                if (texture.textureId() != 0) {
-                    textureIds[offset++] = texture.textureId();
-                }
-            }
-            if (surfaceTextureId != 0) {
-                textureIds[offset++] = surfaceTextureId;
-            }
-            if (offset > 0) {
-                gl.glDeleteTextures(offset, textureIds, 0);
-            }
-            return true;
-        });
-        drawable.destroy();
-        drawable = null;
-        textureCache.clear();
-        surfaceTextureId = 0;
-        surfaceTextureWidth = -1;
-        surfaceTextureHeight = -1;
-        readbackBuffer = null;
-        surfaceUploadBuffer = null;
-        textureUploadBuffer = null;
-        drawableWidth = -1;
-        drawableHeight = -1;
-        available = false;
-        surfaceDirty = true;
-        readbackPending = false;
-        lastHardwareSnapshot = null;
-        outsideLockOverlaySnapshot = null;
-        outsideLockOverlayBounds = null;
-    }
-
-    private boolean withContext(HardwareGlCall call) {
-        if (!ensureDrawable()) {
-            return false;
-        }
-        GLContext context = drawable.getContext();
-        boolean current = false;
-        try {
-            current = context.makeCurrent() != GLContext.CONTEXT_NOT_CURRENT;
-            if (!current) {
-                return false;
-            }
-            return call.execute(drawable.getGL().getGL2());
-        } catch (RuntimeException exception) {
-            available = false;
-            if (!failureLogged) {
-                failureLogged = true;
-                OpenDoJaLog.warn(OglRenderer.class, "OpenGLES hardware backend unavailable, falling back to software", exception);
-            }
-            return false;
-        } finally {
-            if (current) {
-                context.release();
-            }
-        }
-    }
-
-    private boolean ensureDrawable() {
-        int width = Math.max(1, host.surface().width());
-        int height = Math.max(1, host.surface().height());
-        if (available && drawable != null && drawableWidth == width && drawableHeight == height) {
-            return true;
-        }
-        if (drawable != null) {
-            drawable.destroy();
-            drawable = null;
-        }
-        try {
-            GLProfile profile = GLProfile.getMaxFixedFunc(true);
-            GLCapabilities capabilities = new GLCapabilities(profile);
-            capabilities.setOnscreen(false);
-            capabilities.setPBuffer(true);
-            capabilities.setDoubleBuffered(false);
-            capabilities.setAlphaBits(8);
-            capabilities.setDepthBits(24);
-            GLDrawableFactory factory = GLDrawableFactory.getFactory(profile);
-            drawable = factory.createOffscreenAutoDrawable(null, capabilities, null, width, height);
-            drawable.display();
-            drawableWidth = width;
-            drawableHeight = height;
-            available = true;
-            surfaceDirty = true;
-            readbackPending = false;
-            lastHardwareSnapshot = null;
-            return true;
-        } catch (RuntimeException exception) {
-            drawable = null;
-            drawableWidth = width;
-            drawableHeight = height;
-            available = false;
-            if (!failureLogged) {
-                failureLogged = true;
-                OpenDoJaLog.warn(OglRenderer.class, "Failed to initialize OpenGLES hardware backend", exception);
-            }
-            return false;
-        }
-    }
-
-    private PreparedArrayState prepareArrayState(int first, int primitiveCount, OglIndexSource indexSource) {
-        OglPointer vertexPointer = ogl.vertexPointer;
-        if (vertexPointer == null || vertexPointer.type() != GraphicsOGL.GL_FLOAT) {
-            return null;
-        }
-        boolean emulateMatrixPalette = ogl.usesMatrixPalette();
-        int vertexCount = indexSource == null ? primitiveCount : resolveVertexCount(primitiveCount, indexSource);
-        if (vertexCount <= 0) {
-            return null;
-        }
-        int vertexFloatCount = vertexCount * 4;
-        float[] vertexValues = ensureFloatArray(vertexScratch, vertexFloatCount);
-        vertexScratch = vertexValues;
-        int normalFloatCount = vertexCount * 3;
-        float[] normalValues = (ogl.lightingEnabled() || ogl.normalArrayEnabled)
-                ? ensureFloatArray(normalScratch, normalFloatCount) : null;
-        if (normalValues != null) {
-            normalScratch = normalValues;
-        }
-        int texCoordFloatCount = vertexCount * 2;
-        float[] texCoordValues = (ogl.texCoordArrayEnabled && ogl.texCoordPointer != null)
-                ? ensureFloatArray(texCoordScratch, texCoordFloatCount) : null;
-        if (texCoordValues != null) {
-            texCoordScratch = texCoordValues;
-        }
-        int colorByteCount = vertexCount * 4;
-        byte[] colorValues = (ogl.colorArrayEnabled && ogl.colorPointer != null)
-                ? ensureByteArray(colorScratch, colorByteCount) : null;
-        if (colorValues != null) {
-            colorScratch = colorValues;
-        }
-        ClipVector clip = emulateMatrixPalette ? new ClipVector() : null;
-        ClipVector eye = emulateMatrixPalette ? new ClipVector() : null;
-        ClipVector normal = (emulateMatrixPalette && normalValues != null) ? new ClipVector() : null;
-        int sourceBase = indexSource == null ? first : 0;
-        for (int i = 0; i < vertexCount; i++) {
-            int sourceVertexIndex = sourceBase + i;
-            populateHardwareVertex(vertexValues, i, sourceVertexIndex, emulateMatrixPalette, clip, eye);
-            if (ogl.lastError != GraphicsOGL.GL_NO_ERROR) {
-                return null;
-            }
-            if (texCoordValues != null) {
-                populateHardwareTexCoord(texCoordValues, i, sourceVertexIndex);
-                if (ogl.lastError != GraphicsOGL.GL_NO_ERROR) {
-                    return null;
-                }
-            }
-            if (colorValues != null) {
-                populateHardwareColor(colorValues, i, sourceVertexIndex);
-                if (ogl.lastError != GraphicsOGL.GL_NO_ERROR) {
-                    return null;
-                }
-            }
-            if (normalValues != null) {
-                populateHardwareNormal(normalValues, i, sourceVertexIndex, emulateMatrixPalette, normal);
-                if (ogl.lastError != GraphicsOGL.GL_NO_ERROR) {
-                    return null;
-                }
-            }
-        }
-        short[] indexValues = null;
-        if (indexSource != null) {
-            indexValues = ensureShortArray(indexScratch, primitiveCount);
-            indexScratch = indexValues;
-            for (int i = 0; i < primitiveCount; i++) {
-                indexValues[i] = (short) indexSource.indexAt(i);
-            }
-        }
-        return new PreparedArrayState(
-                toReusableFloatBuffer(vertexValues, vertexFloatCount, BufferType.VERTEX),
-                normalValues == null ? null : toReusableFloatBuffer(normalValues, normalFloatCount, BufferType.NORMAL),
-                texCoordValues == null ? null : toReusableFloatBuffer(texCoordValues, texCoordFloatCount, BufferType.TEX_COORD),
-                colorValues == null ? null : toReusableByteBuffer(colorValues, colorByteCount, BufferType.COLOR),
-                indexValues == null ? null : toReusableShortBuffer(indexValues, primitiveCount),
-                0,
-                primitiveCount,
-                emulateMatrixPalette
-        );
-    }
-
-    private void populateHardwareVertex(float[] destination, int vertexSlot, int sourceVertexIndex,
-                                        boolean emulateMatrixPalette, ClipVector clip, ClipVector eye) {
-        int positionSize = Math.max(1, ogl.vertexPointer.size());
-        float x = readFloatComponent(ogl.vertexPointer, sourceVertexIndex, 0);
-        float y = positionSize > 1 ? readFloatComponent(ogl.vertexPointer, sourceVertexIndex, 1) : 0f;
-        float z = positionSize > 2 ? readFloatComponent(ogl.vertexPointer, sourceVertexIndex, 2) : 0f;
-        float w = positionSize > 3 ? readFloatComponent(ogl.vertexPointer, sourceVertexIndex, 3) : 1f;
-        int destinationOffset = vertexSlot * 4;
-        if (emulateMatrixPalette) {
-            transformVertex(clip, eye, x, y, z, sourceVertexIndex, false);
-            destination[destinationOffset] = eye.x;
-            destination[destinationOffset + 1] = eye.y;
-            destination[destinationOffset + 2] = eye.z;
-            destination[destinationOffset + 3] = eye.w;
-            return;
-        }
-        destination[destinationOffset] = x;
-        destination[destinationOffset + 1] = y;
-        destination[destinationOffset + 2] = z;
-        destination[destinationOffset + 3] = w;
-    }
-
-    private void populateHardwareTexCoord(float[] destination, int vertexSlot, int sourceVertexIndex) {
-        OglPointer texCoordPointer = ogl.texCoordPointer;
-        if (texCoordPointer == null || texCoordPointer.type() != GraphicsOGL.GL_FLOAT) {
-            return;
-        }
-        int size = Math.max(1, texCoordPointer.size());
-        int destinationOffset = vertexSlot * 2;
-        destination[destinationOffset] = readFloatComponent(texCoordPointer, sourceVertexIndex, 0);
-        destination[destinationOffset + 1] = size > 1 ? readFloatComponent(texCoordPointer, sourceVertexIndex, 1) : 0f;
-    }
-
-    private void populateHardwareColor(byte[] destination, int vertexSlot, int sourceVertexIndex) {
-        OglPointer colorPointer = ogl.colorPointer;
-        if (colorPointer == null || colorPointer.type() != GraphicsOGL.GL_UNSIGNED_BYTE) {
-            return;
-        }
-        int size = Math.max(1, colorPointer.size());
-        int destinationOffset = vertexSlot * 4;
-        int red = readUnsignedByteComponent(colorPointer, sourceVertexIndex, 0);
-        int green = size > 1 ? readUnsignedByteComponent(colorPointer, sourceVertexIndex, 1) : red;
-        int blue = size > 2 ? readUnsignedByteComponent(colorPointer, sourceVertexIndex, 2) : red;
-        int alpha = size > 3 ? readUnsignedByteComponent(colorPointer, sourceVertexIndex, 3) : 255;
-        destination[destinationOffset] = (byte) red;
-        destination[destinationOffset + 1] = (byte) green;
-        destination[destinationOffset + 2] = (byte) blue;
-        destination[destinationOffset + 3] = (byte) alpha;
-    }
-
-    private void populateHardwareNormal(float[] destination, int vertexSlot, int sourceVertexIndex,
-                                        boolean emulateMatrixPalette, ClipVector normal) {
-        int destinationOffset = vertexSlot * 3;
-        if (emulateMatrixPalette) {
-            float nx = ogl.normalArrayEnabled && ogl.normalPointer != null
-                    ? readNormalComponent(ogl.normalPointer, sourceVertexIndex, 0)
-                    : ogl.currentNormal[0];
-            float ny = ogl.normalArrayEnabled && ogl.normalPointer != null
-                    ? readNormalComponent(ogl.normalPointer, sourceVertexIndex, 1)
-                    : ogl.currentNormal[1];
-            float nz = ogl.normalArrayEnabled && ogl.normalPointer != null
-                    ? readNormalComponent(ogl.normalPointer, sourceVertexIndex, 2)
-                    : ogl.currentNormal[2];
-            if (ogl.lastError != GraphicsOGL.GL_NO_ERROR) {
-                return;
-            }
-            transformNormal(normal, nx, ny, nz, sourceVertexIndex);
-            destination[destinationOffset] = normal.x;
-            destination[destinationOffset + 1] = normal.y;
-            destination[destinationOffset + 2] = normal.z;
-            return;
-        }
-        destination[destinationOffset] = ogl.normalArrayEnabled && ogl.normalPointer != null
-                ? readNormalComponent(ogl.normalPointer, sourceVertexIndex, 0)
-                : ogl.currentNormal[0];
-        destination[destinationOffset + 1] = ogl.normalArrayEnabled && ogl.normalPointer != null
-                ? readNormalComponent(ogl.normalPointer, sourceVertexIndex, 1)
-                : ogl.currentNormal[1];
-        destination[destinationOffset + 2] = ogl.normalArrayEnabled && ogl.normalPointer != null
-                ? readNormalComponent(ogl.normalPointer, sourceVertexIndex, 2)
-                : ogl.currentNormal[2];
-    }
-
-    private int resolveVertexCount(int primitiveCount, OglIndexSource indexSource) {
-        int maxIndex = -1;
-        for (int i = 0; i < primitiveCount; i++) {
-            maxIndex = Math.max(maxIndex, indexSource.indexAt(i));
-        }
-        return maxIndex + 1;
-    }
-
-    private int toHardwarePrimitiveMode(int mode) {
-        return switch (mode) {
-            case GraphicsOGL.GL_TRIANGLES -> GraphicsOGL.GL_TRIANGLES;
-            case GraphicsOGL.GL_TRIANGLE_STRIP -> GraphicsOGL.GL_TRIANGLE_STRIP;
-            case GraphicsOGL.GL_LINE_LOOP -> GraphicsOGL.GL_LINE_LOOP;
-            default -> -1;
-        };
-    }
-
-    private void prepareFramebuffer(GL2 gl) {
-        if (!surfaceDirty) {
-            return;
-        }
-        syncSoftwareSurface(gl);
-        surfaceDirty = false;
-    }
-
-    private void syncSoftwareSurface(GL2 gl) {
-        DesktopSurface surface = host.surface();
-        int width = surface.width();
-        int height = surface.height();
-        java.nio.ByteBuffer surfacePixels = toBgraByteBuffer(surface.image(), true, surfaceUploadBuffer);
-        surfaceUploadBuffer = surfacePixels;
-        if (surfaceTextureId == 0) {
-            int[] textureIds = new int[1];
-            gl.glGenTextures(1, textureIds, 0);
-            surfaceTextureId = textureIds[0];
-        }
-        gl.glBindTexture(GraphicsOGL.GL_TEXTURE_2D, surfaceTextureId);
-        gl.glTexParameteri(GraphicsOGL.GL_TEXTURE_2D, GraphicsOGL.GL_TEXTURE_MIN_FILTER, GraphicsOGL.GL_NEAREST);
-        gl.glTexParameteri(GraphicsOGL.GL_TEXTURE_2D, GraphicsOGL.GL_TEXTURE_MAG_FILTER, GraphicsOGL.GL_NEAREST);
-        gl.glTexParameteri(GraphicsOGL.GL_TEXTURE_2D, GraphicsOGL.GL_TEXTURE_WRAP_S, GraphicsOGL.GL_CLAMP_TO_EDGE);
-        gl.glTexParameteri(GraphicsOGL.GL_TEXTURE_2D, GraphicsOGL.GL_TEXTURE_WRAP_T, GraphicsOGL.GL_CLAMP_TO_EDGE);
-        gl.glPixelStorei(GraphicsOGL.GL_UNPACK_ALIGNMENT, 1);
-        if (surfaceTextureWidth != width || surfaceTextureHeight != height) {
-            gl.glTexImage2D(GraphicsOGL.GL_TEXTURE_2D, 0, GraphicsOGL.GL_RGBA, width, height, 0,
-                    GL2.GL_BGRA, GraphicsOGL.GL_UNSIGNED_BYTE, surfacePixels);
-            surfaceTextureWidth = width;
-            surfaceTextureHeight = height;
-        } else {
-            gl.glTexSubImage2D(GraphicsOGL.GL_TEXTURE_2D, 0, 0, 0, width, height,
-                    GL2.GL_BGRA, GraphicsOGL.GL_UNSIGNED_BYTE, surfacePixels);
-        }
-        gl.glDisable(GraphicsOGL.GL_SCISSOR_TEST);
-        gl.glViewport(0, 0, width, height);
-        gl.glMatrixMode(GraphicsOGL.GL_PROJECTION);
-        gl.glLoadIdentity();
-        gl.glMatrixMode(GraphicsOGL.GL_MODELVIEW);
-        gl.glLoadIdentity();
-        gl.glMatrixMode(GraphicsOGL.GL_TEXTURE);
-        gl.glLoadIdentity();
-        gl.glDisable(GraphicsOGL.GL_BLEND);
-        gl.glDisable(GraphicsOGL.GL_ALPHA_TEST);
-        gl.glDisable(GraphicsOGL.GL_LIGHTING);
-        gl.glDisable(GraphicsOGL.GL_CULL_FACE);
-        gl.glDisable(GraphicsOGL.GL_DEPTH_TEST);
-        gl.glDepthMask(false);
-        gl.glEnable(GraphicsOGL.GL_TEXTURE_2D);
-        gl.glTexEnvi(GraphicsOGL.GL_TEXTURE_ENV, GraphicsOGL.GL_TEXTURE_ENV_MODE, GraphicsOGL.GL_REPLACE);
-        gl.glColor4f(1f, 1f, 1f, 1f);
-        gl.glBegin(GraphicsOGL.GL_TRIANGLE_STRIP);
-        gl.glTexCoord2f(0f, 0f);
-        gl.glVertex2f(-1f, -1f);
-        gl.glTexCoord2f(1f, 0f);
-        gl.glVertex2f(1f, -1f);
-        gl.glTexCoord2f(0f, 1f);
-        gl.glVertex2f(-1f, 1f);
-        gl.glTexCoord2f(1f, 1f);
-        gl.glVertex2f(1f, 1f);
-        gl.glEnd();
-        clearOutsideLockOverlay();
-    }
-
-    private void clearOutsideLockOverlay() {
-        outsideLockOverlaySnapshot = null;
-        outsideLockOverlayBounds = null;
-    }
-
-    private void applyClipState(GL2 gl) {
-        Rectangle clip = host.delegate().getClipBounds();
-        if (clip == null) {
-            gl.glDisable(GraphicsOGL.GL_SCISSOR_TEST);
-            return;
-        }
-        Rectangle clipped = clip.intersection(new Rectangle(0, 0, host.surface().width(), host.surface().height()));
-        if (clipped.isEmpty()) {
-            gl.glEnable(GraphicsOGL.GL_SCISSOR_TEST);
-            gl.glScissor(0, 0, 0, 0);
-            return;
-        }
-        gl.glEnable(GraphicsOGL.GL_SCISSOR_TEST);
-        gl.glScissor(clipped.x, host.surface().height() - (clipped.y + clipped.height), clipped.width, clipped.height);
-    }
-
-    private void applyViewportState(GL2 gl) {
-        gl.glViewport(0, 0, Math.max(1, host.surface().width()), Math.max(1, host.surface().height()));
-    }
-
-    private void applyRenderState(GL2 gl, boolean emulateMatrixPalette) {
-        float[] modelViewMatrix = emulateMatrixPalette ? OglState.identityMatrix() : currentHardwareModelViewMatrix();
-        float[] projectionMatrix = hardwareProjectionMatrix(
-                emulateMatrixPalette ? ogl.projectionMatrix : currentHardwareProjectionMatrix());
-
-        gl.glMatrixMode(GraphicsOGL.GL_PROJECTION);
-        gl.glLoadMatrixf(projectionMatrix, 0);
-        gl.glMatrixMode(GraphicsOGL.GL_MODELVIEW);
-        gl.glLoadIdentity();
-        if (ogl.depthEnabled()) {
-            gl.glEnable(GraphicsOGL.GL_DEPTH_TEST);
-            gl.glDepthFunc(toHardwareDepthFunc(ogl.depthFunc));
-        } else {
-            gl.glDisable(GraphicsOGL.GL_DEPTH_TEST);
-        }
-        gl.glDepthMask(ogl.depthMask);
-        gl.glDepthRange(1.0 - ogl.depthRangeNear, 1.0 - ogl.depthRangeFar);
-        if (ogl.blendEnabled()) {
-            gl.glEnable(GraphicsOGL.GL_BLEND);
-            gl.glBlendFunc(ogl.blendSrcFactor, ogl.blendDstFactor);
-        } else {
-            gl.glDisable(GraphicsOGL.GL_BLEND);
-        }
-        if (ogl.alphaTestEnabled) {
-            gl.glEnable(GraphicsOGL.GL_ALPHA_TEST);
-            gl.glAlphaFunc(ogl.alphaFunc, ogl.alphaRef);
-        } else {
-            gl.glDisable(GraphicsOGL.GL_ALPHA_TEST);
-        }
-        if (ogl.cullFaceEnabled) {
-            gl.glEnable(GraphicsOGL.GL_CULL_FACE);
-            gl.glFrontFace(ogl.frontFace);
-            gl.glCullFace(ogl.cullFace);
-        } else {
-            gl.glDisable(GraphicsOGL.GL_CULL_FACE);
-        }
-        if (ogl.normalizeEnabled) {
-            gl.glEnable(GraphicsOGL.GL_NORMALIZE);
-        } else {
-            gl.glDisable(GraphicsOGL.GL_NORMALIZE);
-        }
-        if (ogl.rescaleNormalEnabled) {
-            gl.glEnable(GraphicsOGL.GL_RESCALE_NORMAL);
-        } else {
-            gl.glDisable(GraphicsOGL.GL_RESCALE_NORMAL);
-        }
-        gl.glShadeModel(ogl.shadeModel);
-        float[] currentColor = unpackColor(ogl.color);
-        gl.glColor4f(currentColor[0], currentColor[1], currentColor[2], currentColor[3]);
-        gl.glNormal3f(ogl.currentNormal[0], ogl.currentNormal[1], ogl.currentNormal[2]);
-        if (ogl.colorMaterialEnabled) {
-            gl.glEnable(GraphicsOGL.GL_COLOR_MATERIAL);
-            gl.glColorMaterial(GraphicsOGL.GL_FRONT_AND_BACK, GraphicsOGL.GL_AMBIENT_AND_DIFFUSE);
-        } else {
-            gl.glDisable(GraphicsOGL.GL_COLOR_MATERIAL);
-        }
-        gl.glMaterialfv(GraphicsOGL.GL_FRONT_AND_BACK, GraphicsOGL.GL_AMBIENT, ogl.materialAmbient, 0);
-        gl.glMaterialfv(GraphicsOGL.GL_FRONT_AND_BACK, GraphicsOGL.GL_DIFFUSE, ogl.materialDiffuse, 0);
-        gl.glMaterialfv(GraphicsOGL.GL_FRONT_AND_BACK, GraphicsOGL.GL_SPECULAR, ogl.materialSpecular, 0);
-        gl.glMaterialfv(GraphicsOGL.GL_FRONT_AND_BACK, GraphicsOGL.GL_EMISSION, ogl.materialEmission, 0);
-        gl.glMaterialf(GraphicsOGL.GL_FRONT_AND_BACK, GraphicsOGL.GL_SHININESS, ogl.materialShininess);
-        gl.glLightModelfv(GraphicsOGL.GL_LIGHT_MODEL_AMBIENT, ogl.lightModelAmbient, 0);
-        gl.glLightModeli(GraphicsOGL.GL_LIGHT_MODEL_TWO_SIDE, ogl.lightModelTwoSide ? GL.GL_TRUE : GL.GL_FALSE);
-        for (int i = 0; i < ogl.lights.length; i++) {
-            int lightEnum = GraphicsOGL.GL_LIGHT0 + i;
-            OglLight light = ogl.lights[i];
-            if (ogl.lightEnabled[i]) {
-                gl.glEnable(lightEnum);
-            } else {
-                gl.glDisable(lightEnum);
-            }
-            gl.glLightfv(lightEnum, GraphicsOGL.GL_AMBIENT, light.ambient, 0);
-            gl.glLightfv(lightEnum, GraphicsOGL.GL_DIFFUSE, light.diffuse, 0);
-            gl.glLightfv(lightEnum, GraphicsOGL.GL_SPECULAR, light.specular, 0);
-            gl.glLightfv(lightEnum, GraphicsOGL.GL_POSITION, light.position, 0);
-            gl.glLightfv(lightEnum, GraphicsOGL.GL_SPOT_DIRECTION, light.spotDirection, 0);
-            gl.glLightf(lightEnum, GraphicsOGL.GL_SPOT_EXPONENT, light.spotExponent);
-            gl.glLightf(lightEnum, GraphicsOGL.GL_SPOT_CUTOFF, light.spotCutoff);
-            gl.glLightf(lightEnum, GraphicsOGL.GL_CONSTANT_ATTENUATION, light.constantAttenuation);
-            gl.glLightf(lightEnum, GraphicsOGL.GL_LINEAR_ATTENUATION, light.linearAttenuation);
-            gl.glLightf(lightEnum, GraphicsOGL.GL_QUADRATIC_ATTENUATION, light.quadraticAttenuation);
-        }
-        if (ogl.lightingEnabled()) {
-            gl.glEnable(GraphicsOGL.GL_LIGHTING);
-        } else {
-            gl.glDisable(GraphicsOGL.GL_LIGHTING);
-        }
-        gl.glMatrixMode(GraphicsOGL.GL_MODELVIEW);
-        gl.glLoadMatrixf(modelViewMatrix, 0);
-    }
-
-    private float[] hardwareProjectionMatrix(float[] baseProjectionMatrix) {
-        int surfaceWidth = Math.max(1, host.surface().width());
-        int surfaceHeight = Math.max(1, host.surface().height());
-        int viewportWidth = Math.max(1, ogl.viewportWidth);
-        int viewportHeight = Math.max(1, ogl.viewportHeight);
-        if (ogl.viewportX == 0 && ogl.viewportY == 0
-                && viewportWidth == surfaceWidth && viewportHeight == surfaceHeight) {
-            return baseProjectionMatrix;
-        }
-        float scaleX = viewportWidth / (float) surfaceWidth;
-        float scaleY = viewportHeight / (float) surfaceHeight;
-        float translateX = ((2f * ogl.viewportX) + viewportWidth) / (float) surfaceWidth - 1f;
-        float translateY = ((2f * ogl.viewportY) + viewportHeight) / (float) surfaceHeight - 1f;
-        setIdentityMatrix(viewportTransformScratch);
-        viewportTransformScratch[0] = scaleX;
-        viewportTransformScratch[5] = scaleY;
-        viewportTransformScratch[12] = translateX;
-        viewportTransformScratch[13] = translateY;
-        multiplyColumnMajor(viewportProjectionScratch, viewportTransformScratch, baseProjectionMatrix);
-        return viewportProjectionScratch;
-    }
-
-    private float[] currentHardwareModelViewMatrix() {
-        if (ogl.usesExtensionMatrices()) {
-            float[] matrix = extensionWorldMatrix();
-            return matrix == null ? OglState.identityMatrix() : matrix;
-        }
-        return ogl.modelViewMatrix;
-    }
-
-    private float[] currentHardwareProjectionMatrix() {
-        if (ogl.usesExtensionMatrices()) {
-            float[] matrix = extensionCameraMatrix();
-            return matrix == null ? OglState.identityMatrix() : matrix;
-        }
-        return ogl.projectionMatrix;
-    }
-
-    private void applyTextureState(GL2 gl) {
-        if (!ogl.textureEnabled()) {
-            gl.glDisable(GraphicsOGL.GL_TEXTURE_2D);
-            return;
-        }
-        OglTexture texture = ogl.boundTexture();
-        if (texture == null) {
-            gl.glDisable(GraphicsOGL.GL_TEXTURE_2D);
-            return;
-        }
-        gl.glEnable(GraphicsOGL.GL_TEXTURE_2D);
-        HardwareTexture hardwareTexture = textureCache.computeIfAbsent(ogl.boundTextureId,
-                ignored -> new HardwareTexture(0, -1, -1, -1, -1));
-        int textureId = hardwareTexture.textureId();
-        if (textureId == 0) {
-            int[] textureIds = new int[1];
-            gl.glGenTextures(1, textureIds, 0);
-            textureId = textureIds[0];
-            hardwareTexture = new HardwareTexture(textureId, -1, -1, -1, -1);
-            textureCache.put(ogl.boundTextureId, hardwareTexture);
-        }
-        gl.glBindTexture(GraphicsOGL.GL_TEXTURE_2D, textureId);
-        gl.glPixelStorei(GraphicsOGL.GL_UNPACK_ALIGNMENT, 1);
-        if (hardwareTexture.uploadedRevision() != texture.uploadRevision()) {
-            TextureUpload textureUpload = prepareTextureUpload(texture, false);
-            if (hardwareTexture.matches(texture.uploadRevision(), texture.width, texture.height, textureUpload.format())) {
-                gl.glTexSubImage2D(GraphicsOGL.GL_TEXTURE_2D, 0, 0, 0, texture.width, texture.height,
-                        textureUpload.format(), GraphicsOGL.GL_UNSIGNED_BYTE, textureUpload.buffer());
-            } else {
-                gl.glTexImage2D(GraphicsOGL.GL_TEXTURE_2D, 0, textureUpload.format(), texture.width, texture.height, 0,
-                        textureUpload.format(), GraphicsOGL.GL_UNSIGNED_BYTE, textureUpload.buffer());
-            }
-            hardwareTexture = new HardwareTexture(textureId, texture.uploadRevision(),
-                    texture.width, texture.height, textureUpload.format());
-            textureCache.put(ogl.boundTextureId, hardwareTexture);
-        }
-        gl.glTexParameteri(GraphicsOGL.GL_TEXTURE_2D, GraphicsOGL.GL_TEXTURE_MIN_FILTER, sanitizeHardwareMinFilter(texture.minFilter));
-        gl.glTexParameteri(GraphicsOGL.GL_TEXTURE_2D, GraphicsOGL.GL_TEXTURE_MAG_FILTER, sanitizeHardwareMagFilter(texture.magFilter));
-        gl.glTexParameteri(GraphicsOGL.GL_TEXTURE_2D, GraphicsOGL.GL_TEXTURE_WRAP_S, texture.wrapS);
-        gl.glTexParameteri(GraphicsOGL.GL_TEXTURE_2D, GraphicsOGL.GL_TEXTURE_WRAP_T, texture.wrapT);
-        gl.glMatrixMode(GraphicsOGL.GL_TEXTURE);
-        gl.glLoadMatrixf(ogl.textureMatrix, 0);
-        gl.glTexEnvi(GraphicsOGL.GL_TEXTURE_ENV, GraphicsOGL.GL_TEXTURE_ENV_MODE, ogl.textureEnvMode);
-        gl.glTexEnvi(GraphicsOGL.GL_TEXTURE_ENV, GraphicsOGL.GL_COMBINE_RGB, ogl.combineRgb);
-        gl.glTexEnvi(GraphicsOGL.GL_TEXTURE_ENV, GraphicsOGL.GL_COMBINE_ALPHA, ogl.combineAlpha);
-        gl.glTexEnvi(GraphicsOGL.GL_TEXTURE_ENV, GraphicsOGL.GL_SRC0_RGB, ogl.srcRgb[0]);
-        gl.glTexEnvi(GraphicsOGL.GL_TEXTURE_ENV, GraphicsOGL.GL_SRC1_RGB, ogl.srcRgb[1]);
-        gl.glTexEnvi(GraphicsOGL.GL_TEXTURE_ENV, GraphicsOGL.GL_SRC2_RGB, ogl.srcRgb[2]);
-        gl.glTexEnvi(GraphicsOGL.GL_TEXTURE_ENV, GraphicsOGL.GL_SRC0_ALPHA, ogl.srcAlpha[0]);
-        gl.glTexEnvi(GraphicsOGL.GL_TEXTURE_ENV, GraphicsOGL.GL_SRC1_ALPHA, ogl.srcAlpha[1]);
-        gl.glTexEnvi(GraphicsOGL.GL_TEXTURE_ENV, GraphicsOGL.GL_SRC2_ALPHA, ogl.srcAlpha[2]);
-        gl.glTexEnvi(GraphicsOGL.GL_TEXTURE_ENV, GraphicsOGL.GL_OPERAND0_RGB, ogl.operandRgb[0]);
-        gl.glTexEnvi(GraphicsOGL.GL_TEXTURE_ENV, GraphicsOGL.GL_OPERAND1_RGB, ogl.operandRgb[1]);
-        gl.glTexEnvi(GraphicsOGL.GL_TEXTURE_ENV, GraphicsOGL.GL_OPERAND2_RGB, ogl.operandRgb[2]);
-        gl.glTexEnvi(GraphicsOGL.GL_TEXTURE_ENV, GraphicsOGL.GL_OPERAND0_ALPHA, ogl.operandAlpha[0]);
-        gl.glTexEnvi(GraphicsOGL.GL_TEXTURE_ENV, GraphicsOGL.GL_OPERAND1_ALPHA, ogl.operandAlpha[1]);
-        gl.glTexEnvi(GraphicsOGL.GL_TEXTURE_ENV, GraphicsOGL.GL_OPERAND2_ALPHA, ogl.operandAlpha[2]);
-        gl.glTexEnvfv(GraphicsOGL.GL_TEXTURE_ENV, GraphicsOGL.GL_TEXTURE_ENV_COLOR, unpackColor(ogl.textureEnvColor), 0);
-        gl.glTexEnvi(GraphicsOGL.GL_TEXTURE_ENV, GraphicsOGL.GL_RGB_SCALE, ogl.rgbScale);
-        gl.glTexEnvi(GraphicsOGL.GL_TEXTURE_ENV, GraphicsOGL.GL_ALPHA_SCALE, ogl.alphaScale);
-        gl.glMatrixMode(GraphicsOGL.GL_MODELVIEW);
-    }
-
-    private void bindArrayState(GL2 gl, PreparedArrayState arrayState) {
-        gl.glClientActiveTexture(GraphicsOGL.GL_TEXTURE0);
-        gl.glEnableClientState(GraphicsOGL.GL_VERTEX_ARRAY);
-        gl.glVertexPointer(4, GraphicsOGL.GL_FLOAT, 0, arrayState.vertexBuffer());
-        if (arrayState.normalBuffer() != null && ogl.lightingEnabled()) {
-            gl.glEnableClientState(GraphicsOGL.GL_NORMAL_ARRAY);
-            gl.glNormalPointer(GraphicsOGL.GL_FLOAT, 0, arrayState.normalBuffer());
-        } else {
-            gl.glDisableClientState(GraphicsOGL.GL_NORMAL_ARRAY);
-        }
-        if (arrayState.colorBuffer() != null) {
-            gl.glEnableClientState(GraphicsOGL.GL_COLOR_ARRAY);
-            gl.glColorPointer(4, GraphicsOGL.GL_UNSIGNED_BYTE, 0, arrayState.colorBuffer());
-        } else {
-            gl.glDisableClientState(GraphicsOGL.GL_COLOR_ARRAY);
-        }
-        if (arrayState.texCoordBuffer() != null && ogl.textureEnabled()) {
-            gl.glEnableClientState(GraphicsOGL.GL_TEXTURE_COORD_ARRAY);
-            gl.glTexCoordPointer(2, GraphicsOGL.GL_FLOAT, 0, arrayState.texCoordBuffer());
-        } else {
-            gl.glDisableClientState(GraphicsOGL.GL_TEXTURE_COORD_ARRAY);
-        }
-    }
-
-    private void unbindArrayState(GL2 gl) {
-        gl.glDisableClientState(GraphicsOGL.GL_VERTEX_ARRAY);
-        gl.glDisableClientState(GraphicsOGL.GL_NORMAL_ARRAY);
-        gl.glDisableClientState(GraphicsOGL.GL_COLOR_ARRAY);
-        gl.glDisableClientState(GraphicsOGL.GL_TEXTURE_COORD_ARRAY);
-    }
-
-    private void readBackColorBuffer(GL2 gl) {
-        DesktopSurface surface = host.surface();
-        int width = surface.width();
-        int height = surface.height();
-        int byteCount = Math.max(1, width * height * 4);
-        if (readbackBuffer == null || readbackBuffer.capacity() < byteCount) {
-            readbackBuffer = java.nio.ByteBuffer.allocateDirect(byteCount).order(ByteOrder.nativeOrder());
-        }
-        readbackBuffer.clear();
-        gl.glReadPixels(0, 0, width, height, GL2.GL_BGRA, GraphicsOGL.GL_UNSIGNED_BYTE, readbackBuffer);
-        int[] destination = ((DataBufferInt) surface.image().getRaster().getDataBuffer()).getData();
-        java.nio.IntBuffer sourcePixels = readbackBuffer.asIntBuffer();
-        for (int y = 0; y < height; y++) {
-            int destinationRow = y * width;
-            int sourceRow = (height - 1 - y) * width;
-            sourcePixels.position(sourceRow);
-            sourcePixels.get(destination, destinationRow, width);
-        }
-    }
-
-    private int reapplyOutsideLockOverlay(int[] previousHardwareSnapshot, int[] overlaySnapshot) {
-        if (previousHardwareSnapshot == null || overlaySnapshot == null || outsideLockOverlayBounds == null
-                || outsideLockOverlayBounds.isEmpty()) {
-            return 0;
-        }
-        int[] destination = ((DataBufferInt) host.surface().image().getRaster().getDataBuffer()).getData();
-        int applied = 0;
-        int width = host.surface().width();
-        int left = Math.max(0, outsideLockOverlayBounds.x);
-        int top = Math.max(0, outsideLockOverlayBounds.y);
-        int right = Math.min(width, outsideLockOverlayBounds.x + outsideLockOverlayBounds.width);
-        int bottom = Math.min(host.surface().height(), outsideLockOverlayBounds.y + outsideLockOverlayBounds.height);
-        for (int y = top; y < bottom; y++) {
-            int row = y * width;
-            for (int x = left; x < right; x++) {
-                int i = row + x;
-                int overlayPixel = overlaySnapshot[i];
-                if (overlayPixel == previousHardwareSnapshot[i]) {
-                    continue;
-                }
-                destination[i] = overlayPixel;
-                applied++;
-            }
-        }
-        return applied;
-    }
-
-    private int sanitizeHardwareMinFilter(int filter) {
-        return switch (filter) {
-            case GraphicsOGL.GL_LINEAR,
-                    GraphicsOGL.GL_LINEAR_MIPMAP_NEAREST,
-                    GraphicsOGL.GL_LINEAR_MIPMAP_LINEAR -> GraphicsOGL.GL_LINEAR;
-            default -> GraphicsOGL.GL_NEAREST;
-        };
-    }
-
-    private int sanitizeHardwareMagFilter(int filter) {
-        return filter == GraphicsOGL.GL_LINEAR ? GraphicsOGL.GL_LINEAR : GraphicsOGL.GL_NEAREST;
-    }
-
-    private int toHardwareDepthFunc(int depthFunc) {
-        return switch (depthFunc) {
-            case GraphicsOGL.GL_LESS -> GraphicsOGL.GL_GREATER;
-            case GraphicsOGL.GL_LEQUAL -> GraphicsOGL.GL_GEQUAL;
-            case GraphicsOGL.GL_GREATER -> GraphicsOGL.GL_LESS;
-            case GraphicsOGL.GL_GEQUAL -> GraphicsOGL.GL_LEQUAL;
-            default -> depthFunc;
-        };
-    }
-
-    private TextureUpload prepareTextureUpload(OglTexture texture, boolean flipVertically) {
-        TextureUpload upload = toTextureUpload(texture, flipVertically, textureUploadBuffer);
-        textureUploadBuffer = upload.buffer();
-        return upload;
-    }
-
-    private float[] ensureFloatArray(float[] current, int length) {
-        return current.length >= length ? current : new float[length];
-    }
-
-    private byte[] ensureByteArray(byte[] current, int length) {
-        return current.length >= length ? current : new byte[length];
-    }
-
-    private short[] ensureShortArray(short[] current, int length) {
-        return current.length >= length ? current : new short[length];
-    }
-
-    private java.nio.FloatBuffer toReusableFloatBuffer(float[] values, int count, BufferType type) {
-        int byteCount = count * Float.BYTES;
-        java.nio.ByteBuffer storage = ensureBuffer(type, byteCount);
-        storage.clear();
-        storage.limit(byteCount);
-        java.nio.FloatBuffer buffer = storage.asFloatBuffer();
-        buffer.clear();
-        buffer.put(values, 0, count);
-        buffer.flip();
-        return buffer;
-    }
-
-    private java.nio.ByteBuffer toReusableByteBuffer(byte[] values, int count, BufferType type) {
-        java.nio.ByteBuffer storage = ensureBuffer(type, count);
-        storage.clear();
-        storage.limit(count);
-        storage.put(values, 0, count);
-        storage.flip();
-        return storage;
-    }
-
-    private java.nio.ShortBuffer toReusableShortBuffer(short[] values, int count) {
-        int byteCount = count * Short.BYTES;
-        java.nio.ByteBuffer storage = ensureBuffer(BufferType.INDEX, byteCount);
-        storage.clear();
-        storage.limit(byteCount);
-        java.nio.ShortBuffer buffer = storage.asShortBuffer();
-        buffer.clear();
-        buffer.put(values, 0, count);
-        buffer.flip();
-        return buffer;
-    }
-
-    private java.nio.ByteBuffer ensureBuffer(BufferType type, int byteCount) {
-        java.nio.ByteBuffer storage = switch (type) {
-            case VERTEX -> vertexBufferBytes;
-            case NORMAL -> normalBufferBytes;
-            case TEX_COORD -> texCoordBufferBytes;
-            case COLOR -> colorBufferBytes;
-            case INDEX -> indexBufferBytes;
-        };
-        if (storage == null || storage.capacity() < byteCount) {
-            storage = java.nio.ByteBuffer.allocateDirect(byteCount).order(ByteOrder.nativeOrder());
-            switch (type) {
-                case VERTEX -> vertexBufferBytes = storage;
-                case NORMAL -> normalBufferBytes = storage;
-                case TEX_COORD -> texCoordBufferBytes = storage;
-                case COLOR -> colorBufferBytes = storage;
-                case INDEX -> indexBufferBytes = storage;
-            }
-        }
-        return storage;
-    }
-}
-
-private record PreparedArrayState(java.nio.FloatBuffer vertexBuffer,
-                                  java.nio.FloatBuffer normalBuffer,
-                                  java.nio.FloatBuffer texCoordBuffer,
-                                  java.nio.ByteBuffer colorBuffer,
-                                  java.nio.ShortBuffer indexBuffer,
-                                  int drawFirst,
-                                  int drawCount,
-                                  boolean emulateMatrixPalette) {
-}
-
-private enum BufferType {
-    VERTEX,
-    NORMAL,
-    TEX_COORD,
-    COLOR,
-    INDEX
-}
-
-private record HardwareTexture(int textureId, int uploadedRevision, int width, int height, int format) {
-    boolean matches(int revision, int width, int height, int format) {
-        return uploadedRevision == revision && this.width == width && this.height == height && this.format == format;
-    }
-}
-
-private record TextureUpload(int format, java.nio.ByteBuffer buffer) {
-}
-
-private static java.nio.ByteBuffer toDirectByteBuffer(byte[] values) {
-    java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocateDirect(values.length).order(ByteOrder.nativeOrder());
-    buffer.put(values);
-    buffer.flip();
-    return buffer;
-}
-
-private static java.nio.ShortBuffer toDirectShortBuffer(short[] values) {
-    java.nio.ShortBuffer buffer = java.nio.ByteBuffer.allocateDirect(values.length * Short.BYTES)
-            .order(ByteOrder.nativeOrder())
-            .asShortBuffer();
-    buffer.put(values);
-    buffer.flip();
-    return buffer;
-}
-
-private static java.nio.FloatBuffer toDirectFloatBuffer(float[] values) {
-    java.nio.FloatBuffer buffer = java.nio.ByteBuffer.allocateDirect(values.length * Float.BYTES)
-            .order(ByteOrder.nativeOrder())
-            .asFloatBuffer();
-    buffer.put(values);
-    buffer.flip();
-    return buffer;
-}
-
-private static java.nio.ByteBuffer toBgraByteBuffer(BufferedImage image, boolean flipVertically,
-                                                    java.nio.ByteBuffer reusableBuffer) {
-    int width = image.getWidth();
-    int height = image.getHeight();
-    int[] pixels = ((DataBufferInt) image.getRaster().getDataBuffer()).getData();
-    int byteCount = width * height * 4;
-    java.nio.ByteBuffer buffer = reusableBuffer != null && reusableBuffer.capacity() >= byteCount
-            ? reusableBuffer
-            : java.nio.ByteBuffer.allocateDirect(byteCount).order(ByteOrder.nativeOrder());
-    buffer.clear();
-    java.nio.IntBuffer ints = buffer.asIntBuffer();
-    for (int y = 0; y < height; y++) {
-        int sourceY = flipVertically ? (height - 1 - y) : y;
-        int rowOffset = sourceY * width;
-        ints.put(pixels, rowOffset, width);
-    }
-    buffer.position(byteCount);
-    buffer.flip();
-    return buffer;
-}
-
-private static int[] copySurfacePixels(BufferedImage image) {
-    int[] pixels = ((DataBufferInt) image.getRaster().getDataBuffer()).getData();
-    return Arrays.copyOf(pixels, pixels.length);
-}
-
-private static TextureUpload toTextureUpload(OglTexture texture, boolean flipVertically,
-                                             java.nio.ByteBuffer reusableBuffer) {
-    int width = Math.max(1, texture.width);
-    int height = Math.max(1, texture.height);
-    int format = texture.baseFormat();
-    int bytesPerPixel = switch (format) {
-        case GraphicsOGL.GL_ALPHA, GraphicsOGL.GL_LUMINANCE -> 1;
-        case GraphicsOGL.GL_LUMINANCE_ALPHA -> 2;
-        case GraphicsOGL.GL_RGB -> 3;
-        default -> 4;
-    };
-    int byteCount = width * height * bytesPerPixel;
-    java.nio.ByteBuffer buffer = reusableBuffer != null && reusableBuffer.capacity() >= byteCount
-            ? reusableBuffer
-            : java.nio.ByteBuffer.allocateDirect(byteCount).order(ByteOrder.nativeOrder());
-    buffer.clear();
-    for (int y = 0; y < height; y++) {
-        int sourceY = flipVertically ? (height - 1 - y) : y;
-        int rowOffset = sourceY * width;
-        for (int x = 0; x < width; x++) {
-            int packed = texture.pixels[rowOffset + x];
-            int alpha = (packed >>> 24) & 0xFF;
-            int red = (packed >>> 16) & 0xFF;
-            int green = (packed >>> 8) & 0xFF;
-            int blue = packed & 0xFF;
-            switch (format) {
-                case GraphicsOGL.GL_ALPHA -> buffer.put((byte) alpha);
-                case GraphicsOGL.GL_LUMINANCE -> buffer.put((byte) red);
-                case GraphicsOGL.GL_LUMINANCE_ALPHA -> {
-                    buffer.put((byte) red);
-                    buffer.put((byte) alpha);
-                }
-                case GraphicsOGL.GL_RGB -> {
-                    buffer.put((byte) red);
-                    buffer.put((byte) green);
-                    buffer.put((byte) blue);
-                }
-                default -> {
-                    buffer.put((byte) red);
-                    buffer.put((byte) green);
-                    buffer.put((byte) blue);
-                    buffer.put((byte) alpha);
-                }
-            }
-        }
-    }
-    buffer.flip();
-    return new TextureUpload(format, buffer);
-}
-
-private static void setIdentityMatrix(float[] matrix) {
-    Arrays.fill(matrix, 0f);
-    matrix[0] = 1f;
-    matrix[5] = 1f;
-    matrix[10] = 1f;
-    matrix[15] = 1f;
-}
-
-private static void multiplyColumnMajor(float[] out, float[] left, float[] right) {
-    for (int column = 0; column < 4; column++) {
-        int columnOffset = column * 4;
-        for (int row = 0; row < 4; row++) {
-            out[columnOffset + row] =
-                    (left[row] * right[columnOffset]) +
-                    (left[4 + row] * right[columnOffset + 1]) +
-                    (left[8 + row] * right[columnOffset + 2]) +
-                    (left[12 + row] * right[columnOffset + 3]);
-        }
-    }
-}
-
-private static final class RasterVertex {
+static final class RasterVertex {
     float clipX;
     float clipY;
     float clipZ;
@@ -3752,7 +2467,7 @@ private static final class RasterVertex {
     }
 }
 
-private static final class ClipVector {
+static final class ClipVector {
     float x;
     float y;
     float z;
@@ -3766,7 +2481,7 @@ private static final class ClipVector {
     }
 }
 
-private record OglPointer(int size, int type, int stride, DirectBuffer pointer,
+record OglPointer(int size, int type, int stride, DirectBuffer pointer,
                           OglBufferObject bufferObject, int byteOffset) {
     static OglPointer direct(int size, int type, int stride, DirectBuffer pointer) {
         return new OglPointer(size, type, stride, pointer, null, 0);
@@ -3800,7 +2515,7 @@ private record OglPointer(int size, int type, int stride, DirectBuffer pointer,
     }
 }
 
-private static final class OglBufferObject {
+static final class OglBufferObject {
     private byte[] data = new byte[0];
     private int usage = GraphicsOGL.GL_STATIC_DRAW;
 
@@ -3826,7 +2541,7 @@ private static final class OglBufferObject {
     }
 }
 
-private record OglIndexSource(ShortBuffer pointer, OglBufferObject bufferObject, int byteOffset) {
+record OglIndexSource(ShortBuffer pointer, OglBufferObject bufferObject, int byteOffset) {
     static OglIndexSource direct(ShortBuffer pointer) {
         return new OglIndexSource(pointer, null, 0);
     }
@@ -3857,16 +2572,16 @@ private record OglIndexSource(ShortBuffer pointer, OglBufferObject bufferObject,
     }
 }
 
-private static final class OglTexture {
-    private int width;
-    private int height;
-    private int[] pixels = new int[0];
-    private int baseFormat = GraphicsOGL.GL_RGBA;
-    private int minFilter = GraphicsOGL.GL_NEAREST;
-    private int magFilter = GraphicsOGL.GL_NEAREST;
-    private int wrapS = GraphicsOGL.GL_REPEAT;
-    private int wrapT = GraphicsOGL.GL_REPEAT;
-    private int uploadRevision;
+static final class OglTexture {
+    int width;
+    int height;
+    int[] pixels = new int[0];
+    int baseFormat = GraphicsOGL.GL_RGBA;
+    int minFilter = GraphicsOGL.GL_NEAREST;
+    int magFilter = GraphicsOGL.GL_NEAREST;
+    int wrapS = GraphicsOGL.GL_REPEAT;
+    int wrapT = GraphicsOGL.GL_REPEAT;
+    int uploadRevision;
 
     void setParameter(int pname, int value) {
         switch (pname) {
@@ -4202,17 +2917,17 @@ private record CompressedPaletteFormatInfo(int internalFormat, int baseFormat, i
     }
 }
 
-private static final class OglLight {
-    private final float[] ambient = {0f, 0f, 0f, 1f};
-    private final float[] diffuse;
-    private final float[] specular;
-    private final float[] position = {0f, 0f, 1f, 0f};
-    private final float[] spotDirection = {0f, 0f, -1f};
-    private float spotExponent;
-    private float spotCutoff = 180f;
-    private float constantAttenuation = 1f;
-    private float linearAttenuation;
-    private float quadraticAttenuation;
+static final class OglLight {
+    final float[] ambient = {0f, 0f, 0f, 1f};
+    final float[] diffuse;
+    final float[] specular;
+    final float[] position = {0f, 0f, 1f, 0f};
+    final float[] spotDirection = {0f, 0f, -1f};
+    float spotExponent;
+    float spotCutoff = 180f;
+    float constantAttenuation = 1f;
+    float linearAttenuation;
+    float quadraticAttenuation;
 
     private OglLight(int index) {
         diffuse = index == 0 ? new float[]{1f, 1f, 1f, 1f} : new float[]{0f, 0f, 0f, 1f};
@@ -4220,190 +2935,110 @@ private static final class OglLight {
     }
 }
 
-private static final class DrawScratch {
-    private static final int EMPTY_VERTEX_CACHE_KEY = Integer.MIN_VALUE;
-
-    final RasterVertex scratch0 = new RasterVertex();
-    final RasterVertex scratch1 = new RasterVertex();
-    final RasterVertex scratch2 = new RasterVertex();
-    final RasterVertex[] clipInput = createRasterVertexArray(12);
-    final RasterVertex[] clipScratch = createRasterVertexArray(12);
-    final RasterVertex project0 = new RasterVertex();
-    final RasterVertex project1 = new RasterVertex();
-    final RasterVertex project2 = new RasterVertex();
-    final ClipVector clip0 = new ClipVector();
-    final ClipVector clip1 = new ClipVector();
-    private int[] vertexCacheKeys = new int[0];
-    private RasterVertex[] vertexCacheValues = new RasterVertex[0];
-    private boolean vertexCacheEnabled;
-
-    void beginDraw(boolean enableVertexCache, int primitiveCount) {
-        vertexCacheEnabled = enableVertexCache;
-        if (!enableVertexCache) {
-            return;
-        }
-        ensureVertexCacheCapacity(Math.max(16, primitiveCount * 2));
-        Arrays.fill(vertexCacheKeys, EMPTY_VERTEX_CACHE_KEY);
-    }
-
-    boolean tryLoadCachedVertex(int vertexIndex, RasterVertex target) {
-        if (!vertexCacheEnabled || vertexCacheKeys.length == 0) {
-            return false;
-        }
-        int mask = vertexCacheKeys.length - 1;
-        int slot = mix(vertexIndex) & mask;
-        while (true) {
-            int cachedIndex = vertexCacheKeys[slot];
-            if (cachedIndex == EMPTY_VERTEX_CACHE_KEY) {
-                return false;
-            }
-            if (cachedIndex == vertexIndex) {
-                target.copyFrom(vertexCacheValues[slot]);
-                return true;
-            }
-            slot = (slot + 1) & mask;
-        }
-    }
-
-    void cacheVertex(int vertexIndex, RasterVertex source) {
-        if (!vertexCacheEnabled || vertexCacheKeys.length == 0) {
-            return;
-        }
-        int mask = vertexCacheKeys.length - 1;
-        int slot = mix(vertexIndex) & mask;
-        while (vertexCacheKeys[slot] != EMPTY_VERTEX_CACHE_KEY && vertexCacheKeys[slot] != vertexIndex) {
-            slot = (slot + 1) & mask;
-        }
-        vertexCacheKeys[slot] = vertexIndex;
-        vertexCacheValues[slot].copyFrom(source);
-    }
-
-    private void ensureVertexCacheCapacity(int desiredCapacity) {
-        int capacity = 1;
-        while (capacity < desiredCapacity) {
-            capacity <<= 1;
-        }
-        if (capacity <= vertexCacheKeys.length) {
-            return;
-        }
-        vertexCacheKeys = new int[capacity];
-        vertexCacheValues = new RasterVertex[capacity];
-        for (int i = 0; i < capacity; i++) {
-            vertexCacheValues[i] = new RasterVertex();
-        }
-    }
-
-    private static int mix(int value) {
-        value ^= value >>> 16;
-        value *= 0x7feb352d;
-        value ^= value >>> 15;
-        value *= 0x846ca68b;
-        value ^= value >>> 16;
-        return value;
-    }
-}
-
-private static final class OglState {
-    private final OglRenderer renderer;
-    private final Map<Integer, OglTexture> textures;
-    private final Map<Integer, OglBufferObject> buffers;
-    private final boolean[] lightEnabled = new boolean[8];
-    private boolean texture2DEnabled;
-    private boolean blendCapEnabled;
-    private boolean depthTestEnabled;
-    private boolean lightingCapEnabled;
-    private boolean colorMaterialEnabled;
-    private boolean matrixPaletteEnabled;
-    private boolean normalizeEnabled;
-    private boolean rescaleNormalEnabled;
-    private boolean cullFaceEnabled;
-    private boolean alphaTestEnabled;
-    private boolean texCoordArrayEnabled;
-    private boolean colorArrayEnabled;
-    private boolean normalArrayEnabled;
-    private boolean matrixIndexArrayEnabled;
-    private boolean weightArrayEnabled;
-    private int lastError = GraphicsOGL.GL_NO_ERROR;
-    private int matrixMode = GraphicsOGL.GL_MODELVIEW;
-    private int textureEnvMode = GraphicsOGL.GL_MODULATE;
-    private int combineRgb = GraphicsOGL.GL_MODULATE;
-    private int combineAlpha = GraphicsOGL.GL_MODULATE;
-    private final int[] srcRgb = {
+    /**
+     * Shared GLES state machine and object lifetime tracked across backends.
+     */
+static final class OglState {
+    final OglRenderer renderer;
+    final Map<Integer, OglTexture> textures;
+    final Map<Integer, OglBufferObject> buffers;
+    final boolean[] lightEnabled = new boolean[8];
+    boolean texture2DEnabled;
+    boolean blendCapEnabled;
+    boolean depthTestEnabled;
+    boolean lightingCapEnabled;
+    boolean colorMaterialEnabled;
+    boolean matrixPaletteEnabled;
+    boolean normalizeEnabled;
+    boolean rescaleNormalEnabled;
+    boolean cullFaceEnabled;
+    boolean alphaTestEnabled;
+    boolean texCoordArrayEnabled;
+    boolean colorArrayEnabled;
+    boolean normalArrayEnabled;
+    boolean matrixIndexArrayEnabled;
+    boolean weightArrayEnabled;
+    int lastError = GraphicsOGL.GL_NO_ERROR;
+    int matrixMode = GraphicsOGL.GL_MODELVIEW;
+    int textureEnvMode = GraphicsOGL.GL_MODULATE;
+    int combineRgb = GraphicsOGL.GL_MODULATE;
+    int combineAlpha = GraphicsOGL.GL_MODULATE;
+    final int[] srcRgb = {
             GraphicsOGL.GL_TEXTURE,
             GraphicsOGL.GL_PREVIOUS,
             GraphicsOGL.GL_CONSTANT
     };
-    private final int[] srcAlpha = {
+    final int[] srcAlpha = {
             GraphicsOGL.GL_TEXTURE,
             GraphicsOGL.GL_PREVIOUS,
             GraphicsOGL.GL_CONSTANT
     };
-    private final int[] operandRgb = {
+    final int[] operandRgb = {
             GraphicsOGL.GL_SRC_COLOR,
             GraphicsOGL.GL_SRC_COLOR,
             GraphicsOGL.GL_SRC_ALPHA
     };
-    private final int[] operandAlpha = {
+    final int[] operandAlpha = {
             GraphicsOGL.GL_SRC_ALPHA,
             GraphicsOGL.GL_SRC_ALPHA,
             GraphicsOGL.GL_SRC_ALPHA
     };
-    private int textureEnvColor;
-    private int rgbScale = 1;
-    private int alphaScale = 1;
-    private int shadeModel = GraphicsOGL.GL_SMOOTH;
-    private int clientActiveTexture = GraphicsOGL.GL_TEXTURE0;
-    private int alphaFunc = GraphicsOGL.GL_ALWAYS;
-    private float alphaRef;
-    private boolean depthMask = true;
-    private int depthFunc = GraphicsOGL.GL_LESS;
-    private float depthRangeNear;
-    private float depthRangeFar = 1f;
-    private int blendSrcFactor = GraphicsOGL.GL_ONE;
-    private int blendDstFactor = GraphicsOGL.GL_ZERO;
-    private int frontFace = GraphicsOGL.GL_CCW;
-    private int cullFace = GraphicsOGL.GL_BACK;
-    private int viewportX;
-    private int viewportY;
-    private int viewportWidth = 1;
-    private int viewportHeight = 1;
-    private int unpackAlignment = 1;
-    private int boundTextureId;
-    private int boundArrayBufferId;
-    private int boundElementArrayBufferId;
-    private int color = 0xFFFFFFFF;
-    private final float[] currentNormal = {0f, 0f, 1f};
-    private final float[] materialAmbient = {0.2f, 0.2f, 0.2f, 1f};
-    private final float[] materialDiffuse = {0.8f, 0.8f, 0.8f, 1f};
-    private final float[] materialSpecular = {0f, 0f, 0f, 1f};
-    private final float[] materialEmission = {0f, 0f, 0f, 1f};
-    private float materialShininess;
-    private final float[] lightModelAmbient = {0.2f, 0.2f, 0.2f, 1f};
-    private boolean lightModelTwoSide;
-    private final OglLight[] lights = createLights();
-    private float[] modelViewMatrix = identityMatrix();
-    private float[] projectionMatrix = identityMatrix();
-    private float[] textureMatrix = identityMatrix();
-    private final float[] modelViewNormalMatrix = new float[9];
-    private boolean modelViewNormalMatrixDirty = true;
-    private boolean modelViewNormalMatrixValid;
-    private final float[][] paletteMatrices = new float[OGL_MAX_PALETTE_MATRICES][];
-    private final float[][] paletteNormalMatrices = new float[OGL_MAX_PALETTE_MATRICES][9];
-    private final boolean[] paletteNormalMatrixDirty = new boolean[OGL_MAX_PALETTE_MATRICES];
-    private final boolean[] paletteNormalMatrixValid = new boolean[OGL_MAX_PALETTE_MATRICES];
-    private boolean standardModelViewConfigured;
-    private boolean standardProjectionConfigured;
-    private int currentPaletteMatrix;
-    private final Deque<float[]> modelViewStack = new ArrayDeque<>();
-    private final Deque<float[]> projectionStack = new ArrayDeque<>();
-    private final Deque<float[]> textureStack = new ArrayDeque<>();
-    private final Deque<float[]>[] paletteMatrixStacks = createPaletteMatrixStacks();
-    private OglPointer vertexPointer;
-    private OglPointer texCoordPointer;
-    private OglPointer normalPointer;
-    private OglPointer colorPointer;
-    private OglPointer matrixIndexPointer;
-    private OglPointer weightPointer;
+    int textureEnvColor;
+    int rgbScale = 1;
+    int alphaScale = 1;
+    int shadeModel = GraphicsOGL.GL_SMOOTH;
+    int clientActiveTexture = GraphicsOGL.GL_TEXTURE0;
+    int alphaFunc = GraphicsOGL.GL_ALWAYS;
+    float alphaRef;
+    boolean depthMask = true;
+    int depthFunc = GraphicsOGL.GL_LESS;
+    float depthRangeNear;
+    float depthRangeFar = 1f;
+    int blendSrcFactor = GraphicsOGL.GL_ONE;
+    int blendDstFactor = GraphicsOGL.GL_ZERO;
+    int frontFace = GraphicsOGL.GL_CCW;
+    int cullFace = GraphicsOGL.GL_BACK;
+    int viewportX;
+    int viewportY;
+    int viewportWidth = 1;
+    int viewportHeight = 1;
+    int unpackAlignment = 1;
+    int boundTextureId;
+    int boundArrayBufferId;
+    int boundElementArrayBufferId;
+    int color = 0xFFFFFFFF;
+    final float[] currentNormal = {0f, 0f, 1f};
+    final float[] materialAmbient = {0.2f, 0.2f, 0.2f, 1f};
+    final float[] materialDiffuse = {0.8f, 0.8f, 0.8f, 1f};
+    final float[] materialSpecular = {0f, 0f, 0f, 1f};
+    final float[] materialEmission = {0f, 0f, 0f, 1f};
+    float materialShininess;
+    final float[] lightModelAmbient = {0.2f, 0.2f, 0.2f, 1f};
+    boolean lightModelTwoSide;
+    final OglLight[] lights = createLights();
+    float[] modelViewMatrix = identityMatrix();
+    float[] projectionMatrix = identityMatrix();
+    float[] textureMatrix = identityMatrix();
+    final float[] modelViewNormalMatrix = new float[9];
+    boolean modelViewNormalMatrixDirty = true;
+    boolean modelViewNormalMatrixValid;
+    final float[][] paletteMatrices = new float[OGL_MAX_PALETTE_MATRICES][];
+    final float[][] paletteNormalMatrices = new float[OGL_MAX_PALETTE_MATRICES][9];
+    final boolean[] paletteNormalMatrixDirty = new boolean[OGL_MAX_PALETTE_MATRICES];
+    final boolean[] paletteNormalMatrixValid = new boolean[OGL_MAX_PALETTE_MATRICES];
+    boolean standardModelViewConfigured;
+    boolean standardProjectionConfigured;
+    int currentPaletteMatrix;
+    final Deque<float[]> modelViewStack = new ArrayDeque<>();
+    final Deque<float[]> projectionStack = new ArrayDeque<>();
+    final Deque<float[]> textureStack = new ArrayDeque<>();
+    final Deque<float[]>[] paletteMatrixStacks = createPaletteMatrixStacks();
+    OglPointer vertexPointer;
+    OglPointer texCoordPointer;
+    OglPointer normalPointer;
+    OglPointer colorPointer;
+    OglPointer matrixIndexPointer;
+    OglPointer weightPointer;
 
     private OglState(OglRenderer renderer) {
         this.renderer = renderer;

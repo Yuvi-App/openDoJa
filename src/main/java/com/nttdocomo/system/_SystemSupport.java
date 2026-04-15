@@ -2,23 +2,13 @@ package com.nttdocomo.system;
 
 import com.nttdocomo.device.location.Degree;
 import com.nttdocomo.device.location.Location;
-import com.nttdocomo.device.location.LocationProvider;
 import com.nttdocomo.lang.XString;
-import com.nttdocomo.ui.AvatarData;
-import com.nttdocomo.ui.EncodedImage;
-import com.nttdocomo.ui.IApplication;
-import com.nttdocomo.ui.ImageEncoder;
-import com.nttdocomo.ui.MediaImage;
-import com.nttdocomo.ui.MediaResource;
-import com.nttdocomo.ui.MediaSound;
-import com.nttdocomo.ui.MApplication;
-import com.nttdocomo.ui.UIException;
+import com.nttdocomo.ui.*;
 import com.nttdocomo.util.ScheduleDate;
 import opendoja.host.DoJaEncoding;
 import opendoja.host.DoJaRuntime;
 import opendoja.host.system.DoJaSystemRegistry;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
@@ -26,15 +16,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.TimeZone;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**

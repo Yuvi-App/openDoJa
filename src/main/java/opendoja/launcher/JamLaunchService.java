@@ -2,9 +2,9 @@ package opendoja.launcher;
 
 import opendoja.host.storage.DoJaStorageHost;
 
-import javax.swing.JFileChooser;
+import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
-import java.awt.Component;
+import java.awt.*;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

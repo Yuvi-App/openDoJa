@@ -1,6 +1,5 @@
 package opendoja.probes;
 
-import com.nttdocomo.ui.Graphics;
 import com.nttdocomo.ui.Image;
 import com.nttdocomo.ui.ogl.GraphicsOGL;
 

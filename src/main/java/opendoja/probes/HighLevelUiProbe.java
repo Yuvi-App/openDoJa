@@ -1,14 +1,7 @@
 package opendoja.probes;
 
-import com.nttdocomo.ui.IApplication;
 import com.nttdocomo.lang.XString;
-import com.nttdocomo.ui.Button;
-import com.nttdocomo.ui.Component;
-import com.nttdocomo.ui.FocusManager;
-import com.nttdocomo.ui.ListBox;
-import com.nttdocomo.ui.Panel;
-import com.nttdocomo.ui.TextBox;
-import com.nttdocomo.ui.UIException;
+import com.nttdocomo.ui.*;
 import com.nttdocomo.util.Phone;
 
 import java.io.ByteArrayOutputStream;

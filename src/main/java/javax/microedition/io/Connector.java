@@ -3,12 +3,7 @@ package javax.microedition.io;
 import opendoja.host.DesktopHttpConnection;
 import opendoja.host.DoJaRuntime;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.URL;
 import java.util.Locale;
 

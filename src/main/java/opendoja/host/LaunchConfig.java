@@ -3,11 +3,7 @@ package opendoja.host;
 import com.nttdocomo.ui.IApplication;
 
 import java.nio.file.Path;
-import java.util.Collections;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Properties;
-import java.util.TreeMap;
+import java.util.*;
 
 public final class LaunchConfig {
     public static final String DEFAULT_STATUS_BAR_ICON_DEVICE = "n900i";

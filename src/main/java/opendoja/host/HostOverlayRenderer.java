@@ -2,7 +2,7 @@ package opendoja.host;
 
 import com.nttdocomo.ui.Frame;
 
-import java.awt.Graphics2D;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 
 public interface HostOverlayRenderer {

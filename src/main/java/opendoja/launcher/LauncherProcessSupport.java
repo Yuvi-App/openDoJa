@@ -1,18 +1,14 @@
 package opendoja.launcher;
 
+import opendoja.host.DoJaEncoding;
+import opendoja.host.OpenDoJaLaunchArgs;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Properties;
-import java.util.Set;
-
-import opendoja.host.DoJaEncoding;
-import opendoja.host.OpenDoJaLaunchArgs;
+import java.util.*;
 
 final class LauncherProcessSupport {
     static final String ENABLE_NATIVE_ACCESS_ARGUMENT = "--enable-native-access=ALL-UNNAMED";

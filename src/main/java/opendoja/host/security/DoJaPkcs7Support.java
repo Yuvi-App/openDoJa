@@ -1,5 +1,6 @@
 package opendoja.host.security;
 
+import javax.security.auth.x500.X500Principal;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -13,7 +14,6 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import javax.security.auth.x500.X500Principal;
 
 /**
  * Minimal PKCS#7 SignedData DER codec used by the DoJa 5.1 security package.

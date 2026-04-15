@@ -1,7 +1,5 @@
 package com.nttdocomo.opt.ui.j3d;
 
-import opendoja.g3d.FixedPoint;
-
 /**
  * Defines a class that represents a three-dimensional fixed-point vector.
  * Each component is handled as a fixed-point number that maps {@code 1.0} to

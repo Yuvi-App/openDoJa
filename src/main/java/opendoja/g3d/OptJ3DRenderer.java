@@ -1,14 +1,9 @@
 package opendoja.g3d;
 
-import com.nttdocomo.opt.ui.j3d.AffineTrans;
-import com.nttdocomo.opt.ui.j3d.Figure;
-import com.nttdocomo.opt.ui.j3d.Graphics3D;
-import com.nttdocomo.opt.ui.j3d.PrimitiveArray;
-import com.nttdocomo.opt.ui.j3d.Texture;
-import com.nttdocomo.opt.ui.j3d.Vector3D;
-import com.nttdocomo.opt.ui.j3d._Opt3DInternalAccess;
+import com.nttdocomo.opt.ui.j3d.*;
 import opendoja.host.OpenDoJaLog;
 
+import java.lang.Math;
 import java.util.Arrays;
 
 public final class OptJ3DRenderer {

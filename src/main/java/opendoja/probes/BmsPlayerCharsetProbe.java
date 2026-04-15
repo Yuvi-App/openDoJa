@@ -10,8 +10,8 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.nio.file.Path;
 import java.nio.charset.Charset;
+import java.nio.file.Path;
 
 public final class BmsPlayerCharsetProbe {
     private BmsPlayerCharsetProbe() {

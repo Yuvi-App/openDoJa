@@ -3,12 +3,7 @@ package opendoja.host;
 import com.nttdocomo.ui.Canvas;
 import com.nttdocomo.ui.Frame;
 
-import java.awt.Color;
-import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.Graphics2D;
-import java.awt.Rectangle;
-import java.awt.RenderingHints;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.ArrayDeque;
 import java.util.Locale;

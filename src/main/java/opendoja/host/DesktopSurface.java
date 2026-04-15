@@ -1,6 +1,6 @@
 package opendoja.host;
 
-import java.awt.Graphics2D;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.Arrays;
 import java.util.concurrent.locks.LockSupport;

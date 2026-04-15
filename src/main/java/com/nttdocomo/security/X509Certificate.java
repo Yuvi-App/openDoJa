@@ -2,7 +2,6 @@ package com.nttdocomo.security;
 
 import opendoja.host.security.DoJaCryptoSupport;
 
-import java.math.BigInteger;
 import java.util.Date;
 
 /**

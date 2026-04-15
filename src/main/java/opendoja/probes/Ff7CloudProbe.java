@@ -1,14 +1,9 @@
 package opendoja.probes;
 
-import opendoja.g3d.MascotActionTableData;
-import opendoja.g3d.MascotFigure;
-import opendoja.g3d.MascotLoader;
-import opendoja.g3d.MbacModel;
-import opendoja.g3d.Software3DContext;
-import opendoja.g3d.SoftwareTexture;
+import opendoja.g3d.*;
 
 import javax.imageio.ImageIO;
-import java.awt.Graphics2D;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
