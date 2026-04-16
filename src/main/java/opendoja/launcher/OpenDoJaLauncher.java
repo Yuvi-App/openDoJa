@@ -1,6 +1,7 @@
 package opendoja.launcher;
 
 import opendoja.host.JamLauncher;
+import opendoja.host.LaunchConfig;
 import opendoja.host.OpenDoJaLaunchArgs;
 import opendoja.host.OpenDoJaLog;
 
@@ -16,6 +17,7 @@ public final class OpenDoJaLauncher {
     static final String LATEST_RELEASE_URL = REPOSITORY_URL + "/releases/latest";
     static final String GITHUB_LATEST_RELEASE_API_URL = "https://api.github.com/repos/GrenderG/openDoJa/releases/latest";
     private static final String PHONE_MODEL_FLAG = "--phone-model";
+    private static final String LAUNCH_TYPE_FLAG = "--launch-type";
     private static final String SHOW_OPEN_GLES_FPS_FLAG = "--show-gles-fps";
     private static final String RUN_JAM_FLAG = "--run-jam";
     private static final String RUN_JAM_INTERNAL_FLAG = "--run-jam-internal";
@@ -41,6 +43,13 @@ public final class OpenDoJaLauncher {
                     throw new IllegalArgumentException("Usage: " + usageLine());
                 }
                 OpenDoJaLaunchArgs.set(OpenDoJaLaunchArgs.MICROEDITION_PLATFORM_OVERRIDE, args[++i]);
+                continue;
+            }
+            if (LAUNCH_TYPE_FLAG.equals(args[i])) {
+                if (i + 1 >= args.length) {
+                    throw new IllegalArgumentException("Usage: " + usageLine());
+                }
+                OpenDoJaLaunchArgs.set(OpenDoJaLaunchArgs.LAUNCH_TYPE, requireLaunchType(args[++i]).id);
                 continue;
             }
             if (SHOW_OPEN_GLES_FPS_FLAG.equals(args[i])) {
@@ -106,7 +115,7 @@ public final class OpenDoJaLauncher {
     }
 
     private static String usageLine() {
-        return APP_NAME + " [" + PHONE_MODEL_FLAG + " <model>] [" + SHOW_OPEN_GLES_FPS_FLAG + "] [<path-to-jam> | " + RUN_JAM_FLAG + " <path-to-jam> | "
+        return APP_NAME + " [" + PHONE_MODEL_FLAG + " <model>] [" + LAUNCH_TYPE_FLAG + " <normal|standby>] [" + SHOW_OPEN_GLES_FPS_FLAG + "] [<path-to-jam> | " + RUN_JAM_FLAG + " <path-to-jam> | "
                 + SPAWN_JAM_FLAG + " <path-to-jam>]";
     }
 
@@ -116,7 +125,16 @@ public final class OpenDoJaLauncher {
                 + "\n  java -D" + OpenDoJaLaunchArgs.HOST_SCALE + "=fullscreen -jar target/opendoja-{version}.jar <game.jam>"
                 + "\n  java -jar target/opendoja-{version}.jar " + SHOW_OPEN_GLES_FPS_FLAG + " <game.jam>"
                 + "\n  java -jar target/opendoja-{version}.jar " + PHONE_MODEL_FLAG + " P900i <game.jam>"
+                + "\n  java -jar target/opendoja-{version}.jar " + LAUNCH_TYPE_FLAG + " standby <game.jam>"
                 + "\n\n" + OpenDoJaLaunchArgs.formatProperties();
+    }
+
+    private static LaunchConfig.LaunchTypeOption requireLaunchType(String value) {
+        LaunchConfig.LaunchTypeOption launchType = LaunchConfig.LaunchTypeOption.fromId(value);
+        if (launchType == null) {
+            throw new IllegalArgumentException("Unknown launch type: " + value + ". Expected normal or standby.");
+        }
+        return launchType;
     }
 
     private static boolean looksLikeJamPath(String arg) {

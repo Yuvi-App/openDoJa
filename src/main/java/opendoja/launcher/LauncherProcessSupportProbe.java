@@ -41,6 +41,7 @@ public final class LauncherProcessSupportProbe {
         verifySpawnedJamSeesExpectedFileEncoding(expectedEncoding);
         verifyLauncherSettingsOverrideEncoding();
         verifyLauncherSettingsForwardFullscreenHostScale();
+        verifyLauncherSettingsForwardStandbyLaunchType();
         verifyLauncherSettingsForwardActiveKeybindProfile();
         verifySpawnedHardwareLaunchAvoidsNativeAccessWarning();
         System.out.println("Launcher process support probe OK");
@@ -150,6 +151,21 @@ public final class LauncherProcessSupportProbe {
                 "spawned JAM should see the active keybind profile");
     }
 
+    private static void verifyLauncherSettingsForwardStandbyLaunchType() throws Exception {
+        LauncherSettings settings = LauncherSettings.defaults().withLaunchType(LaunchConfig.LaunchTypeOption.STANDBY.id);
+        GameLaunchSelection selection = new GameLaunchSelection(
+                java.nio.file.Path.of("probe.jam"),
+                java.nio.file.Path.of("probe.jar"));
+        List<String> command = new LauncherProcessSupport().buildLaunchCommand(selection, settings);
+        String expectedPropertyArgument = "-D" + OpenDoJaLaunchArgs.LAUNCH_TYPE + "=" + LaunchConfig.LaunchTypeOption.STANDBY.id;
+        check(command.contains(expectedPropertyArgument),
+                "launch command should forward standby launch type as " + expectedPropertyArgument + " but was " + command);
+
+        Properties properties = readSpawnedProbeProperties(settings);
+        check(Integer.toString(com.nttdocomo.ui.IApplication.LAUNCHED_AS_CONCIERGE).equals(properties.getProperty("launchType")),
+                "spawned JAM should launch with standby/concierge launch type");
+    }
+
     private static void verifySpawnedHardwareLaunchAvoidsNativeAccessWarning() throws Exception {
         Path root = Files.createTempDirectory("launcher-native-access");
         GameLaunchSelection selection = new GameLaunchSelection(
@@ -255,6 +271,7 @@ public final class LauncherProcessSupportProbe {
             properties.setProperty("file.encoding", System.getProperty("file.encoding", "<unset>"));
             properties.setProperty("defaultCharset", Charset.defaultCharset().name());
             properties.setProperty("inputBindings", System.getProperty(OpenDoJaLaunchArgs.INPUT_BINDINGS, "<unset>"));
+            properties.setProperty("launchType", Integer.toString(getLaunchType()));
             try (var writer = Files.newBufferedWriter(Path.of(URI.create(outputUri)), StandardCharsets.UTF_8)) {
                 properties.store(writer, null);
             } catch (Exception e) {

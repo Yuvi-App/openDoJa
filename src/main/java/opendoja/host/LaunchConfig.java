@@ -269,6 +269,44 @@ public final class LaunchConfig {
         }
     }
 
+    public enum LaunchTypeOption {
+        NORMAL("normal", "Normal", IApplication.LAUNCHED_FROM_MENU),
+        STANDBY("standby", "Standby", IApplication.LAUNCHED_AS_CONCIERGE);
+
+        public final String id;
+        public final String label;
+        public final int launchType;
+
+        LaunchTypeOption(String id, String label, int launchType) {
+            this.id = id;
+            this.label = label;
+            this.launchType = launchType;
+        }
+
+        public static LaunchTypeOption fromId(String candidate) {
+            if (candidate == null) {
+                return null;
+            }
+            String normalized = candidate.trim().toLowerCase(Locale.ROOT);
+            for (LaunchTypeOption option : values()) {
+                if (option.id.equals(normalized)) {
+                    return option;
+                }
+            }
+            return null;
+        }
+
+        public static String normalizeId(String candidate) {
+            LaunchTypeOption option = fromId(candidate);
+            return option == null ? NORMAL.id : option.id;
+        }
+
+        public static LaunchTypeOption resolveConfigured() {
+            LaunchTypeOption configured = fromId(OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.LAUNCH_TYPE));
+            return configured == null ? NORMAL : configured;
+        }
+    }
+
     /**
      * Distinguishes standard i-appli jars from i-appli DX launches so host UI
      * chrome and runtime behavior can follow the title's packaged capability.

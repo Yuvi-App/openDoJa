@@ -12,23 +12,42 @@ import java.util.Map;
 import java.util.Properties;
 
 public final class JamLauncher {
+    private static final String PHONE_MODEL_FLAG = "--phone-model";
+    private static final String LAUNCH_TYPE_FLAG = "--launch-type";
+
     private JamLauncher() {
     }
 
     public static IApplication launch(Path jamPath) throws IOException, ClassNotFoundException {
-        return launch(jamPath, false);
+        return launch(jamPath, false, LaunchConfig.LaunchTypeOption.resolveConfigured());
     }
 
     public static IApplication launch(Path jamPath, boolean exitOnShutdown) throws IOException, ClassNotFoundException {
-        return DesktopLauncher.launch(buildLaunchConfig(jamPath, exitOnShutdown));
+        return launch(jamPath, exitOnShutdown, LaunchConfig.LaunchTypeOption.resolveConfigured());
+    }
+
+    public static IApplication launch(Path jamPath, LaunchConfig.LaunchTypeOption launchType)
+            throws IOException, ClassNotFoundException {
+        return launch(jamPath, false, launchType);
+    }
+
+    public static IApplication launch(Path jamPath, boolean exitOnShutdown, LaunchConfig.LaunchTypeOption launchType)
+            throws IOException, ClassNotFoundException {
+        return DesktopLauncher.launch(buildLaunchConfig(jamPath, exitOnShutdown, launchType));
     }
 
     public static LaunchConfig buildLaunchConfig(Path jamPath, boolean exitOnShutdown) throws IOException, ClassNotFoundException {
-        Properties properties = JamMetadataResolver.loadJamProperties(jamPath);
-        return buildLaunchConfig(jamPath, properties, exitOnShutdown);
+        return buildLaunchConfig(jamPath, exitOnShutdown, LaunchConfig.LaunchTypeOption.resolveConfigured());
     }
 
-    private static LaunchConfig buildLaunchConfig(Path jamPath, Properties properties, boolean exitOnShutdown)
+    public static LaunchConfig buildLaunchConfig(Path jamPath, boolean exitOnShutdown, LaunchConfig.LaunchTypeOption launchType)
+            throws IOException, ClassNotFoundException {
+        Properties properties = JamMetadataResolver.loadJamProperties(jamPath);
+        return buildLaunchConfig(jamPath, properties, exitOnShutdown, launchType);
+    }
+
+    private static LaunchConfig buildLaunchConfig(Path jamPath, Properties properties, boolean exitOnShutdown,
+                                                  LaunchConfig.LaunchTypeOption launchType)
             throws IOException, ClassNotFoundException {
         String appClassName = properties.getProperty("AppClass");
         if (appClassName == null || appClassName.isBlank()) {
@@ -46,6 +65,7 @@ public final class JamLauncher {
                 .title(properties.getProperty("AppName", applicationClass.getSimpleName()))
                 .sourceUrl(resolvePackageUrl(jamPath, properties.getProperty("PackageURL")))
                 .scratchpadSizes(scratchpadSizes)
+                .launchType((launchType == null ? LaunchConfig.LaunchTypeOption.NORMAL : launchType).launchType)
                 .iAppliType(LaunchConfig.IAppliType.fromJamProperties(properties))
                 .exitOnShutdown(exitOnShutdown);
         ResolvedScratchpad scratchpad = null;
@@ -75,24 +95,33 @@ public final class JamLauncher {
     }
 
     public static void main(String[] args) throws Exception {
+        LaunchConfig.LaunchTypeOption launchType = LaunchConfig.LaunchTypeOption.resolveConfigured();
         List<String> effectiveArgs = new ArrayList<>();
         for (int i = 0; i < args.length; i++) {
-            if ("--phone-model".equals(args[i])) {
+            if (PHONE_MODEL_FLAG.equals(args[i])) {
                 if (i + 1 >= args.length) {
-                    throw new IllegalArgumentException("Usage: JamLauncher [--phone-model <model>] <path-to-jam>");
+                    throw new IllegalArgumentException("Usage: " + usageLine());
                 }
                 OpenDoJaLaunchArgs.set(OpenDoJaLaunchArgs.MICROEDITION_PLATFORM_OVERRIDE, args[++i]);
+                continue;
+            }
+            if (LAUNCH_TYPE_FLAG.equals(args[i])) {
+                if (i + 1 >= args.length) {
+                    throw new IllegalArgumentException("Usage: " + usageLine());
+                }
+                launchType = requireLaunchType(args[++i]);
+                OpenDoJaLaunchArgs.set(OpenDoJaLaunchArgs.LAUNCH_TYPE, launchType.id);
                 continue;
             }
             effectiveArgs.add(args[i]);
         }
         if (effectiveArgs.size() != 1) {
-            throw new IllegalArgumentException("Usage: JamLauncher [--phone-model <model>] <path-to-jam>");
+            throw new IllegalArgumentException("Usage: " + usageLine());
         }
         Path jamPath = Path.of(effectiveArgs.get(0));
         LaunchCompatibility.reexecJamLauncherIfNeeded(jamPath);
         try {
-            launch(jamPath, true);
+            launch(jamPath, true, launchType);
         } catch (VerifyError error) {
             // A few handset-era jars contain bytecode that modern HotSpot rejects up front even
             // though the same title otherwise runs once verification is disabled. Retry once from
@@ -107,6 +136,18 @@ public final class JamLauncher {
             runtime.awaitShutdown();
         }
         System.exit(0);
+    }
+
+    private static String usageLine() {
+        return "JamLauncher [" + PHONE_MODEL_FLAG + " <model>] [" + LAUNCH_TYPE_FLAG + " <normal|standby>] <path-to-jam>";
+    }
+
+    private static LaunchConfig.LaunchTypeOption requireLaunchType(String value) {
+        LaunchConfig.LaunchTypeOption launchType = LaunchConfig.LaunchTypeOption.fromId(value);
+        if (launchType == null) {
+            throw new IllegalArgumentException("Unknown launch type: " + value + ". Expected normal or standby.");
+        }
+        return launchType;
     }
 
     private static String resolvePackageUrl(Path jamPath, String packageUrl) {
