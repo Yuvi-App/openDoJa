@@ -1,9 +1,12 @@
-package opendoja.host;
+package opendoja.probes;
 
 import java.io.InputStream;
+import java.lang.reflect.Method;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -26,12 +29,19 @@ public final class JamGameClassLoaderFactoryProbe {
             output.closeEntry();
         }
 
-        try (var loader = JamGameClassLoaderFactory.create(jar, JamGameClassLoaderFactoryProbe.class.getClassLoader());
+        try (URLClassLoader loader = createGameLoader(jar);
              InputStream in = loader.getResourceAsStream("asset.bin")) {
             check(in != null, "resource stream should resolve from jar paths containing '!'");
-            check(java.util.Arrays.equals(expected, in.readAllBytes()),
+            check(Arrays.equals(expected, in.readAllBytes()),
                     "resource bytes should survive bang-path jar loading");
         }
+    }
+
+    private static URLClassLoader createGameLoader(Path jar) throws Exception {
+        Class<?> factoryClass = Class.forName("opendoja.host.JamGameClassLoaderFactory");
+        Method create = factoryClass.getDeclaredMethod("create", Path.class, ClassLoader.class);
+        create.setAccessible(true);
+        return (URLClassLoader) create.invoke(null, jar, JamGameClassLoaderFactoryProbe.class.getClassLoader());
     }
 
     private static void check(boolean condition, String message) {
