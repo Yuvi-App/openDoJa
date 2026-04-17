@@ -1,6 +1,7 @@
 package com.nttdocomo.ui;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -191,6 +192,22 @@ public class Panel extends Frame {
         if (componentListener != null) {
             componentListener.componentAction(component, type, param);
         }
+    }
+
+    String hostTitle() {
+        return title == null ? "" : title;
+    }
+
+    List<Component> hostComponents() {
+        return Collections.unmodifiableList(components);
+    }
+
+    LayoutManager hostLayoutManager() {
+        return layoutManager;
+    }
+
+    Component hostFocusedComponent() {
+        return focusedComponent;
     }
 
     private static final class SystemFocusManager implements FocusManager {

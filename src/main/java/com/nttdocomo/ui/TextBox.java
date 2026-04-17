@@ -292,4 +292,22 @@ public final class TextBox extends Component implements Interactable {
     private static int defaultInputMode(int displayMode) {
         return displayMode == DISPLAY_PASSWORD ? NUMBER : KANA;
     }
+
+    int hostRows() {
+        return rows;
+    }
+
+    boolean hostEnabled() {
+        return enabled;
+    }
+
+    String hostDisplayText() {
+        if (text.isEmpty()) {
+            return "";
+        }
+        if (displayMode != DISPLAY_PASSWORD) {
+            return text;
+        }
+        return "*".repeat(text.length());
+    }
 }

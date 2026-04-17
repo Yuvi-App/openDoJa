@@ -148,4 +148,12 @@ public final class Label extends Component {
         }
         return alignment;
     }
+
+    String hostText() {
+        return text;
+    }
+
+    int hostAlignment() {
+        return alignment;
+    }
 }
