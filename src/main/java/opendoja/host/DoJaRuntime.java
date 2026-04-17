@@ -1,6 +1,7 @@
 package opendoja.host;
 
 import com.nttdocomo.opt.ui.PhoneSystem2;
+import com.nttdocomo.opt.ui.StereoScreen;
 import com.nttdocomo.ui.*;
 import com.nttdocomo.ui.Canvas;
 import com.nttdocomo.ui.Frame;
@@ -156,6 +157,7 @@ public final class DoJaRuntime {
         current = runtime;
         runtime.applyLaunchSystemProperties();
         PhoneSystem2.resetRuntimeDefaults();
+        StereoScreen.resetRuntimeDefaults();
         return runtime;
     }
 
