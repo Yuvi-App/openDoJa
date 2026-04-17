@@ -254,7 +254,6 @@ public final class Software3DContext {
         ToonShaderParams toonShader = optToonShaderEnabled ? optToonShader : null;
         // opt.ui.j3d keeps color-key and blend bits in the attr word supplied with each draw call.
         Projection projection = optPerspectiveEnabled ? createOptProjection(surfaceWidth, surfaceHeight) : null;
-        boolean invertScreenY = resolveOptPrimitiveScreenYFlip(optViewTransform);
         // Framebuffer-blended opt primitive batches share a staged pass with later opaque draws.
         // Queue them until `flush()`/frame end so they are composited after opaque geometry has
         // established depth, matching the staged ordering expected by the opt renderer contract.
@@ -282,8 +281,7 @@ public final class Software3DContext {
                     resolveOptOrthoWidth(surfaceWidth),
                     resolveOptOrthoHeight(surfaceHeight),
                     (attr & 0x10) != 0,
-                    attr & 0x60,
-                    invertScreenY
+                    attr & 0x60
             ));
             return;
         }
@@ -291,7 +289,7 @@ public final class Software3DContext {
                 primitives.getVertexArray(), primitives.getColorArray(), primitives.getTextureCoordArray(), primitives.getPointSpriteArray(),
                 texture, optViewTransform, projection, optClip,
                 optScreenCenterX, optScreenCenterY, resolveOptOrthoWidth(surfaceWidth), resolveOptOrthoHeight(surfaceHeight),
-                optSemiTransparent, (attr & 0x10) != 0, attr & 0x60, 1f, true, invertScreenY, true, true,
+                optSemiTransparent, (attr & 0x10) != 0, attr & 0x60, 1f, true, false, true, true,
                 null, sphereTexture, toonShader, 0f, 0f, true, true, true, BlendSemantics.FRAMEBUFFER);
     }
 
@@ -329,7 +327,7 @@ public final class Software3DContext {
                     pending.blendMode(),
                     1f,
                     true,
-                    pending.invertScreenY(),
+                    false,
                     true,
                     false,
                     null,
@@ -786,16 +784,6 @@ public final class Software3DContext {
                 && matrix[0] == 1f && matrix[1] == 0f && matrix[2] == 0f
                 && matrix[4] == 0f && matrix[5] == 1f && matrix[6] == 0f
                 && matrix[8] == 0f && matrix[9] == 0f && matrix[10] == 1f;
-    }
-
-    private static boolean resolveOptPrimitiveScreenYFlip(float[] matrix) {
-        // opt.ui.j3d primitive scenes can submit either a reflected camera basis or
-        // identity-pretransformed billboard vertices, so the screen-Y rule must follow
-        // the submitted view transform instead of assuming one fixed primitive convention.
-        if (hasIdentityBasis(matrix)) {
-            return false;
-        }
-        return matrix == null || matrix.length < 6 || matrix[5] >= 0f;
     }
 
     private static void addProjectedPrimitiveQuad(List<ProjectedPolygon> projected, float[] xs, float[] ys, float[] depthValues,
@@ -1920,7 +1908,7 @@ public final class Software3DContext {
                                             SoftwareTexture texture, SoftwareTexture sphereTexture, ToonShaderParams toonShader,
                                             float[] transform, Projection projection, Rectangle clip,
                                             float centerX, float centerY, float orthoWidth, float orthoHeight,
-                                            boolean transparentPaletteZero, int blendMode, boolean invertScreenY) {
+                                            boolean transparentPaletteZero, int blendMode) {
     }
 
     private record FogState(int mode, float linearNear, float linearFar, float density, int color) {
