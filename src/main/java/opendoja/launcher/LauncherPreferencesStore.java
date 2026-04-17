@@ -22,6 +22,7 @@ final class LauncherPreferencesStore {
     private static final String HTTP_OVERRIDE_DOMAIN_KEY = "httpOverrideDomain";
     private static final String FILE_ENCODING_OVERRIDE_KEY = "fileEncodingOverride";
     private static final String MICROEDITION_PLATFORM_OVERRIDE_KEY = "microeditionPlatformOverride";
+    private static final String LAUNCH_TYPE_KEY = "launchType";
     private static final String OPEN_GLES_RENDERER_KEY = "openGlesRenderer";
     private static final String SHOW_OPEN_GLES_FPS_KEY = "showOpenGlesFps";
     private static final String OPEN_GLES_SUPERSAMPLE_SCALE_KEY = "openGlesSupersampleScale";
@@ -49,6 +50,7 @@ final class LauncherPreferencesStore {
         String storedFileEncodingOverride = preferences.get(FILE_ENCODING_OVERRIDE_KEY, "");
         String storedMicroeditionPlatformOverride = preferences.get(MICROEDITION_PLATFORM_OVERRIDE_KEY,
                 OpenDoJaLaunchArgs.microeditionPlatformOverride());
+        String storedLaunchType = preferences.get(LAUNCH_TYPE_KEY, OpenDoJaLaunchArgs.launchType());
         OpenGlesRendererMode storedOpenGlesRendererMode = OpenGlesRendererMode.fromId(
                 preferences.get(OPEN_GLES_RENDERER_KEY, OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.OPEN_GLES_RENDERER)));
         boolean storedShowOpenGlesFps = preferences.getBoolean(SHOW_OPEN_GLES_FPS_KEY,
@@ -79,6 +81,7 @@ final class LauncherPreferencesStore {
                 storedDisableBytecodeVerification,
                 storedDisableOsDpiScaling,
                 OpenDoJaLaunchArgs.getInt(OpenDoJaLaunchArgs.OPEN_GLES_SUPERSAMPLE_SCALE, storedOpenGlesSupersampleScale),
+                OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.LAUNCH_TYPE, storedLaunchType),
                 storedKeybindConfiguration);
     }
 
@@ -91,6 +94,7 @@ final class LauncherPreferencesStore {
         preferences.put(HTTP_OVERRIDE_DOMAIN_KEY, settings.httpOverrideDomain());
         preferences.put(FILE_ENCODING_OVERRIDE_KEY, settings.fileEncodingOverride());
         preferences.put(MICROEDITION_PLATFORM_OVERRIDE_KEY, settings.microeditionPlatformOverride());
+        preferences.put(LAUNCH_TYPE_KEY, settings.launchType());
         preferences.put(OPEN_GLES_RENDERER_KEY, settings.openGlesRendererMode().id());
         preferences.putBoolean(SHOW_OPEN_GLES_FPS_KEY, settings.showOpenGlesFps());
         preferences.putInt(OPEN_GLES_SUPERSAMPLE_SCALE_KEY, settings.openGlesSupersampleScale());

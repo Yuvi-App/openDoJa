@@ -90,6 +90,7 @@ final class LauncherProcessSupport {
                 Boolean.toString(settings.showOpenGlesFps()));
         appendProperty(command, overriddenProperties, OpenDoJaLaunchArgs.OPEN_GLES_SUPERSAMPLE_SCALE,
                 Integer.toString(settings.openGlesSupersampleScale()));
+        appendProperty(command, overriddenProperties, OpenDoJaLaunchArgs.LAUNCH_TYPE, settings.launchType());
         appendProperty(command, overriddenProperties, OpenDoJaLaunchArgs.INPUT_BINDINGS,
                 settings.keybindConfiguration().activeProfile().serialize());
         if (settings.disableOsDpiScaling()) {

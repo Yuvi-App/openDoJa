@@ -136,6 +136,8 @@ public final class OpenDoJaLaunchArgs {
     public static final String HTTP_OVERRIDE_DOMAIN = "opendoja.httpOverrideDomain";
     /** Override value returned for microedition.platform during launch. */
     public static final String MICROEDITION_PLATFORM_OVERRIDE = "opendoja.microeditionPlatformOverride";
+    /** Launch mode applied when starting a JAM: normal or standby. */
+    public static final String LAUNCH_TYPE = "opendoja.launchType";
     /** Simulated handset terminal ID returned to apps. */
     public static final String TERMINAL_ID = "opendoja.terminalId";
     /** Simulated user ID returned to apps. */
@@ -322,6 +324,7 @@ public final class OpenDoJaLaunchArgs {
             PHONEBOOK_SELECTION_INDEX,
             HTTP_OVERRIDE_DOMAIN,
             MICROEDITION_PLATFORM_OVERRIDE,
+            LAUNCH_TYPE,
             TERMINAL_ID,
             USER_ID,
             INPUT_KEY_REPEAT_RELEASE_DEBOUNCE_MS,
@@ -403,6 +406,10 @@ public final class OpenDoJaLaunchArgs {
 
     public static String microeditionPlatformOverride() {
         return normalizeMicroeditionPlatformOverride(get(MICROEDITION_PLATFORM_OVERRIDE, ""));
+    }
+
+    public static String launchType() {
+        return normalizeLaunchType(get(LAUNCH_TYPE, ""));
     }
 
     public static OpenGlesRendererMode openGlesRendererMode() {
@@ -487,6 +494,10 @@ public final class OpenDoJaLaunchArgs {
         return candidate == null ? "" : candidate.trim();
     }
 
+    public static String normalizeLaunchType(String candidate) {
+        return LaunchConfig.LaunchTypeOption.normalizeId(candidate);
+    }
+
     public static int normalizeOpenGlesSupersampleScale(int candidate) {
         return Math.clamp(candidate, 1, 5);
     }
@@ -563,6 +574,7 @@ public final class OpenDoJaLaunchArgs {
         defaults.put(PHONEBOOK_SELECTION_INDEX, () -> "");
         defaults.put(HTTP_OVERRIDE_DOMAIN, () -> "");
         defaults.put(MICROEDITION_PLATFORM_OVERRIDE, () -> "");
+        defaults.put(LAUNCH_TYPE, () -> LaunchConfig.LaunchTypeOption.NORMAL.id);
         defaults.put(TERMINAL_ID, OpenDoJaIdentity::defaultTerminalId);
         defaults.put(USER_ID, OpenDoJaIdentity::defaultUserId);
         defaults.put(INPUT_KEY_REPEAT_RELEASE_DEBOUNCE_MS, () -> "25");

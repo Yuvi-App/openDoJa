@@ -87,6 +87,7 @@ final class OpenDoJaLauncherFrame extends JFrame {
         settingsMenu.add(buildHostScaleMenu());
         settingsMenu.add(buildSynthMenu());
         settingsMenu.add(buildFontTypeMenu());
+        settingsMenu.add(buildLaunchTypeMenu());
         settingsMenu.add(buildExperimentalMenu());
         settingsMenu.addSeparator();
         settingsMenu.add(new JMenuItem(new AbstractAction("Set Terminal ID...") {
@@ -384,6 +385,24 @@ final class OpenDoJaLauncherFrame extends JFrame {
             fontTypeMenu.add(item);
         }
         return fontTypeMenu;
+    }
+
+    private JMenu buildLaunchTypeMenu() {
+        LauncherSettings settings = jamLaunchService.loadSettings();
+        JMenu launchTypeMenu = new JMenu("Launch Type");
+        ButtonGroup group = new ButtonGroup();
+        for (LaunchConfig.LaunchTypeOption launchType : LaunchConfig.LaunchTypeOption.values()) {
+            JRadioButtonMenuItem item = new JRadioButtonMenuItem(new AbstractAction(launchType.label) {
+                @Override
+                public void actionPerformed(ActionEvent event) {
+                    saveSettings(current -> current.withLaunchType(launchType.id));
+                }
+            });
+            item.setSelected(settings.launchType().equals(launchType.id));
+            group.add(item);
+            launchTypeMenu.add(item);
+        }
+        return launchTypeMenu;
     }
 
     private JMenu buildSynthMenu() {
