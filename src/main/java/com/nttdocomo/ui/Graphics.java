@@ -1569,6 +1569,17 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
             return;
         }
         if (OpenDoJaLaunchArgs.openGlesRendererMode() == OpenGlesRendererMode.HARDWARE) {
+            if (!oglRenderer.hasBufferedHardwarePresentation()) {
+                // Before the hardware backend has produced an authoritative frame snapshot,
+                // outside-lock software mutations have nothing buffered to race against.
+                // Publish startup/loading frames immediately so direct-canvas titles such as
+                // Nose Hair Master can show their intro splash before the first normal
+                // hardware-backed frame boundary exists.
+                oglRenderer.onSoftwareSurfaceMutation();
+                traceOpenGlesSync("immediate startup software present outside lock");
+                surface.flush(copyImage(surface.image()), false);
+                return;
+            }
             // Immediate outside-lock presents can race the buffered hardware
             // frame and expose partially updated output. Keep the software
             // mutation on the backing surface, but let the next normal

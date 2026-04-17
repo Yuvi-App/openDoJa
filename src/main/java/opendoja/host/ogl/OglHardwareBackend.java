@@ -174,6 +174,10 @@ final class OglHardwareBackend {
         surfaceDirty = true;
     }
 
+    boolean hasBufferedHardwarePresentation() {
+        return readbackPending || lastHardwareSnapshot != null;
+    }
+
     void close() {
         if (drawable == null) {
             resetState();

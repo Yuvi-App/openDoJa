@@ -96,6 +96,10 @@ public class OglRenderer {
         hardware.flush();
     }
 
+    public boolean hasBufferedHardwarePresentation() {
+        return hardware.hasBufferedHardwarePresentation();
+    }
+
     public boolean acceptsExtensionMatrixMode(int mode) {
         return false;
     }
