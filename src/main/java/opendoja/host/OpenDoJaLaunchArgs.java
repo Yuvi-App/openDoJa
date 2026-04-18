@@ -67,8 +67,12 @@ public final class OpenDoJaLaunchArgs {
     public static final String DEBUG_FUE_TREK_CONTROL = "opendoja.debugFueTrekControl";
     /** Enables FueTrek note debug logging. */
     public static final String DEBUG_FUE_TREK_NOTES = "opendoja.debugFueTrekNotes";
-    /** Rotates the presented handset display output: none, left, or right. */
+    /** Rotates the presented handset display output: none, left, right, or upside-down. */
     public static final String DISPLAY_ROTATION = "opendoja.displayRotation";
+    public static final String DISPLAY_ROTATION_NONE = "none";
+    public static final String DISPLAY_ROTATION_LEFT = "left";
+    public static final String DISPLAY_ROTATION_RIGHT = "right";
+    public static final String DISPLAY_ROTATION_UPSIDE_DOWN = "upside-down";
     /** Whether to draw the host handset frame. */
     public static final String EXTERNAL_FRAME = "opendoja.externalFrame";
     /** Disables external FeliCa speed discovery. */
@@ -507,13 +511,23 @@ public final class OpenDoJaLaunchArgs {
 
     public static String normalizeDisplayRotation(String candidate) {
         if (candidate == null) {
-            return "none";
+            return DISPLAY_ROTATION_NONE;
         }
         return switch (candidate.trim().toLowerCase(Locale.ROOT)) {
-            case "left" -> "left";
-            case "right" -> "right";
-            default -> "none";
+            case DISPLAY_ROTATION_LEFT -> DISPLAY_ROTATION_LEFT;
+            case DISPLAY_ROTATION_RIGHT -> DISPLAY_ROTATION_RIGHT;
+            case DISPLAY_ROTATION_UPSIDE_DOWN -> DISPLAY_ROTATION_UPSIDE_DOWN;
+            default -> DISPLAY_ROTATION_NONE;
         };
+    }
+
+    public static String displayRotationChoices() {
+        return DISPLAY_ROTATION_NONE + "|" + DISPLAY_ROTATION_LEFT + "|" + DISPLAY_ROTATION_RIGHT + "|" + DISPLAY_ROTATION_UPSIDE_DOWN;
+    }
+
+    public static String displayRotationChoicesText() {
+        return DISPLAY_ROTATION_NONE + ", " + DISPLAY_ROTATION_LEFT + ", "
+                + DISPLAY_ROTATION_RIGHT + ", or " + DISPLAY_ROTATION_UPSIDE_DOWN;
     }
 
     public static int normalizeOpenGlesSupersampleScale(int candidate) {
@@ -558,7 +572,7 @@ public final class OpenDoJaLaunchArgs {
         defaults.put(DEBUG3D_CALLS, () -> "false");
         defaults.put(DEBUG_FUE_TREK_CONTROL, () -> "false");
         defaults.put(DEBUG_FUE_TREK_NOTES, () -> "false");
-        defaults.put(DISPLAY_ROTATION, () -> "none");
+        defaults.put(DISPLAY_ROTATION, () -> DISPLAY_ROTATION_NONE);
         defaults.put(EXTERNAL_FRAME, () -> "true");
         defaults.put(FELICA_EXTERNAL_NO_SPEED_DISCOVERY, () -> "false");
         defaults.put(FELICA_EXTERNAL_POLLED_IDM, () -> "");

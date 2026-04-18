@@ -119,7 +119,7 @@ public final class OpenDoJaLauncher {
     private static String usageLine() {
         return APP_NAME + " [" + OpenDoJaCliFlags.PHONE_MODEL + " <model>] ["
                 + OpenDoJaCliFlags.LAUNCH_TYPE + " <normal|standby>] ["
-                + OpenDoJaCliFlags.SCREEN_ROTATION + " <none|left|right>] ["
+                + OpenDoJaCliFlags.SCREEN_ROTATION + " <" + OpenDoJaLaunchArgs.displayRotationChoices() + ">] ["
                 + OpenDoJaCliFlags.SHOW_OPEN_GLES_FPS + "] [<path-to-jam> | " + OpenDoJaCliFlags.RUN_JAM + " <path-to-jam> | "
                 + OpenDoJaCliFlags.SPAWN_JAM + " <path-to-jam>]";
     }
@@ -132,6 +132,7 @@ public final class OpenDoJaLauncher {
                 + "\n  java -jar target/opendoja-{version}.jar " + OpenDoJaCliFlags.PHONE_MODEL + " P900i <game.jam>"
                 + "\n  java -jar target/opendoja-{version}.jar " + OpenDoJaCliFlags.LAUNCH_TYPE + " standby <game.jam>"
                 + "\n  java -jar target/opendoja-{version}.jar " + OpenDoJaCliFlags.SCREEN_ROTATION + " right <game.jam>"
+                + "\n  java -jar target/opendoja-{version}.jar " + OpenDoJaCliFlags.SCREEN_ROTATION + " upside-down <game.jam>"
                 + "\n\n" + OpenDoJaLaunchArgs.formatProperties();
     }
 
@@ -147,7 +148,8 @@ public final class OpenDoJaLauncher {
         String normalized = OpenDoJaLaunchArgs.normalizeDisplayRotation(value);
         if (!normalized.equals(value == null ? null : value.trim().toLowerCase(java.util.Locale.ROOT))) {
             throw new IllegalArgumentException(
-                    "Unknown screen rotation: " + value + ". Expected none, left, or right.");
+                    "Unknown screen rotation: " + value + ". Expected "
+                            + OpenDoJaLaunchArgs.displayRotationChoicesText() + ".");
         }
         return normalized;
     }
