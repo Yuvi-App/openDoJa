@@ -42,7 +42,7 @@ record LauncherSettings(
     }
 
     static LauncherSettings defaults() {
-        return new LauncherSettings(HostScale.DEFAULT_ID, "none", MLDSynth.DEFAULT.id,
+        return new LauncherSettings(HostScale.DEFAULT_ID, OpenDoJaLaunchArgs.DISPLAY_ROTATION_NONE, MLDSynth.DEFAULT.id,
                 OpenDoJaIdentity.defaultTerminalId(),
                 OpenDoJaIdentity.defaultUserId(),
                 LaunchConfig.FontType.BITMAP.id,
@@ -70,7 +70,7 @@ record LauncherSettings(
                      boolean showOpenGlesFps,
                      boolean disableBytecodeVerification,
                      boolean disableOsDpiScaling) {
-        this(hostScale, "none", synthId, terminalId, userId, fontType, httpOverrideDomain, fileEncodingOverride,
+        this(hostScale, OpenDoJaLaunchArgs.DISPLAY_ROTATION_NONE, synthId, terminalId, userId, fontType, httpOverrideDomain, fileEncodingOverride,
                 microeditionPlatformOverride, openGlesRendererMode, showOpenGlesFps,
                 disableBytecodeVerification, disableOsDpiScaling, 1,
                 LaunchConfig.LaunchTypeOption.NORMAL.id, HostKeybindConfiguration.defaults());
@@ -88,7 +88,7 @@ record LauncherSettings(
                      boolean showOpenGlesFps,
                      boolean disableBytecodeVerification,
                      boolean disableOsDpiScaling) {
-        this(Integer.toString(hostScale), "none", synthId, terminalId, userId, fontType, httpOverrideDomain, fileEncodingOverride,
+        this(Integer.toString(hostScale), OpenDoJaLaunchArgs.DISPLAY_ROTATION_NONE, synthId, terminalId, userId, fontType, httpOverrideDomain, fileEncodingOverride,
                 microeditionPlatformOverride, openGlesRendererMode, showOpenGlesFps,
                 disableBytecodeVerification, disableOsDpiScaling, 1,
                 LaunchConfig.LaunchTypeOption.NORMAL.id, HostKeybindConfiguration.defaults());

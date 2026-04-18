@@ -145,7 +145,7 @@ public final class JamLauncher {
     private static String usageLine() {
         return "JamLauncher [" + OpenDoJaCliFlags.PHONE_MODEL + " <model>] ["
                 + OpenDoJaCliFlags.LAUNCH_TYPE + " <normal|standby>] ["
-                + OpenDoJaCliFlags.SCREEN_ROTATION + " <none|left|right>] <path-to-jam>";
+                + OpenDoJaCliFlags.SCREEN_ROTATION + " <" + OpenDoJaLaunchArgs.displayRotationChoices() + ">] <path-to-jam>";
     }
 
     private static LaunchConfig.LaunchTypeOption requireLaunchType(String value) {
@@ -160,7 +160,8 @@ public final class JamLauncher {
         String normalized = OpenDoJaLaunchArgs.normalizeDisplayRotation(value);
         if (!normalized.equals(value == null ? null : value.trim().toLowerCase(java.util.Locale.ROOT))) {
             throw new IllegalArgumentException(
-                    "Unknown screen rotation: " + value + ". Expected none, left, or right.");
+                    "Unknown screen rotation: " + value + ". Expected "
+                            + OpenDoJaLaunchArgs.displayRotationChoicesText() + ".");
         }
         return normalized;
     }

@@ -4,6 +4,7 @@ import opendoja.audio.mld.MLDSynth;
 import opendoja.host.DoJaRuntime;
 import opendoja.host.HostScale;
 import opendoja.host.LaunchConfig;
+import opendoja.host.OpenDoJaLaunchArgs;
 import opendoja.host.OpenDoJaLog;
 import opendoja.host.OpenGlesRendererMode;
 
@@ -392,9 +393,14 @@ final class OpenDoJaLauncherFrame extends JFrame {
         LauncherSettings settings = jamLaunchService.loadSettings();
         JMenu displayRotationMenu = new JMenu("Screen Rotation");
         ButtonGroup group = new ButtonGroup();
-        addDisplayRotationItem(displayRotationMenu, group, settings, "none", "None");
-        addDisplayRotationItem(displayRotationMenu, group, settings, "left", "90 Left");
-        addDisplayRotationItem(displayRotationMenu, group, settings, "right", "90 Right");
+        addDisplayRotationItem(displayRotationMenu, group, settings,
+                OpenDoJaLaunchArgs.DISPLAY_ROTATION_NONE, "None");
+        addDisplayRotationItem(displayRotationMenu, group, settings,
+                OpenDoJaLaunchArgs.DISPLAY_ROTATION_LEFT, "90 Left");
+        addDisplayRotationItem(displayRotationMenu, group, settings,
+                OpenDoJaLaunchArgs.DISPLAY_ROTATION_RIGHT, "90 Right");
+        addDisplayRotationItem(displayRotationMenu, group, settings,
+                OpenDoJaLaunchArgs.DISPLAY_ROTATION_UPSIDE_DOWN, "180 Upside Down");
         return displayRotationMenu;
     }
 

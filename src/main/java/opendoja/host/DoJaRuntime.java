@@ -1,6 +1,7 @@
 package opendoja.host;
 
 import com.nttdocomo.opt.ui.PhoneSystem2;
+import com.nttdocomo.opt.ui.PointingDevice;
 import com.nttdocomo.opt.ui.StereoScreen;
 import com.nttdocomo.ui.*;
 import com.nttdocomo.ui.Canvas;
@@ -13,6 +14,9 @@ import opendoja.host.input.ControllerInputManager;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.NoninvertibleTransformException;
+import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.lang.reflect.InvocationTargetException;
@@ -41,6 +45,8 @@ public final class DoJaRuntime {
     // A short release debounce collapses desktop auto-repeat release/press pairs into a stable hold.
     private static final int KEY_REPEAT_RELEASE_DEBOUNCE_MS =
             java.lang.Math.max(0, opendoja.host.OpenDoJaLaunchArgs.getInt(opendoja.host.OpenDoJaLaunchArgs.INPUT_KEY_REPEAT_RELEASE_DEBOUNCE_MS));
+    private static final int TOUCH_PRESSED_EVENT = 67;
+    private static final int TOUCH_RELEASED_EVENT = 68;
     private static final Map<Integer, HostControlAction> DEFAULT_KEYBOARD_ACTIONS =
             HostKeybindProfile.defaults().keyboardActionsByKeyCode();
     private static volatile DoJaRuntime current;
@@ -656,6 +662,29 @@ public final class DoJaRuntime {
         }, eventType);
     }
 
+    private void updatePointerPosition(int x, int y) {
+        PointingDevice.setMode(PointingDevice.MODE_MOUSE);
+        PointingDevice.setPosition(
+                clamp(x, 0, Math.max(0, displayWidth() - 1)),
+                clamp(y, 0, Math.max(0, displayHeight() - 1)));
+    }
+
+    private void dispatchPointerEvent(int eventType, int x, int y) {
+        updatePointerPosition(x, y);
+        if (!(currentFrame instanceof Canvas canvas)) {
+            return;
+        }
+        dispatchCanvasUiEvent(canvas, () -> {
+            if (TRACE_EVENTS) {
+                OpenDoJaLog.debug(DoJaRuntime.class,
+                        () -> "pointer event type=" + eventType + " x=" + x + " y=" + y
+                                + " canvas=" + canvas.getClass().getName());
+            }
+            canvas.processEvent(eventType, 0);
+            repaintWindow();
+        }, eventType);
+    }
+
     public void dispatchHostSoftKey(int softKey, int eventType) {
         Frame frame = currentFrame;
         if (frame == null) {
@@ -740,15 +769,22 @@ public final class DoJaRuntime {
     private void dispatchCanvasUiEvent(Canvas canvas, Runnable eventTask, int eventType) {
         dispatchUiEvent(() -> {
             eventTask.run();
-            // Only the press edge needs a host wakeup here. Doing the same on release would force
-            // a second host paint for the same key cycle and reintroduce duplicate-paint races.
-            if (eventType != Display.KEY_PRESSED_EVENT) {
+            if (!shouldWakeCanvasAfterUiEvent(eventType)) {
                 return;
             }
             if (canvas == currentFrame && !currentCanvasPresentedByApplication) {
                 requestRender(canvas);
             }
         });
+    }
+
+    private static boolean shouldWakeCanvasAfterUiEvent(int eventType) {
+        // Key repeat/release pairs can otherwise force duplicate paints, but touch release is often
+        // the action edge for desktop pointer-driven titles and needs a host wakeup too.
+        return eventType == Display.KEY_PRESSED_EVENT
+                || eventType == Display.POINTER_MOVED_EVENT
+                || eventType == TOUCH_PRESSED_EVENT
+                || eventType == TOUCH_RELEASED_EVENT;
     }
 
     private void dispatchUiEvent(Runnable eventTask) {
@@ -1444,12 +1480,88 @@ public final class DoJaRuntime {
         return action.dispatchCode();
     }
 
+    private Point hostPointToCanvas(Point hostPoint, boolean clampToDrawArea) {
+        if (hostPoint == null) {
+            return null;
+        }
+        Dimension frameSize = scaledHostFrameSize();
+        Point origin = frameOriginForHostScale(hostScaleSetting(), hostPanel.getSize(), frameSize);
+        ExternalFrameLayout layout = externalFrameRenderer.layoutFor(displayWidth(), displayHeight(), hostScaleFactor());
+        double scale = layout.scale();
+        if (!Double.isFinite(scale) || scale <= 0d) {
+            return null;
+        }
+        Rectangle drawArea = layout.drawArea();
+        if (drawArea.width <= 0 || drawArea.height <= 0) {
+            return null;
+        }
+        double logicalX = (hostPoint.x - origin.x) / scale;
+        double logicalY = (hostPoint.y - origin.y) / scale;
+        if (!clampToDrawArea
+                && (logicalX < drawArea.x
+                || logicalY < drawArea.y
+                || logicalX >= drawArea.x + drawArea.width
+                || logicalY >= drawArea.y + drawArea.height)) {
+            return null;
+        }
+        double clampedLogicalX = clamp(logicalX, drawArea.x, nextAfter(drawArea.x + drawArea.width, drawArea.x));
+        double clampedLogicalY = clamp(logicalY, drawArea.y, nextAfter(drawArea.y + drawArea.height, drawArea.y));
+        Point2D canvasPoint = hostPointToCanvasPoint(new Point2D.Double(clampedLogicalX, clampedLogicalY), drawArea);
+        if (canvasPoint == null) {
+            return null;
+        }
+        return new Point(
+                clamp((int) Math.floor(canvasPoint.getX()), 0, Math.max(0, displayWidth() - 1)),
+                clamp((int) Math.floor(canvasPoint.getY()), 0, Math.max(0, displayHeight() - 1)));
+    }
+
+    private Point2D hostPointToCanvasPoint(Point2D hostPoint, Rectangle drawArea) {
+        String rotation = OpenDoJaLaunchArgs.displayRotation();
+        if ("none".equals(rotation)) {
+            double x = (hostPoint.getX() - drawArea.x) * displayWidth() / Math.max(1, drawArea.width);
+            double y = (hostPoint.getY() - drawArea.y) * displayHeight() / Math.max(1, drawArea.height);
+            return new Point2D.Double(x, y);
+        }
+        AffineTransform transform = new AffineTransform();
+        if ("left".equals(rotation)) {
+            transform.translate(drawArea.x, drawArea.y + drawArea.height);
+            transform.rotate(-Math.PI / 2d);
+        } else if ("right".equals(rotation)) {
+            transform.translate(drawArea.x + drawArea.width, drawArea.y);
+            transform.rotate(Math.PI / 2d);
+        } else {
+            return null;
+        }
+        transform.scale(
+                drawArea.height / (double) Math.max(1, displayWidth()),
+                drawArea.width / (double) Math.max(1, displayHeight()));
+        try {
+            return transform.inverseTransform(hostPoint, null);
+        } catch (NoninvertibleTransformException e) {
+            OpenDoJaLog.warn(DoJaRuntime.class, "Unable to invert host pointer transform", e);
+            return null;
+        }
+    }
+
+    private static int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private static double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private static double nextAfter(double start, double direction) {
+        return Math.nextAfter(start, direction);
+    }
+
     private static final class HostPanel extends JPanel {
         private final DoJaRuntime runtime;
         private final DesktopKeyInputAdapter keyInputAdapter;
         private final DesktopKeyInputAdapter softKeyInputAdapter;
         private final HostInputRouter inputRouter;
         private volatile ControllerInputManager controllerInputManager;
+        private boolean touchPointerActive;
 
         private HostPanel(DoJaRuntime runtime) {
             this.runtime = runtime;
@@ -1468,6 +1580,7 @@ public final class DoJaRuntime {
                 public void focusLost(FocusEvent e) {
                     keyInputAdapter.releaseAll();
                     softKeyInputAdapter.releaseAll();
+                    touchPointerActive = false;
                 }
             });
             addKeyListener(new KeyAdapter() {
@@ -1559,23 +1672,81 @@ public final class DoJaRuntime {
 
                 @Override
                 public void mousePressed(MouseEvent event) {
-                    maybeShowPopup(event);
+                    if (maybeShowPopup(event)) {
+                        return;
+                    }
+                    dispatchPointerPressed(event);
                 }
 
                 @Override
                 public void mouseReleased(MouseEvent event) {
-                    maybeShowPopup(event);
+                    if (maybeShowPopup(event)) {
+                        touchPointerActive = false;
+                        return;
+                    }
+                    dispatchPointerReleased(event);
+                }
+
+                @Override
+                public void mouseDragged(MouseEvent event) {
+                    dispatchPointerMoved(event, touchPointerActive);
+                }
+
+                @Override
+                public void mouseMoved(MouseEvent event) {
+                    dispatchPointerMoved(event, false);
                 }
             };
             addMouseListener(popupListener);
+            addMouseMotionListener(popupListener);
         }
 
-        private void maybeShowPopup(MouseEvent event) {
-            if (!event.isPopupTrigger()) {
+        private void dispatchPointerPressed(MouseEvent event) {
+            if (!SwingUtilities.isLeftMouseButton(event)) {
                 return;
+            }
+            Point canvasPoint = runtime.hostPointToCanvas(event.getPoint(), false);
+            if (canvasPoint == null) {
+                return;
+            }
+            touchPointerActive = true;
+            runtime.dispatchPointerEvent(TOUCH_PRESSED_EVENT, canvasPoint.x, canvasPoint.y);
+            HostPanel.this.requestFocusInWindow();
+            event.consume();
+        }
+
+        private void dispatchPointerReleased(MouseEvent event) {
+            if (!touchPointerActive || !SwingUtilities.isLeftMouseButton(event)) {
+                return;
+            }
+            Point canvasPoint = runtime.hostPointToCanvas(event.getPoint(), true);
+            touchPointerActive = false;
+            if (canvasPoint == null) {
+                return;
+            }
+            runtime.dispatchPointerEvent(TOUCH_RELEASED_EVENT, canvasPoint.x, canvasPoint.y);
+            event.consume();
+        }
+
+        private void dispatchPointerMoved(MouseEvent event, boolean dispatchMoveEvent) {
+            Point canvasPoint = runtime.hostPointToCanvas(event.getPoint(), dispatchMoveEvent);
+            if (canvasPoint == null) {
+                return;
+            }
+            if (dispatchMoveEvent) {
+                runtime.dispatchPointerEvent(Display.POINTER_MOVED_EVENT, canvasPoint.x, canvasPoint.y);
+            } else {
+                runtime.updatePointerPosition(canvasPoint.x, canvasPoint.y);
+            }
+        }
+
+        private boolean maybeShowPopup(MouseEvent event) {
+            if (!event.isPopupTrigger()) {
+                return false;
             }
             JPopupMenu menu = buildHostScalePopup();
             menu.show(event.getComponent(), event.getX(), event.getY());
+            return true;
         }
 
         private JPopupMenu buildHostScalePopup() {

@@ -318,6 +318,32 @@ public class PhoneSystem {
     }
 
     /**
+     * Gets a handset property value exposed through the runtime or JVM system
+     * properties.
+     *
+     * @param key the property key
+     * @return the property value, or {@code null} if unavailable
+     * @throws NullPointerException if {@code key} is {@code null}
+     * @throws IllegalArgumentException if {@code key} is the empty string
+     */
+    public static String getProperty(String key) {
+        if (key == null) {
+            throw new NullPointerException("key");
+        }
+        if (key.isEmpty()) {
+            throw new IllegalArgumentException("key");
+        }
+        DoJaRuntime runtime = DoJaRuntime.current();
+        if (runtime != null) {
+            String value = runtime.parameters().get(key);
+            if (value != null) {
+                return value;
+            }
+        }
+        return System.getProperty(key);
+    }
+
+    /**
      * Gets whether the native resource is controllable.
      *
      * @param device the native resource type
