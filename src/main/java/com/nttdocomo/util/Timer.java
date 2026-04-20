@@ -12,6 +12,10 @@ import java.util.concurrent.TimeUnit;
  * Timer events are delivered to a registered {@link TimerListener}.
  */
 public final class Timer implements TimeKeeper {
+    private static final int MIN_TIME_INTERVAL =
+            java.lang.Math.max(1, opendoja.host.OpenDoJaLaunchArgs.getInt(opendoja.host.OpenDoJaLaunchArgs.TIMER_MIN_TIME_INTERVAL));
+    private static final int RESOLUTION =
+            java.lang.Math.max(1, opendoja.host.OpenDoJaLaunchArgs.getInt(opendoja.host.OpenDoJaLaunchArgs.TIMER_RESOLUTION));
     private boolean repeat;
     private int time;
     private TimerListener listener;
@@ -33,7 +37,7 @@ public final class Timer implements TimeKeeper {
     @Override
     public int getMinTimeInterval() {
         ensureUsable();
-        return 1;
+        return MIN_TIME_INTERVAL;
     }
 
     /**
@@ -44,7 +48,7 @@ public final class Timer implements TimeKeeper {
     @Override
     public int getResolution() {
         ensureUsable();
-        return 1;
+        return RESOLUTION;
     }
 
     /**
@@ -72,7 +76,7 @@ public final class Timer implements TimeKeeper {
         if (time < 0) {
             throw new IllegalArgumentException("time must be >= 0");
         }
-        this.time = time;
+        this.time = normalizeInterval(time);
     }
 
     /**
@@ -110,7 +114,7 @@ public final class Timer implements TimeKeeper {
             }
         };
         if (repeat) {
-            int interval = java.lang.Math.max(1, time);
+            int interval = normalizeInterval(time);
             future = runtime.scheduler().scheduleWithFixedDelay(task, interval, interval, TimeUnit.MILLISECONDS);
         } else {
             future = runtime.scheduler().schedule(task, time, TimeUnit.MILLISECONDS);
@@ -154,5 +158,14 @@ public final class Timer implements TimeKeeper {
         if (future != null && !future.isDone()) {
             throw new UIException(UIException.ILLEGAL_STATE, "Timer is already started");
         }
+    }
+
+    private static int normalizeInterval(int interval) {
+        if (interval <= MIN_TIME_INTERVAL) {
+            return MIN_TIME_INTERVAL;
+        }
+        long steps = (long) (interval - MIN_TIME_INTERVAL + RESOLUTION - 1) / RESOLUTION;
+        long normalized = MIN_TIME_INTERVAL + steps * (long) RESOLUTION;
+        return normalized > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) normalized;
     }
 }

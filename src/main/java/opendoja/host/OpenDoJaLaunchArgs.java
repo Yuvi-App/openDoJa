@@ -232,6 +232,10 @@ public final class OpenDoJaLaunchArgs {
     public static final String SHORT_TIMER_MIN_TIME_INTERVAL = "opendoja.shortTimerMinTimeInterval";
     /** Reported short-timer resolution in ms. */
     public static final String SHORT_TIMER_RESOLUTION = "opendoja.shortTimerResolution";
+    /** Minimum util timer interval in ms. */
+    public static final String TIMER_MIN_TIME_INTERVAL = "opendoja.timerMinTimeInterval";
+    /** Reported util timer resolution in ms. */
+    public static final String TIMER_RESOLUTION = "opendoja.timerResolution";
     /** Supported speech frontend codec list. */
     public static final String SPEECH_CODECS = "opendoja.speechCodecs";
     /** Mock speech feature chunks emitted during capture. */
@@ -376,6 +380,8 @@ public final class OpenDoJaLaunchArgs {
             SAMPLED_CHUNK_BYTES,
             SHORT_TIMER_MIN_TIME_INTERVAL,
             SHORT_TIMER_RESOLUTION,
+            TIMER_MIN_TIME_INTERVAL,
+            TIMER_RESOLUTION,
             SPEECH_CODECS,
             SPEECH_FEATURE_CHUNKS,
             SPEECH_FEATURE_INTERVAL,
@@ -654,6 +660,8 @@ public final class OpenDoJaLaunchArgs {
         defaults.put(SAMPLED_CHUNK_BYTES, () -> "4096");
         defaults.put(SHORT_TIMER_MIN_TIME_INTERVAL, () -> "10");
         defaults.put(SHORT_TIMER_RESOLUTION, () -> "10");
+        defaults.put(TIMER_MIN_TIME_INTERVAL, () -> "10");
+        defaults.put(TIMER_RESOLUTION, () -> "10");
         defaults.put(SPEECH_CODECS, () -> "audio/amr");
         defaults.put(SPEECH_FEATURE_CHUNKS, () -> "01020304;05060708;090a0b0c");
         defaults.put(SPEECH_FEATURE_INTERVAL, () -> "200");

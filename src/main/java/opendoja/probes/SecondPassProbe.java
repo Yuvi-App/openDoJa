@@ -21,8 +21,13 @@ public final class SecondPassProbe {
         System.setProperty(opendoja.host.OpenDoJaLaunchArgs.AUDIO3D_RESOURCES, "1");
         System.setProperty(opendoja.host.OpenDoJaLaunchArgs.AUDIO3D_TIME_RESOLUTION_MS, "80");
         System.setProperty(opendoja.host.OpenDoJaLaunchArgs.POINTING_DEVICE_MAX_DIRECTION_Z, "7");
+        System.setProperty(opendoja.host.OpenDoJaLaunchArgs.SHORT_TIMER_MIN_TIME_INTERVAL, "13");
+        System.setProperty(opendoja.host.OpenDoJaLaunchArgs.SHORT_TIMER_RESOLUTION, "5");
+        System.setProperty(opendoja.host.OpenDoJaLaunchArgs.TIMER_MIN_TIME_INTERVAL, "11");
+        System.setProperty(opendoja.host.OpenDoJaLaunchArgs.TIMER_RESOLUTION, "7");
 
         verifyConnectionException();
+        verifyTimer();
         verifyShortTimer();
         verifyPointingDevice();
         verifyAudio3D();
@@ -38,11 +43,19 @@ public final class SecondPassProbe {
         assertEquals(ConnectionException.BUSY_RESOURCE, ConnectionException.RESOURCE_BUSY, "deprecated RESOURCE_BUSY alias");
     }
 
+    private static void verifyTimer() {
+        com.nttdocomo.util.Timer timer = new com.nttdocomo.util.Timer();
+        assertEquals(11, timer.getMinTimeInterval(), "timer minimum interval");
+        assertEquals(7, timer.getResolution(), "timer resolution");
+        timer.dispose();
+        expectUiException(UIException.ILLEGAL_STATE, timer::getResolution, "disposed timer resolution");
+    }
+
     private static void verifyShortTimer() {
         Canvas canvas = new ProbeCanvas();
         ShortTimer timer = ShortTimer.getShortTimer(canvas, 7, 0, false);
-        assertTrue(timer.getMinTimeInterval() > 0, "short-timer minimum interval");
-        assertTrue(timer.getResolution() > 0, "short-timer resolution");
+        assertEquals(13, timer.getMinTimeInterval(), "short-timer minimum interval");
+        assertEquals(5, timer.getResolution(), "short-timer resolution");
         expectUiException(UIException.BUSY_RESOURCE,
                 () -> ShortTimer.getShortTimer(canvas, 7, 1, false),
                 "duplicate short-timer ID");
