@@ -69,9 +69,13 @@ public final class OpenDoJaLaunchArgs {
     public static final String DEBUG_FUE_TREK_NOTES = "opendoja.debugFueTrekNotes";
     /** Rotates the presented handset display output: none, left, right, or upside-down. */
     public static final String DISPLAY_ROTATION = "opendoja.displayRotation";
+    /** Display rotation value for unrotated output. */
     public static final String DISPLAY_ROTATION_NONE = "none";
+    /** Display rotation value for 90-degree left output. */
     public static final String DISPLAY_ROTATION_LEFT = "left";
+    /** Display rotation value for 90-degree right output. */
     public static final String DISPLAY_ROTATION_RIGHT = "right";
+    /** Display rotation value for 180-degree upside-down output. */
     public static final String DISPLAY_ROTATION_UPSIDE_DOWN = "upside-down";
     /** Whether to draw the host handset frame. */
     public static final String EXTERNAL_FRAME = "opendoja.externalFrame";
