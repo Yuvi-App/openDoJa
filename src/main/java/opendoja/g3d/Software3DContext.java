@@ -753,11 +753,15 @@ public final class Software3DContext {
         rotateScreenPoint(centerX, centerY, halfWidth, halfHeight, cos, sin, spriteXs, spriteYs, 2);
         rotateScreenPoint(centerX, centerY, -halfWidth, halfHeight, cos, sin, spriteXs, spriteYs, 3);
         float[] spriteDepths = new float[]{depthValues[0], depthValues[0], depthValues[0], depthValues[0]};
+        // Command-list point sprites encode the far texture edge one past the last source texel.
+        // Raster sampling interpolates pixel centers, so map the edge back to the last texel center.
+        float textureRight = java.lang.Math.max(textureU0, textureU1 - 1);
+        float textureBottom = java.lang.Math.max(textureV0, textureV1 - 1);
         float[] spriteUvs = new float[]{
                 textureU0, textureV0,
-                textureU1, textureV0,
-                textureU1, textureV1,
-                textureU0, textureV1
+                textureRight, textureV0,
+                textureRight, textureBottom,
+                textureU0, textureBottom
         };
         // DoJa opt point sprites are center-anchored billboards encoded as:
         // width, height, angle, u0, v0, u1, v1, flags.
