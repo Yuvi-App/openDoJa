@@ -58,6 +58,7 @@ public class SubDisplay {
      * @param image the image to show, or {@code null} to clear it
      */
     public static void setImage(Image image) {
+        com.nttdocomo.ui._ImageInternalAccess.requireUsable(image);
         SubDisplay.image = image;
     }
 

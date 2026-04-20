@@ -34,6 +34,7 @@ public final class ImageLabel extends Component {
         if (image == null) {
             throw new NullPointerException("image");
         }
+        _ImageInternalAccess.requireUsable(image);
         this.image = image;
     }
 }

@@ -135,6 +135,9 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
     private Font font = Font.getDefaultFont();
     private int flipMode = FLIP_NONE;
     private boolean pictoColorEnabled;
+    private Runnable softwareMutationHook;
+    private Runnable disposeHook;
+    private Consumer<Graphics> copyHook;
     private static volatile java.lang.reflect.Constructor<?> platformGraphicsConstructor;
 
     /**
@@ -208,6 +211,8 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         copy.color = color;
         copy.font = font;
         copy.flipMode = flipMode;
+        copy.softwareMutationHook = softwareMutationHook;
+        copy.copyHook = copyHook;
         Shape clip = delegate.getClip();
         if (clip != null) {
             copy.delegate.setClip(clip);
@@ -217,6 +222,9 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         copy.pictoColorEnabled = pictoColorEnabled;
         copy.doja3D.copyStateFrom(doja3D);
         copy.opt3D.copyStateFrom(opt3D);
+        if (copy.copyHook != null) {
+            copy.copyHook.accept(copy);
+        }
         return copy;
     }
 
@@ -680,23 +688,8 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         if (srcWidth <= 0 || srcHeight <= 0) {
             return null;
         }
-        BufferedImage copy = new BufferedImage(srcWidth, srcHeight, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g2 = copy.createGraphics();
-        try {
-            g2.drawImage(surface.image(),
-                    0,
-                    0,
-                    srcWidth,
-                    srcHeight,
-                    srcX,
-                    srcY,
-                    srcX + srcWidth,
-                    srcY + srcHeight,
-                    null);
-        } finally {
-            g2.dispose();
-        }
-        return new DesktopImage(copy);
+        int[] pixels = surface.image().getRGB(srcX, srcY, srcWidth, srcHeight, null, 0, srcWidth);
+        return Image.createImage(srcWidth, srcHeight, pixels, 0);
     }
 
     // DoJa titles scroll cached surfaces with copyArea requests that can hang partly outside
@@ -748,6 +741,11 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
     public void dispose() {
         oglRenderer.close();
         delegate.dispose();
+        Runnable hook = disposeHook;
+        disposeHook = null;
+        if (hook != null) {
+            hook.run();
+        }
     }
 
     void syncOffscreenSurfaceForReadback() {
@@ -1312,6 +1310,7 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
     }
 
     protected final void drawAffineImageValidated(Image image, AffineTransform localTransform, int sx, int sy, int width, int height) {
+        ensureImageNotDisposed(image);
         BufferedImage source = image.renderForDisplay();
         if (source == null) {
             return;
@@ -1459,6 +1458,7 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
     }
 
     private void drawSubImage(Image image, int dx, int dy, int sx, int sy, int sw, int sh, int dw, int dh) {
+        ensureImageNotDisposed(image);
         BufferedImage source = image == null ? null : image.renderForDisplay();
         if (source == null || sw <= 0 || sh <= 0 || dw == 0 || dh == 0) {
             return;
@@ -1612,7 +1612,23 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
     }
 
     private void prepareSoftwareSurfaceMutation() {
+        Runnable hook = softwareMutationHook;
+        if (hook != null) {
+            hook.run();
+        }
         oglRenderer.prepareForSoftwareMutation();
+    }
+
+    void setSoftwareMutationHook(Runnable softwareMutationHook) {
+        this.softwareMutationHook = softwareMutationHook;
+    }
+
+    void setDisposeHook(Runnable disposeHook) {
+        this.disposeHook = disposeHook;
+    }
+
+    void setCopyHook(Consumer<Graphics> copyHook) {
+        this.copyHook = copyHook;
     }
 
     private void traceOpenGlesSync(String message) {

@@ -406,6 +406,11 @@ public class ImageMap {
         if (data.length < mapWidth * mapHeight) {
             throw new IllegalArgumentException("data.length");
         }
+        for (Image image : images) {
+            if (image != null) {
+                _ImageInternalAccess.requireUsable(image);
+            }
+        }
     }
 
     private static void validateWindow(int x, int y, int width, int height, int mapWidth, int mapHeight) {

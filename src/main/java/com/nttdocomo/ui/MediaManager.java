@@ -376,7 +376,7 @@ public final class MediaManager {
             } finally {
                 graphics.dispose();
             }
-            frames.add(new DesktopImage(copyImage(composite)));
+            frames.add(new DesktopImage(copyImage(composite), true));
             switch (disposalMethod) {
                 case "restoreToBackgroundColor" -> clearGifFrameRegion(composite, left, top, frameImage.getWidth(), frameImage.getHeight());
                 case "restoreToPrevious" -> {

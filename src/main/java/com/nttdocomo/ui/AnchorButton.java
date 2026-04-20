@@ -96,6 +96,7 @@ public final class AnchorButton extends Component implements Interactable {
      * @param image the label image
      */
     public void setImage(Image image) {
+        _ImageInternalAccess.requireUsable(image);
         this.image = image;
     }
 

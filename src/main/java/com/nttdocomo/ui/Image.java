@@ -1,8 +1,13 @@
 package com.nttdocomo.ui;
 
+import com.nttdocomo.lang.UnsupportedOperationException;
 import opendoja.host.DesktopSurface;
 
+import java.awt.Color;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Defines an image.
@@ -52,7 +57,12 @@ public abstract class Image {
             throw new NullPointerException("data");
         }
         DesktopImage image = new DesktopImage(width, height);
-        image.getGraphics().setRGBPixels(0, 0, width, height, pixels, offset);
+        Graphics graphics = image.getGraphics();
+        try {
+            graphics.setRGBPixels(0, 0, width, height, pixels, offset);
+        } finally {
+            graphics.dispose();
+        }
         return image;
     }
 
@@ -64,10 +74,10 @@ public abstract class Image {
      * @throws UIException if this image has already been disposed
      */
     public Graphics getGraphics() {
-        if (!(this instanceof DesktopImage desktopImage)) {
-            throw new UnsupportedOperationException("This image does not support drawing");
+        if (this instanceof DesktopImage desktopImage) {
+            return desktopImage.graphics();
         }
-        return desktopImage.graphics();
+        throw new UnsupportedOperationException("This image does not support drawing");
     }
 
     /**
@@ -192,20 +202,48 @@ public abstract class Image {
 }
 
 final class DesktopImage extends Image {
+    private static final int DEFAULT_MUTABLE_IMAGE_BACKGROUND = Graphics.getColorOfName(Graphics.WHITE);
     private final DesktopSurface surface;
-    private Graphics graphics;
+    private final boolean mutable;
+    private final BufferedImage opaqueImage;
+    private final boolean originalTransparencyPresent;
+    private final boolean transparentGifImage;
+    private final List<Graphics> liveGraphics = new ArrayList<>();
     private int transparentColor;
+    private int appliedTransparentColor;
     private boolean transparentEnabled;
+    private boolean originalTransparencySuppressed;
     private int alpha = 255;
     private boolean disposed;
 
     DesktopImage(int width, int height) {
         this.surface = new DesktopSurface(width, height);
+        this.mutable = true;
+        this.opaqueImage = null;
+        this.originalTransparencyPresent = false;
+        this.transparentGifImage = false;
+        this.surface.setBackgroundColor(DEFAULT_MUTABLE_IMAGE_BACKGROUND);
+        Graphics2D g2 = this.surface.image().createGraphics();
+        try {
+            g2.setColor(new Color(DEFAULT_MUTABLE_IMAGE_BACKGROUND, true));
+            g2.fillRect(0, 0, width, height);
+        } finally {
+            g2.dispose();
+        }
     }
 
     DesktopImage(BufferedImage bufferedImage) {
+        this(bufferedImage, false);
+    }
+
+    DesktopImage(BufferedImage bufferedImage, boolean transparentGifImage) {
         this.surface = new DesktopSurface(bufferedImage.getWidth(), bufferedImage.getHeight());
-        java.awt.Graphics2D g2 = this.surface.image().createGraphics();
+        this.mutable = false;
+        this.transparentGifImage = transparentGifImage;
+        this.originalTransparencyPresent = transparentGifImage && hasTransparentPixels(bufferedImage);
+        this.opaqueImage = originalTransparencyPresent ? copyOpaqueImage(bufferedImage) : null;
+        this.surface.setBackgroundColor(DEFAULT_MUTABLE_IMAGE_BACKGROUND);
+        Graphics2D g2 = this.surface.image().createGraphics();
         try {
             g2.drawImage(bufferedImage, 0, 0, null);
         } finally {
@@ -219,39 +257,56 @@ final class DesktopImage extends Image {
     }
 
     int width() {
+        ensureNotDisposed();
         return surface.width();
     }
 
     int height() {
+        ensureNotDisposed();
         return surface.height();
     }
 
     @Override
     public void dispose() {
-        if (graphics != null) {
+        if (disposed) {
+            return;
+        }
+        List<Graphics> graphicsSnapshot = new ArrayList<>(liveGraphics);
+        liveGraphics.clear();
+        for (Graphics graphics : graphicsSnapshot) {
+            graphics.setDisposeHook(null);
             graphics.dispose();
-            graphics = null;
         }
         disposed = true;
     }
 
     @Override
     public void setTransparentColor(int transparentColor) {
-        this.transparentColor = transparentColor;
+        ensureNotDisposed();
+        this.transparentColor = 0xFF000000 | (transparentColor & 0x00FFFFFF);
     }
 
     @Override
     public int getTransparentColor() {
+        ensureNotDisposed();
         return transparentColor;
     }
 
     @Override
     public void setTransparentEnabled(boolean transparentEnabled) {
+        ensureNotDisposed();
+        if (!mutable && transparentGifImage && originalTransparencyPresent && transparentEnabled) {
+            originalTransparencySuppressed = true;
+        }
         this.transparentEnabled = transparentEnabled;
+        if (transparentEnabled) {
+            appliedTransparentColor = transparentColor;
+        }
     }
 
     @Override
     public void setAlpha(int alpha) {
+        ensureNotDisposed();
         if (alpha < 0 || alpha > 255) {
             throw new IllegalArgumentException("alpha out of range: " + alpha);
         }
@@ -260,27 +315,29 @@ final class DesktopImage extends Image {
 
     @Override
     public int getAlpha() {
+        ensureNotDisposed();
         return alpha;
     }
 
     BufferedImage renderImage() {
-        // Some legacy titles dispose temporary images immediately after handing them to the
-        // current paint pass. Keep read-only pixel access alive after dispose, but continue to
-        // reject mutating operations through ensureNotDisposed()/surface().
-        if (graphics != null) {
-            // Offscreen images can be rendered through the hardware OpenGLES path without ever
-            // going through an unlock/present boundary. Flush that pending 3D state back into
-            // the image's software pixels before another Graphics reads the backing image.
-            graphics.syncOffscreenSurfaceForReadback();
+        ensureNotDisposed();
+        if (mutable) {
+            for (Graphics graphics : new ArrayList<>(liveGraphics)) {
+                // Offscreen images can be rendered through the hardware OpenGLES path without ever
+                // going through an unlock/present boundary. Flush that pending 3D state back into
+                // the image's software pixels before another Graphics reads the backing image.
+                graphics.syncOffscreenSurfaceForReadback();
+            }
         }
+        BufferedImage renderedSource = renderSourceImage();
         if (!transparentEnabled) {
-            return surface.image();
+            return renderedSource;
         }
-        BufferedImage copy = new BufferedImage(surface.width(), surface.height(), BufferedImage.TYPE_INT_ARGB);
-        for (int y = 0; y < surface.height(); y++) {
-            for (int x = 0; x < surface.width(); x++) {
-                int rgb = surface.image().getRGB(x, y);
-                if (rgb == transparentColor) {
+        BufferedImage copy = new BufferedImage(renderedSource.getWidth(), renderedSource.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < renderedSource.getHeight(); y++) {
+            for (int x = 0; x < renderedSource.getWidth(); x++) {
+                int rgb = renderedSource.getRGB(x, y);
+                if (rgb == appliedTransparentColor) {
                     copy.setRGB(x, y, 0);
                 } else {
                     copy.setRGB(x, y, rgb);
@@ -298,9 +355,50 @@ final class DesktopImage extends Image {
 
     Graphics graphics() {
         ensureNotDisposed();
-        if (graphics == null) {
-            graphics = Graphics.createPlatformGraphics(surface);
+        if (!mutable) {
+            throw new UnsupportedOperationException("This image does not support drawing");
         }
+        Graphics graphics = Graphics.createPlatformGraphics(surface);
+        graphics.setSoftwareMutationHook(this::onMutableImageDraw);
+        graphics.setCopyHook(this::registerLiveGraphics);
+        registerLiveGraphics(graphics);
         return graphics;
+    }
+
+    private void onMutableImageDraw() {
+        transparentEnabled = false;
+    }
+
+    private void registerLiveGraphics(Graphics graphics) {
+        liveGraphics.add(graphics);
+        graphics.setDisposeHook(() -> liveGraphics.remove(graphics));
+    }
+
+    private BufferedImage renderSourceImage() {
+        if (!mutable && originalTransparencyPresent && originalTransparencySuppressed) {
+            return opaqueImage;
+        }
+        return surface.image();
+    }
+
+    private static boolean hasTransparentPixels(BufferedImage image) {
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                if ((image.getRGB(x, y) >>> 24) != 0xFF) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static BufferedImage copyOpaqueImage(BufferedImage image) {
+        BufferedImage opaque = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                opaque.setRGB(x, y, 0xFF000000 | (image.getRGB(x, y) & 0x00FFFFFF));
+            }
+        }
+        return opaque;
     }
 }

@@ -2,6 +2,7 @@ package com.nttdocomo.opt.ui;
 
 import com.nttdocomo.ui.Graphics;
 import com.nttdocomo.ui.Image;
+import com.nttdocomo.ui._ImageInternalAccess;
 
 /**
  * Defines an optional sprite object.
@@ -84,6 +85,7 @@ public class Sprite {
         if (image == null) {
             throw new NullPointerException("image");
         }
+        _ImageInternalAccess.requireUsable(image);
         if (width < 0 || height < 0) {
             throw new IllegalArgumentException("width");
         }

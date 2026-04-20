@@ -8,17 +8,25 @@ public final class _ImageInternalAccess {
     }
 
     public static boolean isDisposed(Image image) {
-        if (image instanceof DesktopImage desktopImage) {
-            try {
-                desktopImage.ensureNotDisposed();
-                return false;
-            } catch (UIException e) {
-                if (e.getStatus() == UIException.ILLEGAL_STATE) {
-                    return true;
-                }
-                throw e;
-            }
+        if (image == null) {
+            return false;
         }
-        return false;
+        try {
+            image.getWidth();
+            return false;
+        } catch (UIException e) {
+            if (e.getStatus() == UIException.ILLEGAL_STATE) {
+                return true;
+            }
+            throw e;
+        }
+    }
+
+    public static void requireUsable(Image image) {
+        if (image == null) {
+            return;
+        }
+        image.getWidth();
+        image.getHeight();
     }
 }

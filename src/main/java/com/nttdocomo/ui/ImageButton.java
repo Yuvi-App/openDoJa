@@ -35,6 +35,7 @@ public final class ImageButton extends Component implements Interactable {
         if (image == null) {
             throw new NullPointerException("image");
         }
+        _ImageInternalAccess.requireUsable(image);
         this.image = image;
     }
 
