@@ -206,7 +206,11 @@ public final class Software3DContext {
             return;
         }
         Projection projection = uiPerspective ? createUiProjection(surfaceWidth, surfaceHeight) : null;
-        renderModel(g, target, originX, originY, surfaceWidth, surfaceHeight, figure, objectTransform == null ? uiTransform : multiply(uiTransform, objectTransform), projection, uiClip, surfaceWidth / 2f, surfaceHeight / 2f, uiOrthoWidth, uiOrthoHeight, true, false, blendMode, transparency, uiAmbient, UI_FIGURE_VERTEX_SCALE, uiFog, null, null, BlendSemantics.UI_GRAPHICS3D);
+        renderModel(g, target, originX, originY, surfaceWidth, surfaceHeight, figure,
+                objectTransform == null ? uiTransform : multiply(uiTransform, objectTransform),
+                projection, uiClip, surfaceWidth / 2f, surfaceHeight / 2f, uiOrthoWidth, uiOrthoHeight,
+                true, false, blendMode, transparency, uiAmbient, UI_FIGURE_VERTEX_SCALE, uiFog, null, null,
+                FigureVisibility.SCENE_DEPTH_TESTED, BlendSemantics.UI_GRAPHICS3D);
     }
 
     public void renderUiPrimitive(Graphics2D g, BufferedImage target, int originX, int originY, int surfaceWidth, int surfaceHeight,
@@ -239,7 +243,8 @@ public final class Software3DContext {
         renderModel(g, target, originX, originY, surfaceWidth, surfaceHeight, figure, optViewTransform, projection, optClip,
                 optScreenCenterX, optScreenCenterY, resolveOptOrthoWidth(surfaceWidth), resolveOptOrthoHeight(surfaceHeight),
                 optSemiTransparent, invertScreenY, 0, 1f, optLightingEnabled ? 0.9f : 1f, 1f,
-                null, optSphereMapEnabled ? optSphereTexture : null, optToonShaderEnabled ? optToonShader : null, BlendSemantics.FRAMEBUFFER);
+                null, optSphereMapEnabled ? optSphereTexture : null, optToonShaderEnabled ? optToonShader : null,
+                FigureVisibility.OPT_FACE_SORTED, BlendSemantics.FRAMEBUFFER);
     }
 
     public void renderOptPrimitives(Graphics2D g, BufferedImage target, int originX, int originY, int surfaceWidth, int surfaceHeight,
@@ -350,6 +355,7 @@ public final class Software3DContext {
                              float centerX, float centerY, float orthoWidth, float orthoHeight,
                              boolean allowMaterialBlend, boolean invertScreenY, int blendMode, float transparency, float lightScale, float vertexScale,
                              FogState fog, SoftwareTexture sphereTexture, ToonShaderParams defaultToonShader,
+                             FigureVisibility visibility,
                              BlendSemantics blendSemantics) {
         MbacModel model = figure.model();
         int patternMask = figure.patternMask();
@@ -423,7 +429,7 @@ public final class Software3DContext {
                 addProjectedPerspectiveFigureQuad(projected, transformed, textureCoords, color, polygonTexture,
                         centerX, centerY, originX, originY, surfaceWidth, surfaceHeight, projection, invertScreenY,
                         polygon.doubleSided() || !CULL_FIGURES, polygonTexture != null && polygon.transparent(),
-                        effectiveBlendOp, false, fog, sphereTexture, toonShader);
+                        effectiveBlendOp, visibility.depthTest(), visibility.depthWrite(), fog, sphereTexture, toonShader);
                 continue;
             }
             if (projection != null) {
@@ -470,28 +476,30 @@ public final class Software3DContext {
                 if (indices.length == 4 && vertexCount == 4) {
                     addProjectedFigureQuad(projected, xs, ys, depthValues, color, avgDepth, polygonTexture, textureCoords,
                             projection != null, polygon.doubleSided() || !CULL_FIGURES, polygon.transparent(),
-                            effectiveBlendOp, false, fog, sphereTexture, toonShader);
+                            effectiveBlendOp, visibility.depthTest(), visibility.depthWrite(), fog, sphereTexture, toonShader);
                 } else {
                     addProjectedFaces(projected, xs, ys, depthValues, color, avgDepth, polygonTexture, textureCoords,
                             null,
                             projection != null, polygon.doubleSided() || !CULL_FIGURES, polygon.transparent(),
-                            effectiveBlendOp, false, false, fog, sphereTexture, toonShader);
+                            effectiveBlendOp, visibility.depthTest(), visibility.depthWrite(), fog, sphereTexture, toonShader);
                 }
                 continue;
             }
             if (indices.length == 4 && vertexCount == 4) {
                 addProjectedFigureQuad(projected, xs, ys, depthValues, color, avgDepth, null, null,
                         projection != null, polygon.doubleSided() || !CULL_FIGURES, false,
-                        effectiveBlendOp, false, fog, sphereTexture, toonShader);
+                        effectiveBlendOp, visibility.depthTest(), visibility.depthWrite(), fog, sphereTexture, toonShader);
             } else {
                 addProjectedFaces(projected, xs, ys, depthValues, color, avgDepth, null, null,
                         null,
-                        projection != null, polygon.doubleSided() || !CULL_FIGURES, false, effectiveBlendOp, false,
-                        false, fog, sphereTexture, toonShader);
+                        projection != null, polygon.doubleSided() || !CULL_FIGURES, false, effectiveBlendOp, visibility.depthTest(),
+                        visibility.depthWrite(), fog, sphereTexture, toonShader);
             }
         }
-        // Native opt figures are queued by one face-depth key before the no-z span rasterizer runs.
-        projected.sort(Comparator.comparing(ProjectedPolygon::depth).reversed());
+        if (visibility.sortFaces()) {
+            // Native opt figures are queued by one face-depth key before the no-z span rasterizer runs.
+            projected.sort(Comparator.comparing(ProjectedPolygon::depth).reversed());
+        }
         if (DEBUG_3D && !debugFigureStatsLogged && projection != null && model.polygons().length >= 200) {
             debugFigureStatsLogged = true;
             String figureMessage = "3D debug figure polygons=" + model.polygons().length
@@ -865,7 +873,7 @@ public final class Software3DContext {
     private static void addProjectedFigureQuad(List<ProjectedPolygon> projected, float[] xs, float[] ys, float[] depthValues,
                                                int color, float depth, SoftwareTexture texture, float[] textureCoords,
                                                boolean perspective, boolean doubleSided, boolean transparentPaletteZero,
-                                               BlendOp blendOp, boolean depthWrite, FogState fog,
+                                               BlendOp blendOp, boolean depthTest, boolean depthWrite, FogState fog,
                                                SoftwareTexture sphereTexture, ToonShaderParams toonShader) {
         if (!doubleSided && isBackFacingPolygon(xs, ys)) {
             return;
@@ -889,7 +897,7 @@ public final class Software3DContext {
                 doubleSided,
                 transparentPaletteZero,
                 blendOp,
-                false,
+                depthTest,
                 depthWrite,
                 fog,
                 sphereTexture,
@@ -913,7 +921,7 @@ public final class Software3DContext {
                 doubleSided,
                 transparentPaletteZero,
                 blendOp,
-                false,
+                depthTest,
                 depthWrite,
                 fog,
                 sphereTexture,
@@ -1780,17 +1788,17 @@ public final class Software3DContext {
                                                           int surfaceWidth, int surfaceHeight, Projection projection,
                                                           boolean invertScreenY, boolean doubleSided,
                                                           boolean transparentPaletteZero, BlendOp blendOp,
-                                                          boolean depthWrite, FogState fog,
+                                                          boolean depthTest, boolean depthWrite, FogState fog,
                                                           SoftwareTexture sphereTexture, ToonShaderParams toonShader) {
         // Match the native/GL figure path: split the quad first, then clip each source triangle.
         addProjectedPerspectiveFigureTriangle(projected, trianglePoints(transformed, 0, 1, 2),
                 triangleUv(textureCoords, 0, 1, 2), color, texture, centerX, centerY, originX, originY,
                 surfaceWidth, surfaceHeight, projection, invertScreenY, doubleSided, transparentPaletteZero,
-                blendOp, depthWrite, fog, sphereTexture, toonShader);
+                blendOp, depthTest, depthWrite, fog, sphereTexture, toonShader);
         addProjectedPerspectiveFigureTriangle(projected, trianglePoints(transformed, 2, 1, 3),
                 triangleUv(textureCoords, 2, 1, 3), color, texture, centerX, centerY, originX, originY,
                 surfaceWidth, surfaceHeight, projection, invertScreenY, doubleSided, transparentPaletteZero,
-                blendOp, depthWrite, fog, sphereTexture, toonShader);
+                blendOp, depthTest, depthWrite, fog, sphereTexture, toonShader);
     }
 
     private static void addProjectedPerspectiveFigureTriangle(List<ProjectedPolygon> projected, float[] transformed,
@@ -1799,7 +1807,7 @@ public final class Software3DContext {
                                                               int surfaceWidth, int surfaceHeight, Projection projection,
                                                               boolean invertScreenY, boolean doubleSided,
                                                               boolean transparentPaletteZero, BlendOp blendOp,
-                                                              boolean depthWrite, FogState fog,
+                                                              boolean depthTest, boolean depthWrite, FogState fog,
                                                               SoftwareTexture sphereTexture, ToonShaderParams toonShader) {
         ClippedPolygon clipped = clipPerspectivePolygon(transformed, textureCoords, null, projection,
                 centerX, centerY, surfaceWidth, surfaceHeight);
@@ -1825,7 +1833,7 @@ public final class Software3DContext {
         }
         avgDepth /= vertexCount;
         addProjectedFaces(projected, xs, ys, depthValues, color, avgDepth, texture, clipped.textureCoords(),
-                null, true, doubleSided, transparentPaletteZero, blendOp, false, depthWrite,
+                null, true, doubleSided, transparentPaletteZero, blendOp, depthTest, depthWrite,
                 fog, sphereTexture, toonShader);
     }
 
@@ -1908,6 +1916,33 @@ public final class Software3DContext {
                                     SoftwareTexture texture, float[] textureCoords, float[] vertexModulationColors, boolean perspective,
                                     boolean transparentPaletteZero, BlendOp blendMode, boolean depthTest, boolean depthWrite,
                                     FogState fog, SoftwareTexture sphereTexture, ToonShaderParams toonShader) {
+    }
+
+    private enum FigureVisibility {
+        SCENE_DEPTH_TESTED(true, true, false),
+        OPT_FACE_SORTED(false, false, true);
+
+        private final boolean depthTest;
+        private final boolean depthWrite;
+        private final boolean sortFaces;
+
+        FigureVisibility(boolean depthTest, boolean depthWrite, boolean sortFaces) {
+            this.depthTest = depthTest;
+            this.depthWrite = depthWrite;
+            this.sortFaces = sortFaces;
+        }
+
+        private boolean depthTest() {
+            return depthTest;
+        }
+
+        private boolean depthWrite() {
+            return depthWrite;
+        }
+
+        private boolean sortFaces() {
+            return sortFaces;
+        }
     }
 
     private record PendingOptPrimitiveBlend(int originX, int originY, int surfaceWidth, int surfaceHeight,
