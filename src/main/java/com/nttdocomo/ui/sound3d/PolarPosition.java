@@ -10,7 +10,7 @@ public class PolarPosition implements SoundPosition, Audio3DLocalization {
     private static float defaultCoordinateFactor = 1f;
 
     private final float coordinateFactor;
-    private final Vector3D velocity = new Vector3D();
+    private Vector3D velocity;
     private float distance;
     private float direction;
     private float elevation;
@@ -28,16 +28,18 @@ public class PolarPosition implements SoundPosition, Audio3DLocalization {
      * @param coordinateFactor the coordinate factor
      */
     public PolarPosition(float coordinateFactor) {
+        requirePositiveFinite(coordinateFactor, "coordinateFactor");
         this.coordinateFactor = coordinateFactor;
     }
 
     /**
      * Sets the default coordinate factor.
      *
-     * @param factor the factor to use for newly created instances
+     * @param coordinateFactor the factor to use for newly created instances
      */
-    public static void setDefaultCoordinateFactor(float factor) {
-        defaultCoordinateFactor = factor;
+    public static void setDefaultCoordinateFactor(float coordinateFactor) {
+        requirePositiveFinite(coordinateFactor, "coordinateFactor");
+        defaultCoordinateFactor = coordinateFactor;
     }
 
     /**
@@ -55,6 +57,9 @@ public class PolarPosition implements SoundPosition, Audio3DLocalization {
      * @param distance the distance to set
      */
     public void setDistance(float distance) {
+        if (Float.isNaN(distance) || distance < 0f) {
+            throw new IllegalArgumentException("distance");
+        }
         this.distance = distance;
     }
 
@@ -73,6 +78,7 @@ public class PolarPosition implements SoundPosition, Audio3DLocalization {
      * @param direction the direction to set
      */
     public void setDirection(float direction) {
+        requireFinite(direction, "direction");
         this.direction = direction;
     }
 
@@ -91,6 +97,7 @@ public class PolarPosition implements SoundPosition, Audio3DLocalization {
      * @param elevation the elevation to set
      */
     public void setElevation(float elevation) {
+        requireFinite(elevation, "elevation");
         this.elevation = elevation;
     }
 
@@ -104,21 +111,18 @@ public class PolarPosition implements SoundPosition, Audio3DLocalization {
     }
 
     /**
-     * Sets the polar position from a Cartesian vector.
+     * Sets the polar position from a vector containing distance, direction, and
+     * elevation components.
      *
-     * @param position the Cartesian position
+     * @param vector the polar position components
      */
-    public void setPosition(Vector3D position) {
-        if (position == null) {
-            throw new NullPointerException("position");
+    public void setPosition(Vector3D vector) {
+        if (vector == null) {
+            throw new NullPointerException("vector");
         }
-        float x = position.getX();
-        float y = position.getY();
-        float z = position.getZ();
-        float len = (float) java.lang.Math.sqrt(x * x + y * y + z * z);
-        distance = coordinateFactor == 0f ? len : len / coordinateFactor;
-        direction = (float) java.lang.Math.atan2(x, z);
-        elevation = len == 0f ? 0f : (float) java.lang.Math.asin(y / len);
+        setDistance(vector.getX());
+        setDirection(vector.getY());
+        setElevation(vector.getZ());
     }
 
     /**
@@ -127,18 +131,31 @@ public class PolarPosition implements SoundPosition, Audio3DLocalization {
      * @return the velocity
      */
     public Vector3D getVelocity() {
-        return new Vector3D(velocity);
+        return velocity == null ? null : new Vector3D(velocity);
     }
 
     /**
      * Sets the velocity.
      *
-     * @param velocity the velocity to set
+     * @param velocity the velocity to set, or {@code null} to clear it
      */
     public void setVelocity(Vector3D velocity) {
         if (velocity == null) {
-            throw new NullPointerException("velocity");
+            this.velocity = null;
+            return;
         }
-        this.velocity.set(velocity);
+        this.velocity = new Vector3D(velocity);
+    }
+
+    private static void requirePositiveFinite(float value, String name) {
+        if (!Float.isFinite(value) || value <= 0f) {
+            throw new IllegalArgumentException(name);
+        }
+    }
+
+    private static void requireFinite(float value, String name) {
+        if (!Float.isFinite(value)) {
+            throw new IllegalArgumentException(name);
+        }
     }
 }
