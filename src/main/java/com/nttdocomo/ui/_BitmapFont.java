@@ -75,17 +75,17 @@ class _BitmapFont extends Font {
 
     @Override
     public int getAscent() {
-        return strike.baseline;
+        return strike.height();
     }
 
     @Override
     public int getDescent() {
-        return strike.descent;
+        return 0;
     }
 
     @Override
     public int getHeight() {
-        return strike.lineHeight;
+        return strike.height();
     }
 
     @Override
@@ -94,7 +94,7 @@ class _BitmapFont extends Font {
         if (value.isEmpty()) {
             return 0;
         }
-        return value.split("\\n", -1).length * strike.lineHeight;
+        return value.split("\\n", -1).length * strike.height();
     }
 
     @Override
@@ -141,7 +141,7 @@ class _BitmapFont extends Font {
     void drawString(Graphics2D graphics, String text, int x, int y, int argbColor) {
         BufferedImage image = rendered(text, argbColor);
         if (image != null) {
-            graphics.drawImage(image, x, y - strike.baseline, null);
+            graphics.drawImage(image, x, y - strike.height(), null);
         }
     }
 
@@ -170,7 +170,7 @@ class _BitmapFont extends Font {
         for (String line : lines) {
             width = Math.max(width, lineWidth(line));
         }
-        int height = lines.length * strike.lineHeight;
+        int height = lines.length * strike.height();
         if (width <= 0 || height <= 0) {
             return null;
         }
@@ -179,7 +179,7 @@ class _BitmapFont extends Font {
         int[] pixels = image.getRGB(0, 0, width, height, null, 0, width);
         for (int lineIndex = 0; lineIndex < lines.length; lineIndex++) {
             int cursorX = 0;
-            int cursorY = lineIndex * strike.lineHeight;
+            int cursorY = lineIndex * strike.height();
             int[] codePoints = lines[lineIndex].codePoints().toArray();
             for (int codePoint : codePoints) {
                 int advance = advanceFor(codePoint);
@@ -299,15 +299,13 @@ class _BitmapFont extends Font {
                 if (glyphCount > codePoints.length) {
                     throw new IOException("Glyph table for height " + height + " exceeds code-point table");
                 }
-                // The raw strike height is the DoJa line cell. Empty bitmap rows at the bottom are
-                // still inside that cell, not descent; using them as descent lowers each strike by a
-                // size-dependent amount and can put HUD text into rows the application never clears.
-                int baseline = height;
                 Map<Integer, Integer> codePointToGlyph = new HashMap<>(glyphCount * 2);
                 for (int i = 0; i < glyphCount; i++) {
                     codePointToGlyph.put(codePoints[i], i);
                 }
                 int questionMarkIndex = codePointToGlyph.getOrDefault(REPLACEMENT_CHARACTER, -1);
+                // The dump gives us raw glyph cells, not separate ascent/descent metrics. Use the
+                // full strike height as the DoJa line cell and keep rendering aligned to that cell.
                 strikes.put(height, new Strike(
                         height,
                         width,
@@ -315,10 +313,7 @@ class _BitmapFont extends Font {
                         bytesPerGlyph,
                         glyphData,
                         codePointToGlyph,
-                        questionMarkIndex,
-                        baseline,
-                        0,
-                        baseline
+                        questionMarkIndex
                 ));
             }
             return strikes;
@@ -361,10 +356,7 @@ class _BitmapFont extends Font {
             int bytesPerGlyph,
             byte[] glyphData,
             Map<Integer, Integer> codePointToGlyph,
-            int questionMarkIndex,
-            int baseline,
-            int descent,
-            int lineHeight
+            int questionMarkIndex
     ) {
         private Strike {
             glyphData = Arrays.copyOf(glyphData, glyphData.length);
