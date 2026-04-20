@@ -113,16 +113,21 @@ final class ScratchpadStorage {
         }
         // Headered files must prove that the first 64 bytes are a little-endian dojaemu segment table.
         // Size alone is not enough: an oversized raw or corrupt file must not be shifted by 64 bytes.
-        if (fileSize >= HEADER_BYTES && hasConfiguredHeader()) {
-            if (fileSize < declaredPayloadBytes + HEADER_BYTES) {
+        if (hasConfiguredHeader()) {
+            long realPayloadBytes = fileSize - HEADER_BYTES;
+            if (realPayloadBytes > declaredPayloadBytes) {
+                warnConfiguredSizeOverride(fileSize, declaredPayloadBytes, realPayloadBytes, true);
+                return PackedLayout.configured(sizesForPayloadBytes(realPayloadBytes), HEADER_BYTES, false);
+            }
+            if (realPayloadBytes < declaredPayloadBytes) {
                 warnConfiguredSizeMismatch(fileSize, declaredPayloadBytes,
                         "; detected a matching 64-byte header and treating the payload as truncated");
-            } else if (fileSize > declaredPayloadBytes + HEADER_BYTES) {
-                // Extra bytes after the declared logical payload are outside the app-visible scratchpad.
-                warnConfiguredSizeMismatch(fileSize, declaredPayloadBytes,
-                        "; detected a matching 64-byte header and ignoring trailing bytes");
             }
             return PackedLayout.configured(configuredSizes, HEADER_BYTES, false);
+        }
+        if (fileSize > declaredPayloadBytes) {
+            warnConfiguredSizeOverride(fileSize, declaredPayloadBytes, fileSize, false);
+            return PackedLayout.configured(sizesForPayloadBytes(fileSize), 0L, false);
         }
         // Preserve the historical mismatch fallback while making the questionable layout visible in logs.
         warnConfiguredSizeMismatch(fileSize, declaredPayloadBytes);
@@ -177,6 +182,37 @@ final class ScratchpadStorage {
                         + "; expected either " + declaredPayloadBytes
                         + " (raw) or " + (declaredPayloadBytes + HEADER_BYTES)
                         + " (with 64-byte dojaemu header)" + detail);
+    }
+
+    private void warnConfiguredSizeOverride(long fileSize, long declaredPayloadBytes, long realPayloadBytes,
+                                            boolean headered) {
+        if (warnedHeaderMismatch) {
+            return;
+        }
+        warnedHeaderMismatch = true;
+        OpenDoJaLog.warn(ScratchpadStorage.class,
+                () -> "Packed .sp backing " + packedFile
+                        + " declares " + declaredPayloadBytes
+                        + " bytes via SPsize but real .sp payload is " + realPayloadBytes
+                        + " bytes" + (headered ? " after the 64-byte dojaemu header" : "")
+                        + " (file size " + fileSize + "); overriding declared SPsize in memory so the entire file "
+                        + "is accessible");
+    }
+
+    private int[] sizesForPayloadBytes(long payloadBytes) throws IOException {
+        long declaredPayloadBytes = declaredPayloadBytes(configuredSizes);
+        if (payloadBytes <= declaredPayloadBytes) {
+            return configuredSizes;
+        }
+        int[] sizes = configuredSizes.clone();
+        int lastIndex = Math.min(sizes.length, HEADER_ENTRIES) - 1;
+        long adjustedSize = (long) Math.max(0, sizes[lastIndex]) + payloadBytes - declaredPayloadBytes;
+        if (adjustedSize > Integer.MAX_VALUE) {
+            throw new IOException("Packed .sp backing " + packedFile
+                    + " is too large to map into scratchpad segment " + lastIndex);
+        }
+        sizes[lastIndex] = (int) adjustedSize;
+        return sizes;
     }
 
     private static long declaredPayloadBytes(int[] sizes) {

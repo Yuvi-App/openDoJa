@@ -30,7 +30,8 @@ public final class JamScratchpadProbe {
         verifyParentSpFallbackWrite();
         verifyMissingScratchpadWarningAndCreation();
         verifyDojaemuHeaderIsPreservedAndMapped();
-        verifyHeaderedScratchpadWithTrailingBytesUsesPayloadOffset();
+        verifyRawScratchpadLargerThanDeclaredOverridesDeclaredSize();
+        verifyHeaderedScratchpadLargerThanDeclaredOverridesDeclaredSize();
         verifyDeclaredSizeMismatchWarning();
         verifyMissingResourceStaysMissingAndScratchpadStillReads();
 
@@ -204,14 +205,50 @@ public final class JamScratchpadProbe {
                 "scratchpad size mismatches should log a warning");
     }
 
-    private static void verifyHeaderedScratchpadWithTrailingBytesUsesPayloadOffset() throws Exception {
+    private static void verifyRawScratchpadLargerThanDeclaredOverridesDeclaredSize() throws Exception {
+        Path root = Files.createTempDirectory("jam-sp-raw-oversized");
+        Path jam = root.resolve("RawOversized.jam");
+        Path scratchpad = root.resolve("RawOversized.sp");
+        writeJam(jam, "SPsize=4\n");
+        Files.writeString(scratchpad, "DATATAIL", StandardCharsets.UTF_8);
+
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        PrintStream originalOut = System.out;
+        try (PrintStream capture = new PrintStream(captured, true, StandardCharsets.UTF_8)) {
+            System.setOut(capture);
+            launchAndReadBytes(jam, "DATATAIL");
+        } finally {
+            System.setOut(originalOut);
+        }
+
+        String log = captured.toString(StandardCharsets.UTF_8);
+        check(log.contains("declares 4 bytes via SPsize but real .sp payload is 8 bytes"),
+                "oversized raw .sp files should log the real payload size");
+        check(log.contains("overriding declared SPsize in memory"),
+                "oversized raw .sp files should log the SPsize override");
+    }
+
+    private static void verifyHeaderedScratchpadLargerThanDeclaredOverridesDeclaredSize() throws Exception {
         Path root = Files.createTempDirectory("jam-sp-header-trailing");
         Path jam = root.resolve("Trailing.jam");
         Path scratchpad = root.resolve("Trailing.sp");
         writeJam(jam, "SPsize=4\n");
         Files.write(scratchpad, littleEndianDojaemuScratchpad("DATA", "TAIL"));
 
-        launchAndReadBytes(jam, "DATA");
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        PrintStream originalOut = System.out;
+        try (PrintStream capture = new PrintStream(captured, true, StandardCharsets.UTF_8)) {
+            System.setOut(capture);
+            launchAndReadBytes(jam, "DATATAIL");
+        } finally {
+            System.setOut(originalOut);
+        }
+
+        String log = captured.toString(StandardCharsets.UTF_8);
+        check(log.contains("declares 4 bytes via SPsize but real .sp payload is 8 bytes after the 64-byte dojaemu header"),
+                "oversized headered .sp files should log the header-adjusted payload size");
+        check(log.contains("overriding declared SPsize in memory"),
+                "oversized headered .sp files should log the SPsize override");
     }
 
     private static void verifyMissingResourceStaysMissingAndScratchpadStillReads() throws Exception {
