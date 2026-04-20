@@ -32,8 +32,8 @@ import java.util.Map;
  *
  * <p>The dump also distinguishes half-width code points from full-width ones, so layout here keeps
  * the handset width rules while blitting only the visible half-width columns. Baseline/ascent
- * metrics are not stored in the source files, so the vertical metrics below remain inferred from
- * the earlier handset-font prototype and retained to keep existing DoJa layout call sites stable.</p>
+ * metrics are not stored separately in the source files, so the vertical metrics below are derived
+ * from each raw strike's line-cell height.</p>
  */
 class _BitmapFont extends Font {
     private static final String RESOURCE_ROOT = "/opendoja/fonts/bitmap/";
@@ -299,9 +299,10 @@ class _BitmapFont extends Font {
                 if (glyphCount > codePoints.length) {
                     throw new IOException("Glyph table for height " + height + " exceeds code-point table");
                 }
-                // The stored bitmap height includes bottom padding. Use that padding as descent so
-                // baseline placement matches the handset strike instead of inventing extra rows.
-                int descent = inferDescent(height, bytesPerRow, bytesPerGlyph, glyphData, glyphCount);
+                // The raw strike height is the DoJa line cell. Empty bitmap rows at the bottom are
+                // still inside that cell, not descent; using them as descent lowers each strike by a
+                // size-dependent amount and can put HUD text into rows the application never clears.
+                int baseline = height;
                 Map<Integer, Integer> codePointToGlyph = new HashMap<>(glyphCount * 2);
                 for (int i = 0; i < glyphCount; i++) {
                     codePointToGlyph.put(codePoints[i], i);
@@ -315,9 +316,9 @@ class _BitmapFont extends Font {
                         glyphData,
                         codePointToGlyph,
                         questionMarkIndex,
-                        height - descent,
-                        descent,
-                        height
+                        baseline,
+                        0,
+                        baseline
                 ));
             }
             return strikes;
@@ -351,29 +352,6 @@ class _BitmapFont extends Font {
 
     private static int deriveWidth(int height) {
         return ((height + 7) / 8) * 8;
-    }
-
-    private static int inferDescent(int height, int bytesPerRow, int bytesPerGlyph, byte[] glyphData, int glyphCount) {
-        int maxVisibleRow = -1;
-        for (int glyphIndex = 0; glyphIndex < glyphCount; glyphIndex++) {
-            int glyphOffset = glyphIndex * bytesPerGlyph;
-            for (int row = 0; row < height; row++) {
-                int rowOffset = glyphOffset + row * bytesPerRow;
-                if (hasSetBit(glyphData, rowOffset, bytesPerRow)) {
-                    maxVisibleRow = Math.max(maxVisibleRow, row);
-                }
-            }
-        }
-        return maxVisibleRow < 0 ? 0 : height - 1 - maxVisibleRow;
-    }
-
-    private static boolean hasSetBit(byte[] data, int offset, int length) {
-        for (int i = 0; i < length; i++) {
-            if (data[offset + i] != 0) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private record Strike(
