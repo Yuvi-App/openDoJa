@@ -113,9 +113,12 @@ final class ScratchpadStorage {
         }
         // Headered files must prove that the first 64 bytes are a little-endian dojaemu segment table.
         // Size alone is not enough: an oversized raw or corrupt file must not be shifted by 64 bytes.
-        if (fileSize >= declaredPayloadBytes + HEADER_BYTES && hasConfiguredHeader()) {
-            // Extra bytes after the declared logical payload are outside the app-visible scratchpad.
-            if (fileSize > declaredPayloadBytes + HEADER_BYTES) {
+        if (fileSize >= HEADER_BYTES && hasConfiguredHeader()) {
+            if (fileSize < declaredPayloadBytes + HEADER_BYTES) {
+                warnConfiguredSizeMismatch(fileSize, declaredPayloadBytes,
+                        "; detected a matching 64-byte header and treating the payload as truncated");
+            } else if (fileSize > declaredPayloadBytes + HEADER_BYTES) {
+                // Extra bytes after the declared logical payload are outside the app-visible scratchpad.
                 warnConfiguredSizeMismatch(fileSize, declaredPayloadBytes,
                         "; detected a matching 64-byte header and ignoring trailing bytes");
             }
