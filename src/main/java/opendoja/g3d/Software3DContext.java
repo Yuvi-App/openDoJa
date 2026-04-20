@@ -1926,7 +1926,7 @@ public final class Software3DContext {
 
     private enum FigureVisibility {
         SCENE_DEPTH_TESTED(true, true, false),
-        OPT_FACE_SORTED(false, false, true);
+        OPT_FACE_SORTED(true, true, true);
 
         private final boolean depthTest;
         private final boolean depthWrite;
