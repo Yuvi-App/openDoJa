@@ -686,98 +686,7 @@ public class Font {
     }
 
     private static String resolveFamily(int face) {
-        // Automatically determine font priority based on system language.
-        // This ensures better character support and point-matrix appearance for 
-        // Chinese language users in Mainland China, Hong Kong, Taiwan, and other regions.
-        // For default languages, prioritize bitmap fonts for the classic點陣 look.
-        boolean isChinese = Locale.getDefault().getLanguage().equalsIgnoreCase("zh");
-
-        if (face == FACE_MONOSPACE) {
-            if (isChinese) {
-                return firstInstalled(
-                    "SimSun", "宋体", 
-                    "NSimSun", "新宋体", 
-                    "MingLiU", "細明體", 
-                    "PMingLiU", "新細明體", 
-                    "Microsoft YaHei", "微软雅黑", 
-                    "Noto Sans Mono CJK SC", 
-                    "MS Gothic", 
-                    java.awt.Font.MONOSPACED, 
-                    java.awt.Font.DIALOG
-                );
-            }
-            return firstInstalled(
-                    "MS Gothic",
-                    "Noto Sans Mono CJK JP",
-                    "Noto Sans Mono CJK SC",
-                    "IPAexGothic",
-                    "IPAGothic",
-                    java.awt.Font.MONOSPACED,
-                    java.awt.Font.DIALOG
-            );
-        }
-        if (face == FACE_PROPORTIONAL) {
-            if (isChinese) {
-                return firstInstalled(
-                    "SimSun", "宋体", 
-                    "NSimSun", "新宋体", 
-                    "MingLiU", "細明體", 
-                    "PMingLiU", "新細明體", 
-                    "Microsoft YaHei", "微软雅黑", 
-                    "Noto Sans CJK SC", 
-                    "MS UI Gothic", 
-                    "Meiryo UI", 
-                    java.awt.Font.DIALOG, 
-                    java.awt.Font.SANS_SERIF
-                );
-            }
-            return firstInstalled(
-                    "MS UI Gothic",
-                    "MS PGothic",
-                    "Yu Gothic UI",
-                    "Yu Gothic",
-                    "Meiryo UI",
-                    "Meiryo",
-                    "Noto Sans CJK JP",
-                    "Noto Sans JP",
-                    "Noto Sans",
-                    "Noto Sans CJK SC",
-                    "IPAexGothic",
-                    "IPAGothic",
-                    java.awt.Font.DIALOG,
-                    java.awt.Font.SANS_SERIF
-            );
-        }
-        if (isChinese) {
-            return firstInstalled(
-                "SimSun", "宋体", 
-                "NSimSun", "新宋体", 
-                "MingLiU", "細明體", 
-                "PMingLiU", "新細明體", 
-                "Microsoft YaHei", "微软雅黑", 
-                "Noto Sans CJK SC", 
-                "MS UI Gothic", 
-                "Meiryo UI", 
-                java.awt.Font.DIALOG, 
-                java.awt.Font.SANS_SERIF
-            );
-        }
-        return firstInstalled(
-                "MS UI Gothic",
-                "MS PGothic",
-                "Yu Gothic UI",
-                "Yu Gothic",
-                "Meiryo UI",
-                "Meiryo",
-                "Noto Sans CJK JP",
-                "Noto Sans JP",
-                "Noto Sans",
-                "Noto Sans CJK SC",
-                "IPAexGothic",
-                "IPAGothic",
-                java.awt.Font.DIALOG,
-                java.awt.Font.SANS_SERIF
-        );
+        return DesktopFontSets.resolveFamily(face, Locale.getDefault(), availableFamilies());
     }
 
     private static Object resolveTextAntialiasHint() {
@@ -788,16 +697,6 @@ public class Font {
             case "lcd" -> RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB;
             default -> RenderingHints.VALUE_TEXT_ANTIALIAS_ON;
         };
-    }
-
-    private static String firstInstalled(String... candidates) {
-        Set<String> families = availableFamilies();
-        for (String candidate : candidates) {
-            if (families.contains(candidate.toLowerCase(Locale.ROOT))) {
-                return candidate;
-            }
-        }
-        return java.awt.Font.DIALOG;
     }
 
     private static Set<String> availableFamilies() {
