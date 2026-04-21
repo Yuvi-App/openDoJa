@@ -423,6 +423,7 @@ public final class Software3DContext {
             float[] textureCoords = polygon.textureCoords();
             int effectiveBlendMode = allowMaterialBlend ? (blendMode | polygon.blendMode()) : blendMode;
             BlendOp effectiveBlendOp = resolveBlendMode(effectiveBlendMode, blendSemantics);
+            boolean polygonDepthWrite = resolveFigureDepthWrite(visibility.depthWrite(), effectiveBlendOp, blendSemantics);
             SoftwareTexture polygonTexture = textureCoords == null ? null : figure.texture(polygon.textureIndex());
             ToonShaderParams toonShader = resolveToonShader(polygonTexture, defaultToonShader);
             int color = polygonTexture != null
@@ -435,7 +436,7 @@ public final class Software3DContext {
                 addProjectedPerspectiveFigureQuad(projected, transformed, textureCoords, color, polygonTexture,
                         centerX, centerY, originX, originY, surfaceWidth, surfaceHeight, projection, invertScreenY,
                         polygon.doubleSided() || !CULL_FIGURES, polygonTexture != null && polygon.transparent(),
-                        effectiveBlendOp, visibility.depthTest(), visibility.depthWrite(), fog, sphereTexture, toonShader);
+                        effectiveBlendOp, visibility.depthTest(), polygonDepthWrite, fog, sphereTexture, toonShader);
                 continue;
             }
             if (projection != null) {
@@ -482,24 +483,24 @@ public final class Software3DContext {
                 if (indices.length == 4 && vertexCount == 4) {
                     addProjectedFigureQuad(projected, xs, ys, depthValues, color, avgDepth, polygonTexture, textureCoords,
                             projection != null, polygon.doubleSided() || !CULL_FIGURES, polygon.transparent(),
-                            effectiveBlendOp, visibility.depthTest(), visibility.depthWrite(), fog, sphereTexture, toonShader);
+                            effectiveBlendOp, visibility.depthTest(), polygonDepthWrite, fog, sphereTexture, toonShader);
                 } else {
                     addProjectedFaces(projected, xs, ys, depthValues, color, avgDepth, polygonTexture, textureCoords,
                             null,
                             projection != null, polygon.doubleSided() || !CULL_FIGURES, polygon.transparent(),
-                            effectiveBlendOp, visibility.depthTest(), visibility.depthWrite(), fog, sphereTexture, toonShader);
+                            effectiveBlendOp, visibility.depthTest(), polygonDepthWrite, fog, sphereTexture, toonShader);
                 }
                 continue;
             }
             if (indices.length == 4 && vertexCount == 4) {
                 addProjectedFigureQuad(projected, xs, ys, depthValues, color, avgDepth, null, null,
                         projection != null, polygon.doubleSided() || !CULL_FIGURES, false,
-                        effectiveBlendOp, visibility.depthTest(), visibility.depthWrite(), fog, sphereTexture, toonShader);
+                        effectiveBlendOp, visibility.depthTest(), polygonDepthWrite, fog, sphereTexture, toonShader);
             } else {
                 addProjectedFaces(projected, xs, ys, depthValues, color, avgDepth, null, null,
                         null,
                         projection != null, polygon.doubleSided() || !CULL_FIGURES, false, effectiveBlendOp, visibility.depthTest(),
-                        visibility.depthWrite(), fog, sphereTexture, toonShader);
+                        polygonDepthWrite, fog, sphereTexture, toonShader);
             }
         }
         if (visibility.sortFaces()) {
@@ -1634,6 +1635,19 @@ public final class Software3DContext {
         int green = ((color >>> 8) & 0xFF) * alpha / 255;
         int blue = (color & 0xFF) * alpha / 255;
         return (color & 0xFF000000) | (red << 16) | (green << 8) | blue;
+    }
+
+    private static boolean resolveFigureDepthWrite(boolean defaultDepthWrite, BlendOp blendOp, BlendSemantics blendSemantics) {
+        if (!defaultDepthWrite) {
+            return false;
+        }
+        // UI graphics3d figures use blended mascot materials for light/effect overlays. Those
+        // spans must depth-test against existing scene geometry, but they must not claim depth
+        // themselves or later blended passes can disappear behind their invisible texels.
+        if (blendSemantics == BlendSemantics.UI_GRAPHICS3D && blendOp != BlendOp.REPLACE) {
+            return false;
+        }
+        return true;
     }
 
     private static BlendOp resolveBlendMode(int blendMode, BlendSemantics blendSemantics) {
