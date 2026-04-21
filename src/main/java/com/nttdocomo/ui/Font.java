@@ -686,7 +686,26 @@ public class Font {
     }
 
     private static String resolveFamily(int face) {
+        // Automatically determine font priority based on system language.
+        // This ensures better character support and point-matrix appearance for 
+        // Chinese language users in Mainland China, Hong Kong, Taiwan, and other regions.
+        // For default languages, prioritize bitmap fonts for the classic點陣 look.
+        boolean isChinese = Locale.getDefault().getLanguage().equalsIgnoreCase("zh");
+
         if (face == FACE_MONOSPACE) {
+            if (isChinese) {
+                return firstInstalled(
+                    "SimSun", "宋体", 
+                    "NSimSun", "新宋体", 
+                    "MingLiU", "細明體", 
+                    "PMingLiU", "新細明體", 
+                    "Microsoft YaHei", "微软雅黑", 
+                    "Noto Sans Mono CJK SC", 
+                    "MS Gothic", 
+                    java.awt.Font.MONOSPACED, 
+                    java.awt.Font.DIALOG
+                );
+            }
             return firstInstalled(
                     "MS Gothic",
                     "Noto Sans Mono CJK JP",
@@ -698,6 +717,20 @@ public class Font {
             );
         }
         if (face == FACE_PROPORTIONAL) {
+            if (isChinese) {
+                return firstInstalled(
+                    "SimSun", "宋体", 
+                    "NSimSun", "新宋体", 
+                    "MingLiU", "細明體", 
+                    "PMingLiU", "新細明體", 
+                    "Microsoft YaHei", "微软雅黑", 
+                    "Noto Sans CJK SC", 
+                    "MS UI Gothic", 
+                    "Meiryo UI", 
+                    java.awt.Font.DIALOG, 
+                    java.awt.Font.SANS_SERIF
+                );
+            }
             return firstInstalled(
                     "MS UI Gothic",
                     "MS PGothic",
@@ -713,6 +746,20 @@ public class Font {
                     "IPAGothic",
                     java.awt.Font.DIALOG,
                     java.awt.Font.SANS_SERIF
+            );
+        }
+        if (isChinese) {
+            return firstInstalled(
+                "SimSun", "宋体", 
+                "NSimSun", "新宋体", 
+                "MingLiU", "細明體", 
+                "PMingLiU", "新細明體", 
+                "Microsoft YaHei", "微软雅黑", 
+                "Noto Sans CJK SC", 
+                "MS UI Gothic", 
+                "Meiryo UI", 
+                java.awt.Font.DIALOG, 
+                java.awt.Font.SANS_SERIF
             );
         }
         return firstInstalled(
