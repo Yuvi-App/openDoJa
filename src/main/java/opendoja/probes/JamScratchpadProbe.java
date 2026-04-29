@@ -34,6 +34,7 @@ public final class JamScratchpadProbe {
         verifyHeaderedScratchpadLargerThanDeclaredOverridesDeclaredSize();
         verifyDeclaredSizeMismatchWarning();
         verifyMissingResourceStaysMissingAndScratchpadStillReads();
+        verifyScratchpadDataInputStreamMarkReset();
 
         System.out.println("Jam scratchpad probe OK");
     }
@@ -280,6 +281,73 @@ public final class JamScratchpadProbe {
         if (app == null) {
             throw new IllegalStateException("Jam launch returned null application");
         }
+    }
+
+    private static void verifyScratchpadDataInputStreamMarkReset() throws Exception {
+        Path root = Files.createTempDirectory("jam-sp-mark-reset");
+        Path jam = root.resolve("MarkReset.jam");
+        Path scratchpad = root.resolve("MarkReset.sp");
+        writeJam(jam, "SPsize=8\n");
+        Files.writeString(scratchpad, "ABCDEFGH", StandardCharsets.UTF_8);
+
+        IApplication app = JamLauncher.launch(jam, false);
+        try {
+            try (DataInputStream unbounded = Connector.openDataInputStream("scratchpad:///0;pos=1")) {
+                check(unbounded.markSupported(), "unbounded scratchpad DataInputStream should support mark/reset");
+                check(unbounded.readUnsignedByte() == 'B', "unbounded scratchpad read should honor the requested position");
+                unbounded.mark(2);
+                check(unbounded.readUnsignedByte() == 'C', "unbounded scratchpad read after mark should advance");
+                check(unbounded.readUnsignedByte() == 'D', "unbounded scratchpad read after mark should advance again");
+                unbounded.reset();
+                check(unbounded.readUnsignedByte() == 'C', "unbounded scratchpad reset should return to the marked position");
+            }
+
+            try (DataInputStream bounded = Connector.openDataInputStream("scratchpad:///0;pos=1,length=6")) {
+                check(bounded.markSupported(), "bounded scratchpad DataInputStream should support mark/reset");
+                check(bounded.readUnsignedByte() == 'B', "bounded scratchpad read should honor the requested position");
+                bounded.mark(4);
+                check(bounded.readUnsignedByte() == 'C', "bounded scratchpad read after mark should advance");
+                check(bounded.readUnsignedByte() == 'D', "bounded scratchpad read after mark should advance again");
+                bounded.reset();
+                check(bounded.readUnsignedByte() == 'C', "bounded scratchpad reset should return to the marked position");
+                check(bounded.readNBytes(3).length == 3, "bounded scratchpad reset should restore remaining length");
+                bounded.reset();
+                check(bounded.readNBytes(5).length == 5, "bounded scratchpad should read through its marked readlimit");
+                expectIOException(bounded::reset, "bounded scratchpad reset should fail after readlimit is exceeded");
+                check(bounded.read() == -1, "bounded scratchpad stream should still end at the declared length");
+                check(bounded.read(new byte[0], 0, 0) == 0, "zero-length scratchpad reads should return zero at EOF");
+            }
+
+            try (DataInputStream unmarked = Connector.openDataInputStream("scratchpad:///0;pos=0,length=2")) {
+                expectIOException(unmarked::reset, "scratchpad reset should fail before mark is set");
+            }
+
+            DataInputStream closed = Connector.openDataInputStream("scratchpad:///0;pos=0,length=2");
+            closed.mark(1);
+            closed.close();
+            expectIOException(closed::reset, "scratchpad reset should fail after stream close");
+        } finally {
+            DoJaRuntime runtime = DoJaRuntime.current();
+            if (runtime != null) {
+                runtime.shutdown();
+            }
+        }
+        if (app == null) {
+            throw new IllegalStateException("Jam launch returned null application");
+        }
+    }
+
+    private static void expectIOException(IoAction action, String message) throws Exception {
+        try {
+            action.run();
+            throw new IllegalStateException(message);
+        } catch (IOException expected) {
+            // Expected.
+        }
+    }
+
+    private interface IoAction {
+        void run() throws IOException;
     }
 
     private static void launchAndWrite(Path jam, String value) throws Exception {

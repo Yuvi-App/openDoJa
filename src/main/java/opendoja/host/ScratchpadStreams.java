@@ -1,8 +1,13 @@
 package opendoja.host;
 
-import java.io.*;
+import java.io.FilterOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Objects;
 
 public final class ScratchpadStreams {
     private ScratchpadStreams() {
@@ -18,18 +23,7 @@ public final class ScratchpadStreams {
             Files.createFile(path);
         }
         RandomAccessFile file = new RandomAccessFile(path.toFile(), "r");
-        file.seek(Math.max(0L, offset));
-        InputStream stream = new RandomAccessFileInputStream(file);
-        if (length >= 0L) {
-            stream = new BoundedInputStream(stream, length);
-        }
-        return new FilterInputStream(stream) {
-            @Override
-            public void close() throws IOException {
-                super.close();
-                file.close();
-            }
-        };
+        return new ScratchpadInputStream(file, Math.max(0L, offset), length);
     }
 
     public static OutputStream openOutput(Path path, long offset) throws IOException {
@@ -56,27 +50,100 @@ public final class ScratchpadStreams {
         };
     }
 
-    private static final class RandomAccessFileInputStream extends InputStream {
+    private static final class ScratchpadInputStream extends InputStream {
         private final RandomAccessFile file;
+        private final long end;
+        private long mark = -1L;
+        private long markLimit = 0L;
+        private boolean closed;
 
-        private RandomAccessFileInputStream(RandomAccessFile file) {
+        private ScratchpadInputStream(RandomAccessFile file, long offset, long length) throws IOException {
             this.file = file;
+            this.end = endPosition(offset, length);
+            file.seek(offset);
         }
 
         @Override
         public int read() throws IOException {
+            ensureOpen();
+            if (file.getFilePointer() >= end) {
+                return -1;
+            }
             return file.read();
         }
 
         @Override
         public int read(byte[] b, int off, int len) throws IOException {
-            return file.read(b, off, len);
+            ensureOpen();
+            Objects.checkFromIndexSize(off, len, b.length);
+            if (len == 0) {
+                return 0;
+            }
+            long remaining = end - file.getFilePointer();
+            if (remaining <= 0L) {
+                return -1;
+            }
+            return file.read(b, off, (int) Math.min(len, remaining));
         }
 
         @Override
         public int available() throws IOException {
-            long remaining = file.length() - file.getFilePointer();
+            ensureOpen();
+            long remaining = Math.max(0L, Math.min(file.length(), end) - file.getFilePointer());
             return (int) Math.min(remaining, Integer.MAX_VALUE);
+        }
+
+        @Override
+        public void mark(int readlimit) {
+            if (closed) {
+                return;
+            }
+            try {
+                mark = file.getFilePointer();
+                markLimit = Math.max(0L, readlimit);
+            } catch (IOException e) {
+                mark = -1L;
+                markLimit = 0L;
+            }
+        }
+
+        @Override
+        public void reset() throws IOException {
+            ensureOpen();
+            if (mark < 0L || file.getFilePointer() - mark > markLimit) {
+                mark = -1L;
+                markLimit = 0L;
+                throw new IOException("Resetting to invalid mark");
+            }
+            file.seek(mark);
+        }
+
+        @Override
+        public boolean markSupported() {
+            return true;
+        }
+
+        @Override
+        public void close() throws IOException {
+            if (!closed) {
+                closed = true;
+                mark = -1L;
+                markLimit = 0L;
+                file.close();
+            }
+        }
+
+        private void ensureOpen() throws IOException {
+            if (closed) {
+                throw new IOException("Stream closed");
+            }
+        }
+
+        private static long endPosition(long offset, long length) {
+            if (length < 0L || Long.MAX_VALUE - offset < length) {
+                return Long.MAX_VALUE;
+            }
+            return offset + length;
         }
     }
 
@@ -95,46 +162,6 @@ public final class ScratchpadStreams {
         @Override
         public void write(byte[] b, int off, int len) throws IOException {
             file.write(b, off, len);
-        }
-    }
-
-    private static final class BoundedInputStream extends InputStream {
-        private final InputStream delegate;
-        private long remaining;
-
-        private BoundedInputStream(InputStream delegate, long remaining) {
-            this.delegate = delegate;
-            this.remaining = Math.max(0L, remaining);
-        }
-
-        @Override
-        public int read() throws IOException {
-            if (remaining <= 0L) {
-                return -1;
-            }
-            int value = delegate.read();
-            if (value >= 0) {
-                remaining--;
-            }
-            return value;
-        }
-
-        @Override
-        public int read(byte[] b, int off, int len) throws IOException {
-            if (remaining <= 0L) {
-                return -1;
-            }
-            int read = delegate.read(b, off, (int) Math.min(len, remaining));
-            if (read > 0) {
-                remaining -= read;
-            }
-            return read;
-        }
-
-        @Override
-        public int available() throws IOException {
-            int delegateAvailable = delegate.available();
-            return (int) Math.min(delegateAvailable, remaining);
         }
     }
 
