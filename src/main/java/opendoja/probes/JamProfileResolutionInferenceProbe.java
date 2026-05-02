@@ -14,13 +14,41 @@ public final class JamProfileResolutionInferenceProbe {
     }
 
     public static void main(String[] args) throws Exception {
+        verifyBundledBiohazardFallsBackToDoJa50();
+        verifyBundledDdrN503isKeepsDoJa10();
         verifyUniqueLegacyResolutionInfersDoJa20();
         verifyPackageUrlIdentityBeatsResolutionInference();
         verifyAmbiguousLegacyResolutionPrefersNewestBeforeFolderFallback();
         verifyFolderHintLegacyTargetFallsBackToDocumentedDrawAreaProfile();
+        verifyFolderHintKnownDeviceBeatsStorageInference();
+        verifyFomaAppSizeFallbackInfersDoJa50();
+        verifySmallStorageDoesNotInferOlderProfile();
+        verifyHugeScratchpadFallbackInfersDoJa50();
         verifyDoJa30SizedResolutionIsIgnored();
 
         System.out.println("Jam profile resolution inference probe OK");
+    }
+
+    private static void verifyBundledBiohazardFallsBackToDoJa50() throws Exception {
+        Path jam = Path.of("resources/sample_games/Biohazard The Operations/Online-Patched/BiohazardOP.jam");
+
+        LaunchConfig config = JamLauncher.buildLaunchConfig(jam, false);
+        check("DoJa-5.0".equals(config.parameters().get("ProfileVer")),
+                "Biohazard should reach DoJa-5.0 only through the final FOMA AppSize fallback");
+        check("DoJa-5.0".equals(DoJaProfile.fromParametersOrDocumentedDeviceIdentity(config.parameters()).toString()),
+                "Biohazard should launch with a concrete DoJa-5.0 runtime profile");
+    }
+
+    private static void verifyBundledDdrN503isKeepsDoJa10() throws Exception {
+        Path jam = Path.of("resources/sample_games/Dance_Dance_Revolution_doja/N503iS_Version_(Pre-install)/bin/Dance_Dance_Revolution.jam");
+
+        LaunchConfig config = JamLauncher.buildLaunchConfig(jam, false);
+        check("N503iS".equals(config.parameters().get("TargetDevice")),
+                "folder-name fallback should still infer the bundled DDR handset identity");
+        check("DoJa-1.0".equals(config.parameters().get("ProfileVer")),
+                "legacy draw-area/device evidence should beat storage heuristics for the bundled N503iS DDR build");
+        check("DoJa-1.0".equals(DoJaProfile.fromParametersOrDocumentedDeviceIdentity(config.parameters()).toString()),
+                "the bundled N503iS DDR build should still resolve as DoJa-1.0");
     }
 
     private static void verifyUniqueLegacyResolutionInfersDoJa20() throws Exception {
@@ -73,6 +101,64 @@ public final class JamProfileResolutionInferenceProbe {
                 "legacy handset hints without explicit ProfileVer should fall back through the documented draw area");
         check("DoJa-2.2".equals(DoJaProfile.fromParametersOrDocumentedDeviceIdentity(config.parameters()).toString()),
                 "documented draw-area fallback should make the effective runtime profile concrete");
+    }
+
+    private static void verifyFolderHintKnownDeviceBeatsStorageInference() throws Exception {
+        Path root = Files.createTempDirectory("jam-profile-resolution-folder-known-device");
+        Path jam = writeJam(Files.createDirectories(root.resolve("N505i Version")).resolve("FolderHintKnownDevice.jam"),
+                "",
+                "AppSize=231082\n"
+                        + "SPsize=806912\n");
+
+        LaunchConfig config = JamLauncher.buildLaunchConfig(jam, false);
+        check("N505i".equals(config.parameters().get("TargetDevice")),
+                "folder-name fallback should infer the newer handset identity");
+        check(config.parameters().get("ProfileVer") == null,
+                "known folder-derived device identities should resolve the runtime profile before storage inference injects ProfileVer");
+        check("DoJa-3.0".equals(DoJaProfile.fromParametersOrDocumentedDeviceIdentity(config.parameters()).toString()),
+                "folder-derived device identity should keep the effective runtime profile on DoJa-3.0");
+    }
+
+    private static void verifySmallStorageDoesNotInferOlderProfile() throws Exception {
+        Path root = Files.createTempDirectory("jam-profile-storage-20");
+        Path jam = writeJam(root.resolve("Storage20.jam"),
+                "",
+                "AppSize=30720\n"
+                        + "SPsize=10241\n");
+
+        LaunchConfig config = JamLauncher.buildLaunchConfig(jam, false);
+        check(config.parameters().get("ProfileVer") == null,
+                "storage sizes that fit older profiles must not force an older ProfileVer");
+        check("UNKNOWN".equals(DoJaProfile.fromParametersOrDocumentedDeviceIdentity(config.parameters()).toString()),
+                "without stronger metadata, smaller storage sizes should stay unresolved");
+    }
+
+    private static void verifyHugeScratchpadFallbackInfersDoJa50() throws Exception {
+        Path root = Files.createTempDirectory("jam-profile-storage-30");
+        Path jam = writeJam(root.resolve("Storage30.jam"),
+                "",
+                "AppSize=30000\n"
+                        + "SPsize=806912\n");
+
+        LaunchConfig config = JamLauncher.buildLaunchConfig(jam, false);
+        check("DoJa-5.0".equals(config.parameters().get("ProfileVer")),
+                "scratchpad sizes above the FOMA DoJa-3.x/4.x 400 KB ceiling should fall back to DoJa-5.0");
+        check("DoJa-5.0".equals(DoJaProfile.fromParametersOrDocumentedDeviceIdentity(config.parameters()).toString()),
+                "a large scratchpad alone should still act as a positive DoJa-5.0 signal");
+    }
+
+    private static void verifyFomaAppSizeFallbackInfersDoJa50() throws Exception {
+        Path root = Files.createTempDirectory("jam-profile-storage-50");
+        Path jam = writeJam(root.resolve("Storage50.jam"),
+                "",
+                "AppSize=231082\n"
+                        + "SPsize=806912\n");
+
+        LaunchConfig config = JamLauncher.buildLaunchConfig(jam, false);
+        check("DoJa-5.0".equals(config.parameters().get("ProfileVer")),
+                "AppSize above the FOMA DoJa-3.x/4.x 100 KB ceiling should fall back to DoJa-5.0");
+        check("DoJa-5.0".equals(DoJaProfile.fromParametersOrDocumentedDeviceIdentity(config.parameters()).toString()),
+                "the FOMA AppSize fallback should make the effective runtime profile concrete");
     }
 
     private static void verifyDoJa30SizedResolutionIsIgnored() throws Exception {

@@ -17,7 +17,7 @@ public final class DesktopSurface {
     private boolean depthFrameActive;
     private long nextRenderSyncNanos;
     private boolean openGlesSeen;
-
+    private int activeGraphicsLocks;
     public DesktopSurface(int width, int height) {
         this.image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
     }
@@ -38,6 +38,7 @@ public final class DesktopSurface {
         this.depthFrameActive = false;
         this.nextRenderSyncNanos = 0L;
         this.openGlesSeen = false;
+        this.activeGraphicsLocks = 0;
     }
 
     public BufferedImage image() {
@@ -91,6 +92,20 @@ public final class DesktopSurface {
 
     public synchronized boolean hasOpenGlesActivity() {
         return openGlesSeen;
+    }
+
+    public synchronized void beginGraphicsLock() {
+        activeGraphicsLocks++;
+    }
+
+    public synchronized void endGraphicsLock() {
+        if (activeGraphicsLocks > 0) {
+            activeGraphicsLocks--;
+        }
+    }
+
+    public synchronized boolean hasActiveGraphicsLock() {
+        return activeGraphicsLocks > 0;
     }
 
     public synchronized BufferedImage copyForPresentation() {

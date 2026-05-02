@@ -138,6 +138,7 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
     private Runnable softwareMutationHook;
     private Runnable disposeHook;
     private Consumer<Graphics> copyHook;
+    private int lockDepth;
     private static volatile java.lang.reflect.Constructor<?> platformGraphicsConstructor;
 
     /**
@@ -1003,9 +1004,12 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
             // so service queued runtime callbacks at explicit frame-lock
             // boundaries as well.
             runtime.drainApplicationCallbacks();
-            runtime.surfaceLock().lock();
         }
-        if (surface.hasRepaintHook() && (runtime == null || runtime.surfaceLock().getHoldCount() == 1)) {
+        lockDepth++;
+        if (lockDepth == 1) {
+            surface.beginGraphicsLock();
+        }
+        if (surface.hasRepaintHook() && lockDepth == 1) {
             setOrigin(0, 0);
             clearClip();
             setFlipMode(FLIP_NONE);
@@ -1058,13 +1062,12 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
      * Ends double-buffered drawing.
      */
     public void unlock(boolean flush) {
-        DoJaRuntime runtime = DoJaRuntime.current();
         // DoJa specifies that unlock() is a no-op when the lock count is already zero.
-        if (runtime != null && !runtime.surfaceLock().isHeldByCurrentThread()) {
+        if (lockDepth == 0) {
             return;
         }
         BufferedImage presentedFrame = null;
-        boolean outermostUnlock = runtime == null || runtime.surfaceLock().getHoldCount() == 1;
+        boolean outermostUnlock = lockDepth == 1;
         boolean nestedCanvasUnlock = !flush && !outermostUnlock && surface.hasRepaintHook();
         boolean pacedPresentation = flush;
         // opt `renderPrimitives(...)` framebuffer blends participate in the same staged 3D pass
@@ -1093,9 +1096,11 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
             presentedFrame = copyImage(surface.image());
             pacedPresentation = false;
         }
-        if (runtime != null) {
-            runtime.surfaceLock().unlock();
+        lockDepth--;
+        if (outermostUnlock) {
+            surface.endGraphicsLock();
         }
+        DoJaRuntime runtime = DoJaRuntime.current();
         if (runtime != null && outermostUnlock) {
             // An outermost unlock marks the end of one application-owned draw
             // slice, so it is another safe point to release queued callbacks.
@@ -1173,14 +1178,24 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
      * Gets pixel.
      */
     public int getPixel(int x, int y) {
-        return surface.image().getRGB(originX + x, originY + y);
+        int readX = originX + x;
+        int readY = originY + y;
+        if (!isInSurface(readX, readY)) {
+            return getColorOfName(BLACK);
+        }
+        return surface.image().getRGB(readX, readY);
     }
 
     /**
      * Gets r G B Pixel.
      */
     public int getRGBPixel(int x, int y) {
-        return getPixel(x, y);
+        int readX = originX + x;
+        int readY = originY + y;
+        if (!isInSurface(readX, readY)) {
+            return 0;
+        }
+        return surface.image().getRGB(readX, readY);
     }
 
     /**
@@ -1194,8 +1209,18 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
      * Gets r G B Pixels.
      */
     public int[] getRGBPixels(int x, int y, int width, int height, int[] pixels, int offset) {
-        int[] target = pixels == null ? new int[offset + (width * height)] : pixels;
-        surface.image().getRGB(originX + x, originY + y, width, height, target, offset, width);
+        int length = checkedReadRgbPixelLength(pixels, offset, width, height);
+        int[] target = pixels == null ? new int[offset + length] : pixels;
+        int baseX = originX + x;
+        int baseY = originY + y;
+        for (int row = 0; row < height; row++) {
+            int readY = baseY + row;
+            int rowOffset = offset + row * width;
+            for (int column = 0; column < width; column++) {
+                int readX = baseX + column;
+                target[rowOffset + column] = isInSurface(readX, readY) ? surface.image().getRGB(readX, readY) : 0;
+            }
+        }
         return target;
     }
 
@@ -1253,11 +1278,15 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         if (pixels == null) {
             throw new NullPointerException("pixels");
         }
+        return checkedReadRgbPixelLength(pixels, offset, width, height);
+    }
+
+    private static int checkedReadRgbPixelLength(int[] pixels, int offset, int width, int height) {
         if (width <= 0 || height <= 0) {
             throw new IllegalArgumentException("width and height must be > 0");
         }
         int length = Math.multiplyExact(width, height);
-        if (offset < 0 || offset > pixels.length - length) {
+        if (offset < 0 || (pixels != null && offset > pixels.length - length)) {
             throw new ArrayIndexOutOfBoundsException(offset);
         }
         return length;
@@ -1273,11 +1302,15 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
     }
 
     private boolean isVisibleSoftwarePixel(int x, int y) {
-        if (x < 0 || y < 0 || x >= surface.width() || y >= surface.height()) {
+        if (!isInSurface(x, y)) {
             return false;
         }
         Rectangle clipBounds = delegate.getClipBounds();
         return clipBounds == null || clipBounds.contains(x, y);
+    }
+
+    private boolean isInSurface(int x, int y) {
+        return x >= 0 && y >= 0 && x < surface.width() && y < surface.height();
     }
 
     private static int[] opaqueRgbPixels(int[] pixels, int offset, int length) {
@@ -1559,9 +1592,8 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
                     desktopImage, visibleBounds);
             return false;
         }
-        DoJaRuntime runtime = DoJaRuntime.current();
         boolean hasRepaintHook = surface.hasRepaintHook();
-        boolean insideLock = runtime != null && runtime.surfaceLock().isHeldByCurrentThread();
+        boolean insideLock = surface.hasActiveGraphicsLock();
         boolean immediate = hasRepaintHook && !insideLock;
         traceOutsideLockPresentDecision("image", immediate,
                 "hook=" + hasRepaintHook + " insideLock=" + insideLock,
@@ -1588,8 +1620,7 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
     }
 
     private void flushSurfacePresentation(Rectangle bounds) {
-        DoJaRuntime runtime = DoJaRuntime.current();
-        boolean insideLock = runtime != null && runtime.surfaceLock().isHeldByCurrentThread();
+        boolean insideLock = surface.hasActiveGraphicsLock();
         if (insideLock || !surface.hasRepaintHook()) {
             oglRenderer.onSoftwareSurfaceMutation();
             return;
@@ -1746,9 +1777,8 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
                     null, targetBounds);
             return false;
         }
-        DoJaRuntime runtime = DoJaRuntime.current();
         boolean hasRepaintHook = surface.hasRepaintHook();
-        boolean insideLock = runtime != null && runtime.surfaceLock().isHeldByCurrentThread();
+        boolean insideLock = surface.hasActiveGraphicsLock();
         boolean immediate = hasRepaintHook && !insideLock;
         traceOutsideLockPresentDecision("opt", immediate,
                 "hook=" + hasRepaintHook + " insideLock=" + insideLock,
@@ -1868,8 +1898,7 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         // does not make the surface "software dirty"; only later Java2D writes should trigger a
         // re-upload on the next GL pass, especially when the hardware path uses supersampling.
         oglRenderer.flushHardwarePresentation();
-        DoJaRuntime runtime = DoJaRuntime.current();
-        if (runtime != null && runtime.surfaceLock().isHeldByCurrentThread()) {
+        if (lockDepth > 0) {
             // DoJa documents `Graphics3D.flush()` as applying pending 3D results, not as a
             // display-sync boundary. Some titles split one Canvas frame into several opt passes,
             // so syncing every flush would multiply the frame time. Keep the pass boundary

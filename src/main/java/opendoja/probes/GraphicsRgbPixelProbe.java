@@ -25,11 +25,21 @@ public final class GraphicsRgbPixelProbe {
         assertPixel("bulk RGB write treats zero alpha byte as opaque", graphics.getRGBPixel(0, 1), 0xFF0A0B0C);
         assertPixel("bulk RGB write ignores non-zero top byte", graphics.getRGBPixel(1, 1), 0xFF0D0E0F);
 
+        int clippedBaseline = graphics.getRGBPixel(1, 0);
         graphics.setClip(0, 0, 1, 1);
         graphics.setRGBPixel(1, 0, 0x00112233);
-        assertPixel("clipped RGB writes are ignored", graphics.getRGBPixel(0, 0), 0xFF010203);
+        assertPixel("clipped RGB writes are ignored", graphics.getRGBPixel(1, 0), clippedBaseline);
 
-        Image fromPixels = Image.createImage(1, 1, new int[]{0x00112233}, 0);
+        assertPixel("off-surface getPixel returns the documented fallback color", graphics.getPixel(3, 3),
+                Graphics.getColorOfName(Graphics.BLACK));
+        assertPixel("off-surface getRGBPixel returns 0", graphics.getRGBPixel(3, 3), 0);
+        int[] outOfBoundsPixels = graphics.getRGBPixels(1, 1, 2, 2, null, 0);
+        assertPixel("getRGBPixels should preserve the in-surface source pixel", outOfBoundsPixels[0], 0xFF0D0E0F);
+        assertPixel("getRGBPixels should zero any off-surface columns", outOfBoundsPixels[1], 0);
+        assertPixel("getRGBPixels should zero any off-surface rows", outOfBoundsPixels[2], 0);
+        assertPixel("getRGBPixels should zero any fully off-surface cells", outOfBoundsPixels[3], 0);
+
+        Image fromPixels = Image.createImage(2, 1, new int[]{0x00112233, 0x7F445566}, 0);
         assertPixel("RGB image creation treats zero alpha byte as opaque",
                 fromPixels.getGraphics().getRGBPixel(0, 0), 0xFF112233);
 

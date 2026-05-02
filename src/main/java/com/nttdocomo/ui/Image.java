@@ -296,7 +296,7 @@ final class DesktopImage extends Image {
     @Override
     public void setTransparentEnabled(boolean transparentEnabled) {
         ensureNotDisposed();
-        if (!supportsExplicitTransparencyAndAlpha()) {
+        if (!supportsImageAlpha()) {
             return;
         }
         if (!mutable && transparentGifImage && originalTransparencyPresent && transparentEnabled) {
@@ -314,7 +314,7 @@ final class DesktopImage extends Image {
         if (alpha < 0 || alpha > 255) {
             throw new IllegalArgumentException("alpha out of range: " + alpha);
         }
-        if (!supportsExplicitTransparencyAndAlpha()) {
+        if (!supportsImageAlpha()) {
             return;
         }
         this.alpha = alpha;
@@ -323,7 +323,7 @@ final class DesktopImage extends Image {
     @Override
     public int getAlpha() {
         ensureNotDisposed();
-        if (!supportsExplicitTransparencyAndAlpha()) {
+        if (!supportsImageAlpha()) {
             return 255;
         }
         return alpha;
@@ -402,7 +402,7 @@ final class DesktopImage extends Image {
         return copyOpaqueImage(surface.image());
     }
 
-    private static boolean supportsExplicitTransparencyAndAlpha() {
+    private static boolean supportsImageAlpha() {
         return DoJaProfile.current().isAtLeast(5, 0);
     }
 

@@ -447,15 +447,15 @@ public final class DoJaRuntime {
                     ensureCanvasSurface(canvas);
                     Graphics g = runtimeGraphics(canvas);
                     try {
+                        // Runtime-driven paints must not happen on the EDT: some games keep a
+                        // synchronized paint loop on their own thread and call Graphics.lock()
+                        // inside that method. A separate render worker keeps window events flowing
+                        // and preserves the same Canvas-monitor boundary as direct canvas loops.
+                        g.lock();
                         Rectangle dirtyRegion = repaint.dirtyRegion();
                         if (dirtyRegion != null) {
                             g.setClip(dirtyRegion.x, dirtyRegion.y, dirtyRegion.width, dirtyRegion.height);
                         }
-                        // Runtime-driven paints must not happen on the EDT: some games keep a
-                        // synchronized paint loop on their own thread and call Graphics.lock()
-                        // inside that method. A separate render worker keeps window events flowing
-                        // and preserves the same Canvas-monitor -> surface-lock ordering.
-                        g.lock();
                         canvas.paint(g);
                     } finally {
                         g.unlock(true);

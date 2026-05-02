@@ -12,6 +12,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class JamMetadataResolver {
+    private static final long KIB = 1024L;
+    private static final long FOMA_DOJA_3_4_MAX_APP_BYTES = 100L * KIB;
+    private static final long FOMA_DOJA_3_4_MAX_SCRATCHPAD_BYTES = 400L * KIB;
     private static final Pattern DEVICE_HINT_PATTERN = Pattern.compile(
             "(?i)(?:^|[^A-Za-z0-9])((?:FOMA\\s+)?[A-Z]?[0-9]{3,4}i?[A-Z]?(?:S|V|C)?)(?:[^A-Za-z0-9]|$)");
 
@@ -168,11 +171,66 @@ public final class JamMetadataResolver {
             }
             drawArea = DoJaProfile.documentedDrawAreaForTargetDevice(fallbackTargetDevice);
         }
-        if (drawArea == null) {
+        if (drawArea != null) {
+            DoJaProfile inferred = DoJaProfile.fromDocumentedLegacyDisplayResolution(drawArea[0], drawArea[1]);
+            if (inferred.isKnown()) {
+                return inferred.toString();
+            }
+        }
+        if (DoJaProfile.fromDocumentedDeviceIdentity(inferredTargetDevice).isKnown()) {
             return null;
         }
-        DoJaProfile inferred = DoJaProfile.fromDocumentedLegacyDisplayResolution(drawArea[0], drawArea[1]);
-        return inferred.isKnown() ? inferred.toString() : null;
+        return inferProfileVersionFromStorageFallback(properties);
+    }
+
+    private static String inferProfileVersionFromStorageFallback(Properties properties) {
+        Long appSize = parseNonNegativeLong(properties.getProperty("AppSize"));
+        Long scratchpadSize = parseScratchpadSize(properties.getProperty("SPsize"));
+        // Use the official FOMA storage table only as a final positive DoJa-5.0+ signal.
+        // The smaller profile rows are compatibility ceilings, not identity, so a lightweight
+        // DoJa-5.0 title must not be forced down to 2.0 or 3.0 just because it fits there.
+        if (exceeds(appSize, FOMA_DOJA_3_4_MAX_APP_BYTES)
+                || exceeds(scratchpadSize, FOMA_DOJA_3_4_MAX_SCRATCHPAD_BYTES)) {
+            return "DoJa-5.0";
+        }
+        return null;
+    }
+
+    private static boolean exceeds(Long value, long limit) {
+        return value != null && value > limit;
+    }
+
+    private static Long parseScratchpadSize(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        long total = 0L;
+        boolean found = false;
+        for (String part : raw.split(",")) {
+            Long parsed = parseNonNegativeLong(part);
+            if (parsed == null) {
+                return null;
+            }
+            try {
+                total = Math.addExact(total, parsed);
+            } catch (ArithmeticException ignored) {
+                return null;
+            }
+            found = true;
+        }
+        return found ? total : null;
+    }
+
+    private static Long parseNonNegativeLong(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            long value = Long.parseLong(raw.trim());
+            return value < 0L ? null : value;
+        } catch (NumberFormatException | ArithmeticException ignored) {
+            return null;
+        }
     }
 
     private static String metadataDeviceIdentity(Properties properties) {
