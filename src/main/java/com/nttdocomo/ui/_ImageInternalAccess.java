@@ -42,4 +42,17 @@ public final class _ImageInternalAccess {
         }
         return desktopImage.copyOpaqueSourceForTransparentImage();
     }
+
+    public static int[] copyDisplayPixels(Image image) {
+        if (image == null) {
+            throw new NullPointerException("image");
+        }
+        BufferedImage rendered = image.renderForDisplay();
+        if (rendered == null) {
+            throw new UIException(UIException.UNSUPPORTED_FORMAT, "Image cannot be rendered");
+        }
+        int width = rendered.getWidth();
+        int height = rendered.getHeight();
+        return rendered.getRGB(0, 0, width, height, null, 0, width);
+    }
 }

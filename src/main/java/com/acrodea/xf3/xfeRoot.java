@@ -516,10 +516,11 @@ public class xfeRoot extends xfeSubTree {
         }
         try {
             Image image = MediaManager.getImage("resource:///" + textureName).getImage();
-            Graphics graphics = image.getGraphics();
             int width = image.getWidth();
             int height = image.getHeight();
-            TextureData loaded = new TextureData(width, height, graphics.getRGBPixels(0, 0, width, height, null, 0));
+            // XF3 textures are loaded from immutable media images, so they must be sampled through
+            // the image display pipeline instead of Image.getGraphics().
+            TextureData loaded = new TextureData(width, height, _ImageInternalAccess.copyDisplayPixels(image));
             textureCache.put(textureName, loaded);
             return loaded;
         } catch (Exception ignored) {
