@@ -1446,6 +1446,10 @@ public final class DoJaRuntime {
     }
 
     private String launchMicroeditionProfiles() {
+        if (config.applicationProfile() == ApplicationProfile.STAR) {
+            // STAR runtime identity; AppType selects this family even without ProfileVer.
+            return "Star-2.0";
+        }
         DoJaProfile resolved = DoJaProfile.fromParametersOrDocumentedDeviceIdentity(config.parameters());
         if (resolved.isKnown()) {
             // The system property uses the handset profile name, not the ADF's DoJa-* spelling.

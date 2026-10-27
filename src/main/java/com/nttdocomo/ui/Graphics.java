@@ -1016,7 +1016,10 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
             surface.beginGraphicsLock();
         }
         if (surface.hasRepaintHook() && lockDepth == 1) {
-            setOrigin(0, 0);
+            // STAR titles can position the world camera during update(), before lock(). Keep the established DoJa frame reset behavior.
+            if (ApplicationProfile.current() != ApplicationProfile.STAR) {
+                setOrigin(0, 0);
+            }
             clearClip();
             setFlipMode(FLIP_NONE);
             resetCanvasFrameState();

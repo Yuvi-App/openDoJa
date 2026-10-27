@@ -80,6 +80,10 @@ public final class LaunchConfig {
         return parameters;
     }
 
+    public ApplicationProfile applicationProfile() {
+        return ApplicationProfile.fromParameters(parameters);
+    }
+
     public Path scratchpadRoot() {
         return scratchpadRoot;
     }
