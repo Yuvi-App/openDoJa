@@ -20,6 +20,10 @@ public final class DesktopSurface {
     private long nextRenderSyncNanos;
     private boolean openGlesSeen;
     private int activeGraphicsLocks;
+    private volatile String presentationRotation = OpenDoJaLaunchArgs.DISPLAY_ROTATION_NONE;
+
+    public String presentationRotation() { return presentationRotation; }
+    public void setPresentationRotation(String rotation) { presentationRotation = rotation; }
     public DesktopSurface(int width, int height) {
         this.image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
     }
@@ -40,6 +44,7 @@ public final class DesktopSurface {
         this.nextRenderSyncNanos = 0L;
         this.openGlesSeen = false;
         this.activeGraphicsLocks = 0;
+        this.presentationRotation = OpenDoJaLaunchArgs.DISPLAY_ROTATION_NONE;
     }
 
     public BufferedImage image() {

@@ -1016,12 +1016,12 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
             surface.beginGraphicsLock();
         }
         if (surface.hasRepaintHook() && lockDepth == 1) {
-            // STAR titles can position the world camera during update(), before lock(). Keep the established DoJa frame reset behavior.
+            // STAR keeps camera and image orientation across frame locks.
             if (ApplicationProfile.current() != ApplicationProfile.STAR) {
                 setOrigin(0, 0);
+                setFlipMode(FLIP_NONE);
             }
             clearClip();
-            setFlipMode(FLIP_NONE);
             resetCanvasFrameState();
         }
     }
@@ -1527,6 +1527,7 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         if (source == null || sw <= 0 || sh <= 0 || dw == 0 || dh == 0) {
             return;
         }
+        observeCanvasFrameBlit(source, dx, dy, sx, sy, sw, sh, dw, dh);
         int srcX1 = sx;
         int srcY1 = sy;
         int srcX2 = sx + sw;
@@ -1583,6 +1584,24 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
             return;
         }
         flushSurfacePresentation(visibleBounds);
+    }
+
+    private void observeCanvasFrameBlit(BufferedImage source, int dx, int dy,
+                                        int sx, int sy, int sw, int sh, int dw, int dh) {
+        if (!surface.hasRepaintHook() || ApplicationProfile.current() != ApplicationProfile.STAR
+                || originX + dx != 0 || originY + dy != 0 || sx != 0 || sy != 0
+                || sw != source.getWidth() || sh != source.getHeight()) return;
+        Rectangle clip = delegate.getClipBounds();
+        if (clip != null && !clip.contains(0, 0, surface.width(), surface.height())) return;
+        // A whole landscape back buffer rotated into a portrait handset surface is
+        // an application orientation signal. Sprite flips and offscreen draws are not.
+        if (surface.width() < surface.height() && dw == surface.height() && dh == surface.width()
+                && source.getWidth() == dw && source.getHeight() == dh) {
+            if (flipMode == FLIP_ROTATE_LEFT) surface.setPresentationRotation(OpenDoJaLaunchArgs.DISPLAY_ROTATION_RIGHT);
+            else if (flipMode == FLIP_ROTATE_RIGHT) surface.setPresentationRotation(OpenDoJaLaunchArgs.DISPLAY_ROTATION_LEFT);
+        } else if (flipMode == FLIP_NONE && dw == surface.width() && dh == surface.height()) {
+            surface.setPresentationRotation(OpenDoJaLaunchArgs.DISPLAY_ROTATION_NONE);
+        }
     }
 
     private boolean shouldImmediatelyPresentOutsideLockImage(Image image, Rectangle visibleBounds) {

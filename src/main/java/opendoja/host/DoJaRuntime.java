@@ -109,7 +109,8 @@ public final class DoJaRuntime {
                 resolveExternalFrameEnabled(config),
                 config.statusBarIconDevice(),
                 config.iAppliType(),
-                config.launchType());
+                config.launchType(),
+                config.applicationProfile());
         this.openGlesFpsOverlay = new OpenGlesFpsOverlay();
         this.openGlesFpsEnabled = OpenDoJaLaunchArgs.getBoolean(OpenDoJaLaunchArgs.SHOW_OPEN_GLES_FPS);
         if (openGlesFpsEnabled) {
@@ -405,12 +406,14 @@ public final class DoJaRuntime {
                 currentCanvasPresentedByApplication = false;
             }
             ensureCanvasSurface(canvas);
+            updatePresentationRotation(canvas);
             if (presentedCanvas != canvas || presentedFrame == null) {
                 presentedFrame = snapshotCanvasImage(canvas);
             }
             presentedCanvas = canvas;
             requestRender(canvas);
         } else {
+            updatePresentationRotation(null);
             currentCanvasPresentedByApplication = false;
             presentedCanvas = null;
             presentedFrame = null;
@@ -730,10 +733,27 @@ public final class DoJaRuntime {
         // before Display.setCurrent(canvas) runs. Preserve that latest frame so it is still visible
         // once the Canvas becomes current, instead of dropping it as "not current yet".
         if (canvas == currentFrame || currentFrame == null) {
+            updatePresentationRotation(canvas);
             presentedCanvas = canvas;
             presentedFrame = frame == null ? snapshotCanvasImage(canvas) : frame;
             repaintWindow();
         }
+    }
+
+    /** The app's native canvas dimensions stay fixed while the desktop follows its frame orientation. */
+    public boolean hasLandscapePresentation() { return externalFrameRenderer.hasAutomaticLandscape(); }
+
+    private void updatePresentationRotation(Canvas canvas) {
+        DesktopSurface surface = canvas == null ? null : getCanvasSurface(canvas);
+        String rotation = config.applicationProfile() == ApplicationProfile.STAR && surface != null
+                ? surface.presentationRotation() : OpenDoJaLaunchArgs.DISPLAY_ROTATION_NONE;
+        if (!externalFrameRenderer.setAutomaticRotation(rotation)) return;
+        SwingUtilities.invokeLater(() -> {
+            if (shutdown.get()) return;
+            hostPanel.refreshPreferredSize();
+            repackWindow();
+            repaintWindow();
+        });
     }
 
     private void ensureCanvasSurface(Canvas canvas) {
@@ -1524,7 +1544,7 @@ public final class DoJaRuntime {
     }
 
     private Point2D hostPointToCanvasPoint(Point2D hostPoint, Rectangle drawArea) {
-        String rotation = OpenDoJaLaunchArgs.displayRotation();
+        String rotation = externalFrameRenderer.displayRotation();
         if ("none".equals(rotation)) {
             double x = (hostPoint.getX() - drawArea.x) * displayWidth() / Math.max(1, drawArea.width);
             double y = (hostPoint.getY() - drawArea.y) * displayHeight() / Math.max(1, drawArea.height);
