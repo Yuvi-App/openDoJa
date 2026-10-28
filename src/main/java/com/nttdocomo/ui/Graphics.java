@@ -289,6 +289,25 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         oglRenderer.glClear(mask);
     }
 
+    @Override public void glClearDepthf(float depth) { oglRenderer.glClearDepthf(depth); }
+    @Override public void glScissor(int x, int y, int width, int height) { oglRenderer.glScissor(x, y, width, height); }
+    @Override public void glTexEnvf(int target, int pname, float param) { oglRenderer.glTexEnvf(target, pname, param); }
+    @Override public void glActiveTexture(int texture) { oglRenderer.glActiveTexture(texture); }
+    @Override public void glMultiTexCoord4f(int target, float s, float t, float r, float q) {
+        oglRenderer.glMultiTexCoord4f(target, s, t, r, q);
+    }
+    @Override public void glCopyTexImage2D(int target, int level, int format, int x, int y, int width, int height, int border) {
+        oglRenderer.glCopyTexImage2D(target, level, format, x, y, width, height, border);
+    }
+    @Override public void glCompressedTexSubImage2D(int target, int level, int x, int y, int width, int height,
+                                                  int format, int imageSize, DirectBuffer data) {
+        oglRenderer.glCompressedTexSubImage2D(target, level, x, y, width, height, format, imageSize, data);
+    }
+    @Override public void glCompressedTexSubImage2D(int target, int level, int x, int y, int width, int height,
+                                                  int format, com.nttdocomo.ui.ogl.ByteBuffer data) {
+        oglRenderer.glCompressedTexSubImage2D(target, level, x, y, width, height, format, data);
+    }
+
     @Override
     public void beginDrawing() {
         oglRenderer.beginDrawing();

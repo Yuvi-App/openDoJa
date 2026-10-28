@@ -32,10 +32,10 @@ public final class StarOglTransparencyProbe {
             GraphicsOGL state = image;
             state.glDisable(GraphicsOGL.GL_BLEND);
             draw(copy);
-            check(copy.getRGBPixel(4, 4) == 0, "Existing views observe changed fragment settings");
+            check(copy.getPixel(4, 4) == 0, "Existing views observe changed fragment settings");
             Graphics opaque = Image.createImage(32, 32).getGraphics();
             draw(opaque);
-            check(opaque.getRGBPixel(4, 4) == 0, "Explicitly disabled fragment tests remain disabled");
+            check(opaque.getPixel(4, 4) == 0, "Explicitly disabled fragment tests remain disabled");
             canvas.glEnable(GraphicsOGL.GL_ALPHA_TEST);
             draw(copy);
             verifyTransparentSprite(copy); // Alpha testing also works without blending.
@@ -46,7 +46,7 @@ public final class StarOglTransparencyProbe {
         try {
             Graphics fresh = Image.createImage(32, 32).getGraphics();
             draw(fresh);
-            check(fresh.getRGBPixel(4, 4) == 0, "Fragment settings must not leak to another application");
+            check(fresh.getPixel(4, 4) == 0, "Fragment settings must not leak to another application");
         } finally { DoJaRuntime.current().shutdown(); }
 
         // Normal DoJa contexts keep their existing independent state.
@@ -86,10 +86,10 @@ public final class StarOglTransparencyProbe {
     }
 
     private static void verifyTransparentSprite(Graphics graphics) {
-        check(graphics.getRGBPixel(4, 4) == 0xff0000ff, "Transparent black texels must preserve the blue background");
-        check(graphics.getRGBPixel(4, 24) == 0xff0000ff, "Zero alpha, not RGB color, determines transparency");
-        check(graphics.getRGBPixel(24, 4) == 0xff000000, "Opaque black details remain visible");
-        check(graphics.getRGBPixel(24, 24) == 0xff00ff00, "Opaque character pixels remain visible");
+        check(graphics.getPixel(4, 4) == 0xff0000ff, "Transparent black texels must preserve the blue background");
+        check(graphics.getPixel(4, 24) == 0xff0000ff, "Zero alpha, not RGB color, determines transparency");
+        check(graphics.getPixel(24, 4) == 0xff000000, "Opaque black details remain visible");
+        check(graphics.getPixel(24, 24) == 0xff00ff00, "Opaque character pixels remain visible");
     }
     private static void check(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
     public static final class StarApp extends com.docomostar.StarApplication {

@@ -92,6 +92,16 @@ public final class DesktopSurface {
         depthFrameActive = false;
     }
 
+    public synchronized void clearDepthBuffer(Rectangle region, float value) {
+        Rectangle bounds = new Rectangle(0, 0, width(), height());
+        Rectangle clipped = region == null ? bounds : region.intersection(bounds);
+        if (clipped.isEmpty()) return;
+        float[] depth = depthBufferForFrame();
+        for (int y = clipped.y; y < clipped.y + clipped.height; y++) {
+            Arrays.fill(depth, y * width() + clipped.x, y * width() + clipped.x + clipped.width, value);
+        }
+    }
+
     public synchronized void markOpenGlesActivity() {
         openGlesSeen = true;
     }

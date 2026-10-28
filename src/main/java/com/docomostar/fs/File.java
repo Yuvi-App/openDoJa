@@ -11,6 +11,8 @@ public class File {
     private final com.nttdocomo.fs.File delegate;
 
     File(Folder folder, com.nttdocomo.fs.File delegate) { this.folder = folder; this.delegate = delegate; }
+    /** Host integration for optional device services sharing the DoJa backend. */
+    public final com.nttdocomo.fs.File hostFile() { return delegate; }
     public Folder getFolder() { return folder; }
     public AccessToken getAccessToken() { return folder.getAccessToken(); }
     public String getPath() { return delegate.getPath(); }

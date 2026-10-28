@@ -100,6 +100,8 @@ public final class MediaManager {
         return media(() -> adaptSound(com.nttdocomo.ui.MediaManager.createMediaSound(size)));
     }
 
+    public static MediaImage wrapImage(com.nttdocomo.ui.MediaImage image) { return adaptImage(image); }
+
     private static MediaImage adaptImage(com.nttdocomo.ui.MediaImage image) {
         if (image == null) {
             return null;

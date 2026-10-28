@@ -11,12 +11,12 @@ public class Font {
     private static volatile Font defaultFont;
     final com.nttdocomo.ui.Font delegate;
 
-    protected Font() { this(com.nttdocomo.ui.Font.getFont(FACE_SYSTEM | STYLE_PLAIN, 24)); }
+    protected Font() { this(com.nttdocomo.ui.Font.getDefaultFont()); }
     private Font(com.nttdocomo.ui.Font delegate) { this.delegate = delegate; }
     public static Font getFont(int type, int size) { return new Font(com.nttdocomo.ui.Font.getFont(type, size)); }
     public static Font getDefaultFont() {
         Font font = defaultFont;
-        return font == null ? getFont(FACE_SYSTEM | STYLE_PLAIN, 24) : font;
+        return font == null ? new Font(com.nttdocomo.ui.Font.getDefaultFont()) : font;
     }
     public static void setDefaultFont(Font font) { defaultFont = java.util.Objects.requireNonNull(font); }
     // STAR starts at 12 dots; expose the bitmap strikes available in the host.

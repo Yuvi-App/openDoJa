@@ -150,7 +150,7 @@ public final class StarCommonApisProbe {
     private static void clear(Graphics g) { g.setColor(0xff000000); g.fillRect(0, 0, 24, 16); }
     private static void pixel(Graphics g, int x, int y, int expected, String message) {
         int actual = g.getRGBPixel(x, y);
-        check(actual == expected, message + ": " + Integer.toHexString(actual));
+        check(actual == (expected & 0x00ffffff), message + ": " + Integer.toHexString(actual));
     }
     private static void check(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
     public static final class ProbeApp extends StarApplication {

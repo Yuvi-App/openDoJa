@@ -127,6 +127,11 @@ public class Graphics implements com.docomostar.opt.ui.j3d.Graphics3D, com.docom
         try { delegate.fillPolygon(x, y, count); }
         catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
     }
+    public void fillPolygon(int[] x, int[] y, int offset, int count) {
+        int[] selectedX = polygonRange(x, offset, count);
+        int[] selectedY = polygonRange(y, offset, count);
+        fillPolygon(selectedX, selectedY, count);
+    }
     public void clearClip() {
         try { delegate.clearClip(); }
         catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
@@ -179,12 +184,22 @@ public class Graphics implements com.docomostar.opt.ui.j3d.Graphics3D, com.docom
         try { delegate.drawPolyline(x, y, count); }
         catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
     }
+    public void drawPolyline(int[] x, int[] y, int offset, int count) {
+        int[] selectedX = polygonRange(x, offset, count);
+        int[] selectedY = polygonRange(y, offset, count);
+        drawPolyline(selectedX, selectedY, count);
+    }
+    private static int[] polygonRange(int[] points, int offset, int count) {
+        java.util.Objects.requireNonNull(points, "points");
+        java.util.Objects.checkFromIndexSize(offset, count, points.length);
+        return java.util.Arrays.copyOfRange(points, offset, offset + count);
+    }
     public int getPixel(int x, int y) {
         try { return delegate.getPixel(x, y); }
         catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
     }
     public int getRGBPixel(int x, int y) {
-        try { return delegate.getRGBPixel(x, y); }
+        try { return delegate.getRGBPixel(x, y) & 0x00ffffff; }
         catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
     }
     public int[] getPixels(int x, int y, int width, int height, int[] pixels, int offset) {
@@ -192,7 +207,13 @@ public class Graphics implements com.docomostar.opt.ui.j3d.Graphics3D, com.docom
         catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
     }
     public int[] getRGBPixels(int x, int y, int width, int height, int[] pixels, int offset) {
-        try { return delegate.getRGBPixels(x, y, width, height, pixels, offset); }
+        try {
+            int[] result = delegate.getRGBPixels(x, y, width, height, pixels, offset);
+            // RGB readback exposes colours, not the host surface's alpha byte.
+            // Games use exact 0xRRGGBB comparisons to rebuild colour-keyed textures.
+            for (int i = offset, end = offset + width * height; i < end; i++) result[i] &= 0x00ffffff;
+            return result;
+        }
         catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
     }
     public void setPixel(int x, int y) {
