@@ -172,6 +172,14 @@ public class Graphics implements com.docomostar.opt.ui.j3d.Graphics3D, com.docom
         try { delegate.drawString(text, x, y); }
         catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
     }
+    public void drawString(com.docomostar.lang.XString text, int x, int y) {
+        try { delegate.drawString(com.docomostar.lang._XStringSupport.unwrap(text), x, y); }
+        catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
+    }
+    public void drawString(com.docomostar.lang.XString text, int x, int y, int offset, int length) {
+        try { delegate.drawString(com.docomostar.lang._XStringSupport.unwrap(text), x, y, offset, length); }
+        catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
+    }
     public void drawChars(char[] text, int offset, int length, int x, int y) {
         try { delegate.drawChars(text, offset, length, x, y); }
         catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
@@ -226,6 +234,14 @@ public class Graphics implements com.docomostar.opt.ui.j3d.Graphics3D, com.docom
     }
     public void setRGBPixels(int x, int y, int width, int height, int[] pixels, int offset) {
         try { delegate.setRGBPixels(x, y, width, height, pixels, offset); }
+        catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
+    }
+    public void setPixels(int x, int y, int width, int height, int[] pixels, int offset) {
+        try { delegate.setPixels(x, y, width, height, pixels, offset); }
+        catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
+    }
+    public void setRGBPixel(int x, int y, int color) {
+        try { delegate.setRGBPixel(x, y, color); }
         catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
     }
     public void drawRect(int x, int y, int width, int height) {

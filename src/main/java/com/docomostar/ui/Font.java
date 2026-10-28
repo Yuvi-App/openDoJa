@@ -25,9 +25,27 @@ public class Font {
     public int getDescent() { return delegate.getDescent(); }
     public int getHeight() { return delegate.getHeight(); }
     public int stringWidth(String text) { return delegate.stringWidth(text); }
+    public int stringWidth(com.docomostar.lang.XString text) {
+        return delegate.stringWidth(com.docomostar.lang._XStringSupport.unwrap(text));
+    }
+    public int stringWidth(com.docomostar.lang.XString text, int offset, int length) {
+        return delegate.stringWidth(com.docomostar.lang._XStringSupport.unwrap(text), offset, length);
+    }
     public int getBBoxWidth(String text) { return delegate.getBBoxWidth(text); }
+    public int getBBoxWidth(com.docomostar.lang.XString text) {
+        return delegate.getBBoxWidth(com.docomostar.lang._XStringSupport.unwrap(text));
+    }
+    public int getBBoxWidth(com.docomostar.lang.XString text, int offset, int length) {
+        return delegate.getBBoxWidth(com.docomostar.lang._XStringSupport.unwrap(text), offset, length);
+    }
     public int getBBoxHeight(String text) { return delegate.getBBoxHeight(text); }
+    public int getBBoxHeight(com.docomostar.lang.XString text) {
+        return delegate.getBBoxHeight(com.docomostar.lang._XStringSupport.unwrap(text));
+    }
     public int getLineBreak(String text, int offset, int length, int width) {
         return delegate.getLineBreak(text, offset, length, width);
+    }
+    public int getLineBreak(com.docomostar.lang.XString text, int offset, int length, int width) {
+        return delegate.getLineBreak(com.docomostar.lang._XStringSupport.unwrap(text), offset, length, width);
     }
 }
