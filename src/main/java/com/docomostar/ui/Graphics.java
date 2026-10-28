@@ -1,7 +1,7 @@
 package com.docomostar.ui;
 
 /** STAR graphics view over the same host context used for canvas presentation. */
-public class Graphics implements com.docomostar.opt.ui.j3d.Graphics3D, com.docomostar.ui.graphics3d.Graphics3D, com.docomostar.ui.ogl.GraphicsOGL {
+public class Graphics implements com.docomostar.opt.ui.j3d.Graphics3D, com.docomostar.ui.graphics3d.Graphics3D, com.docomostar.ui.ogl.GraphicsOGL, com.docomostar.opt.ui.eruption.GraphicsEruption {
     public static final int BLACK = com.nttdocomo.ui.Graphics.BLACK;
     public static final int BLUE = com.nttdocomo.ui.Graphics.BLUE;
     public static final int LIME = com.nttdocomo.ui.Graphics.LIME;
@@ -30,6 +30,9 @@ public class Graphics implements com.docomostar.opt.ui.j3d.Graphics3D, com.docom
     protected final com.nttdocomo.ui.Graphics delegate;
     private StarOglContext oglContext;
     private long oglFragmentRevision = -1;
+
+    @Override public void beginEruption() { opendoja.host.ogl.EruptionGraphicsContext.begin(delegate); }
+    @Override public void endEruption() { opendoja.host.ogl.EruptionGraphicsContext.end(delegate); }
 
     @Override public com.nttdocomo.ui.ogl.GraphicsOGL hostGraphicsOGL() {
         StarOglContext current = StarOglContext.current();
