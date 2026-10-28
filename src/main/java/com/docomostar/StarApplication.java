@@ -13,8 +13,10 @@ public abstract class StarApplication extends IApplication {
     public static final int STAR_FACESTATE_FULL_NORMAL = 1;
     public static final int ACTIVATED_FROM_STARTED_STATE = 0;
     public static final int ACTIVATED_BY_NATIVE = -3;
+    public static final int LAUNCHED_BY_INVITE_MESSAGE = 25;
 
     private volatile int appState = STAR_STATE_STARTED;
+    private final java.util.Map<Integer, StarEventListener> eventListeners = new java.util.concurrent.ConcurrentHashMap<>();
 
     private final StarApplicationManager manager = new StarApplicationManager(this);
 
@@ -25,6 +27,33 @@ public abstract class StarApplication extends IApplication {
 
     public final StarApplicationManager getStarApplicationManager() {
         return manager;
+    }
+
+    public final void addEventListener(int eventType, StarEventListener listener) {
+        StarEventObject.checkType(eventType);
+        if (eventType >= StarEventObject.STAR_FACE_STATECHANGE_MINI_FOCUSED
+                && eventType <= StarEventObject.STAR_FACE_STATECHANGE_MINI_SELECTED
+                && getAppType() == STAR_TYPE_FULLAPPLI) {
+            throw new com.docomostar.lang.IllegalStateException("Mini-application event in a full application");
+        }
+        if (listener == null) eventListeners.remove(eventType);
+        else eventListeners.put(eventType, listener);
+    }
+
+    /** Host integration: deliver notifications on the existing application callback path. */
+    public final void dispatchEventForHost(StarEventObject event) {
+        java.util.Objects.requireNonNull(event, "event");
+        StarEventObject.checkType(event.getType());
+        var runtime = opendoja.host.DoJaRuntime.current();
+        if (runtime == null || runtime.application() != this) return;
+        StarEventListener listener = eventListeners.get(event.getType());
+        if (listener == null) return;
+        runtime.postApplicationCallback(() -> {
+            if (opendoja.host.DoJaRuntime.current() == runtime
+                    && eventListeners.get(event.getType()) == listener) {
+                listener.updateStarApplication(event);
+            }
+        });
     }
 
     @Override

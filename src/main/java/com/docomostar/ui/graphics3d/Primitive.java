@@ -22,7 +22,10 @@ public class Primitive extends DrawableObject3D {
     public static final int POINT_SPRITE_FLAG_PERSPECTIVE = 0;
     public static final int POINT_SPRITE_FLAG_NO_PERSPECTIVE = 2;
     public Primitive(int type, int param, int count) { this(new com.nttdocomo.ui.graphics3d.Primitive(type, param, count)); }
-    Primitive(com.nttdocomo.ui.graphics3d.Primitive delegate) { super(delegate); }
+    Primitive(com.nttdocomo.ui.graphics3d.Primitive delegate) {
+        super(delegate);
+        com.nttdocomo.ui.graphics3d._PrimitiveRenderStateAccess.configureStarPrimitive(delegate);
+    }
     private com.nttdocomo.ui.graphics3d.Primitive primitive() { return (com.nttdocomo.ui.graphics3d.Primitive) delegate; }
     public int getPrimitiveType() { return primitive().getPrimitiveType(); }
     public int getPrimitiveParam() { return primitive().getPrimitiveParam(); }
