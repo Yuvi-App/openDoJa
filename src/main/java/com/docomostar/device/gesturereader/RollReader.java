@@ -6,17 +6,14 @@ public final class RollReader extends GestureReader {
     private final com.nttdocomo.device.gesturereader.RollReader host;
     private RollReader(com.nttdocomo.device.gesturereader.RollReader host) { this.host = host; }
     public static synchronized RollReader getRollReader(int id) {
-        try {
-            var host = com.nttdocomo.device.gesturereader.RollReader.getRollReader(id);
-            return READERS.computeIfAbsent(id, ignored -> new RollReader(host));
-        } catch (com.nttdocomo.lang.UnsupportedOperationException failure) {
-            var translated = new com.docomostar.lang.UnsupportedOperationException(failure.getMessage());
-            translated.initCause(failure);
-            throw translated;
-        }
+        var host = com.docomostar.device._DeviceExceptions.call(
+                () -> com.nttdocomo.device.gesturereader.RollReader.getRollReader(id));
+        return READERS.computeIfAbsent(id, ignored -> new RollReader(host));
     }
-    @Override public void start() { host.start(); }
-    @Override public void stop() { host.stop(); }
-    public void recenter() { host.recenter(); }
-    public RollData getRollData() { return new RollData(host.getRollData()); }
+    @Override public void start() { com.docomostar.device._DeviceExceptions.run(host::start); }
+    @Override public void stop() { com.docomostar.device._DeviceExceptions.run(host::stop); }
+    public void recenter() { com.docomostar.device._DeviceExceptions.run(host::recenter); }
+    public RollData getRollData() {
+        return new RollData(com.docomostar.device._DeviceExceptions.call(host::getRollData));
+    }
 }

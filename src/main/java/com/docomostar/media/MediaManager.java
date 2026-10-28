@@ -21,7 +21,7 @@ public final class MediaManager {
     public static com.nttdocomo.ui.MediaResource unwrap(MediaResource resource) {
         if (resource == null) return null;
         if (resource instanceof MediaSoundAdapter sound) return sound.delegate;
-        if (resource instanceof MediaImageAdapter image) return image.delegate;
+        if (resource instanceof MediaImageAdapter image) return com.nttdocomo.ui._DeferredMediaImage.preparedResource(image.delegate);
         if (resource instanceof com.nttdocomo.ui.MediaResource host) return host;
         throw new IllegalArgumentException("Resource was not created by MediaManager");
     }
@@ -39,7 +39,7 @@ public final class MediaManager {
     }
 
     public static MediaImage getImage(String name) {
-        return media(() -> adaptImage(com.nttdocomo.ui.MediaManager.getImage(name)));
+        return adaptImage(new com.nttdocomo.ui._DeferredMediaImage(name));
     }
 
     public static MediaImage getImage(InputStream inputStream) {
