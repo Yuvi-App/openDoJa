@@ -3,16 +3,20 @@ package opendoja.probes;
 import com.nttdocomo.ui.Display;
 import opendoja.host.*;
 import javax.swing.SwingUtilities;
+import javax.swing.JMenu;
+import javax.swing.JPopupMenu;
+import javax.swing.JRadioButtonMenuItem;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-/** Checks the desktop path, native handset path, polling, holds, and STAR layout boundaries. */
+/** Checks user-selected STAR control rotation through the real host popup and shared dispatcher. */
 public final class StarDirectionalInputProbe {
     private static final int UP = Display.KEY_UP, RIGHT = Display.KEY_RIGHT,
             DOWN = Display.KEY_DOWN, LEFT = Display.KEY_LEFT;
     private static final int[] DIRECTIONS = {UP, RIGHT, DOWN, LEFT};
     private static final HostControlAction[] ACTIONS = {HostControlAction.MOVE_UP, HostControlAction.MOVE_RIGHT,
             HostControlAction.MOVE_DOWN, HostControlAction.MOVE_LEFT};
+    private static final int[] SIDEWAYS_DIRECTIONS = {RIGHT, DOWN, LEFT, UP};
     private static ProbeCanvas canvas;
 
     public static void main(String[] args) throws Exception {
@@ -20,15 +24,20 @@ public final class StarDirectionalInputProbe {
         String property = OpenDoJaLaunchArgs.INPUT_STAR_DIRECTION_ROTATION;
         String previous = System.getProperty(property);
         try {
-            System.setProperty(property, "auto");
-            verifyLayout("P01A", 854, 480, true, new int[]{RIGHT, DOWN, LEFT, UP});
-            verifyLayout("P-03C", 854, 480, true, new int[]{RIGHT, DOWN, LEFT, UP});
+            System.setProperty(property, "none");
+            verifyLayout("P01A", 854, 480, true, DIRECTIONS);
+            verifyLayout("P-03C", 854, 480, true, DIRECTIONS);
+            verifyLayout("F-01A", 854, 480, true, DIRECTIONS);
             verifyLayout("P01A", 240, 427, true, DIRECTIONS);
             verifyLayout("P01A", 480, 480, true, DIRECTIONS);
             verifyLayout("N-01A", 427, 240, true, DIRECTIONS);
             verifyLayout("appli", 854, 480, true, DIRECTIONS);
             verifyLayout("P01A", 854, 480, false, DIRECTIONS);
-            System.setProperty(property, "none");
+            verifyLayout("F-01A", 854, 480, false, DIRECTIONS);
+            verifyMenu("F-01A", 854, 480);
+            verifyMenu("P01A", 240, 427);
+            // Old launch arguments no longer select title/model-based detection.
+            System.setProperty(property, "auto");
             verifyLayout("P01A", 854, 480, true, DIRECTIONS);
             System.setProperty(property, "left");
             verifyLayout("N-01A", 427, 240, true, new int[]{LEFT, UP, RIGHT, DOWN});
@@ -38,8 +47,10 @@ public final class StarDirectionalInputProbe {
             verifyLayout("N-01A", 427, 240, true, new int[]{DOWN, LEFT, UP, RIGHT});
             // Even an explicit STAR override must leave regular DoJa input untouched.
             verifyLayout("P01A", 854, 480, false, DIRECTIONS);
-            System.setProperty(property, "auto");
-            verifyHolds();
+            System.setProperty(property, "none");
+            verifyHolds("P01A");
+            verifyHolds("F-01A");
+            verifyLayout("F-01A", 854, 480, true, DIRECTIONS);
         } finally {
             if (previous == null) System.clearProperty(property); else System.setProperty(property, previous);
             if (DoJaRuntime.current() != null) DoJaRuntime.current().shutdown();
@@ -56,12 +67,8 @@ public final class StarDirectionalInputProbe {
     private static void verifyLayout(String device, int width, int height, boolean star, int[] expected) throws Exception {
         launch(device, width, height, star);
         try {
-            for (int i = 0; i < DIRECTIONS.length; i++) {
-                mapped(ACTIONS[i], true); expectEvent(0, expected[i]);
-                check(canvas.getKeypadState() == 1 << expected[i], "Polling matches mapped direction: " + device);
-                mapped(ACTIONS[i], false); expectEvent(1, expected[i]);
-                check(canvas.getKeypadState() == 0, "Mapped direction releases: " + device);
-            }
+            check((rotationMenu() != null) == star, "Only STAR exposes control rotation");
+            verifyDirections(expected);
             // Number keys retain phone positions; these are action buttons in many STAR titles.
             mapped(HostControlAction.DIGIT_2, true); expectEvent(0, Display.KEY_2);
             mapped(HostControlAction.DIGIT_2, false); expectEvent(1, Display.KEY_2);
@@ -70,14 +77,45 @@ public final class StarDirectionalInputProbe {
         } finally { DoJaRuntime.current().shutdown(); }
     }
 
-    private static void verifyHolds() throws Exception {
-        launch("P01A", 854, 480, true);
+    private static void verifyMenu(String device, int width, int height) throws Exception {
+        launch(device, width, height, true);
         try {
+            String[] labels = {"90° right", "180°", "90° left", "Normal"};
+            int[][] expected = {SIDEWAYS_DIRECTIONS, {DOWN, LEFT, UP, RIGHT}, {LEFT, UP, RIGHT, DOWN}, DIRECTIONS};
+            for (int i = 0; i < labels.length; i++) {
+                chooseRotation(labels[i]);
+                JMenu menu = rotationMenu();
+                int selected = 0;
+                for (int j = 0; j < menu.getItemCount(); j++) {
+                    if (menu.getItem(j).isSelected()) {
+                        selected++;
+                        check(labels[i].equals(menu.getItem(j).getText()), "Popup remembers current layout");
+                    }
+                }
+                check(selected == 1, "Exactly one rotation is selected");
+                verifyDirections(expected[i]);
+            }
+        } finally { DoJaRuntime.current().shutdown(); }
+    }
+
+    private static void verifyDirections(int[] expected) throws Exception {
+        for (int i = 0; i < DIRECTIONS.length; i++) {
+            mapped(ACTIONS[i], true); expectEvent(0, expected[i]);
+            check(canvas.getKeypadState() == 1 << expected[i], "Polling matches selected direction");
+            mapped(ACTIONS[i], false); expectEvent(1, expected[i]);
+            check(canvas.getKeypadState() == 0, "Selected direction releases");
+        }
+    }
+
+    private static void verifyHolds(String device) throws Exception {
+        launch(device, 854, 480, true);
+        try {
+            chooseRotation("90° right");
             var runtime = DoJaRuntime.current();
             mapped(HostControlAction.MOVE_UP, true); expectEvent(0, RIGHT);
             mapped(HostControlAction.MOVE_RIGHT, true); expectEvent(0, DOWN);
             check(canvas.getKeypadState() == ((1 << RIGHT) | (1 << DOWN)), "Overlapping directions stay held");
-            System.setProperty(OpenDoJaLaunchArgs.INPUT_STAR_DIRECTION_ROTATION, "none");
+            chooseRotation("Normal");
             mapped(HostControlAction.MOVE_UP, false); expectEvent(1, RIGHT);
             check(canvas.getKeypadState() == 1 << DOWN, "Layout change preserves the other held key");
             // Both host keys now select the same handset key. Releasing one must retain the other.
@@ -87,7 +125,7 @@ public final class StarDirectionalInputProbe {
             check(canvas.getKeypadState() == 1 << DOWN, "Overlapping mappings retain the shared handset hold");
             mapped(HostControlAction.MOVE_DOWN, false); expectEvent(1, DOWN);
             check(canvas.getKeypadState() == 0, "Every mapped key releases after layout changes");
-            System.setProperty(OpenDoJaLaunchArgs.INPUT_STAR_DIRECTION_ROTATION, "auto");
+            chooseRotation("90° right");
             mapped(HostControlAction.MOVE_RIGHT, true); expectEvent(0, DOWN);
             // A desktop auto-repeat release/press pair must keep the original mapped hold.
             mapped(HostControlAction.MOVE_RIGHT, false);
@@ -101,6 +139,35 @@ public final class StarDirectionalInputProbe {
             expectEvent(1, DOWN);
             check(canvas.getKeypadState() == 0, "Focus-loss releaseAll clears rotated keys");
         } finally { DoJaRuntime.current().shutdown(); }
+    }
+
+    private static JMenu rotationMenu() throws Exception {
+        Object panel = field(DoJaRuntime.current(), "hostPanel");
+        var build = panel.getClass().getDeclaredMethod("buildHostScalePopup");
+        build.setAccessible(true);
+        JMenu[] result = new JMenu[1];
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                for (var component : ((JPopupMenu) build.invoke(panel)).getComponents()) {
+                    if (component instanceof JMenu menu && "Control rotation".equals(menu.getText())) result[0] = menu;
+                }
+            } catch (ReflectiveOperationException e) { throw new AssertionError(e); }
+        });
+        return result[0];
+    }
+
+    private static void chooseRotation(String label) throws Exception {
+        JMenu menu = rotationMenu();
+        check(menu != null, "STAR control rotation menu exists");
+        SwingUtilities.invokeAndWait(() -> {
+            for (int i = 0; i < menu.getItemCount(); i++) {
+                if (label.equals(menu.getItem(i).getText())) {
+                    ((JRadioButtonMenuItem) menu.getItem(i)).doClick();
+                    return;
+                }
+            }
+            throw new AssertionError("Missing rotation choice: " + label);
+        });
     }
 
     private static void mapped(HostControlAction action, boolean pressed) throws Exception {

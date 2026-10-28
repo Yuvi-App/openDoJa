@@ -78,6 +78,7 @@ public final class DoJaRuntime {
     private final java.awt.event.WindowAdapter hostWindowFocusListener;
     private volatile boolean openGlesFpsEnabled;
     private volatile String hostScaleSetting;
+    private volatile String starDirectionRotation;
     private volatile IApplication application;
     private JFrame frameWindow;
     private GraphicsDevice fullScreenDevice;
@@ -110,6 +111,8 @@ public final class DoJaRuntime {
         this.renderExecutor = Executors.newSingleThreadExecutor(r -> newRuntimeThread(r, "openDoJa-render"));
         this.enabledKeypadGroups.add(0);
         this.hostScaleSetting = resolveHostScale(config);
+        this.starDirectionRotation = OpenDoJaLaunchArgs.normalizeDisplayRotation(
+                OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.INPUT_STAR_DIRECTION_ROTATION));
         this.externalFrameRenderer = new ExternalFrameRenderer(
                 resolveExternalFrameEnabled(config),
                 config.statusBarIconDevice(),
@@ -603,6 +606,18 @@ public final class DoJaRuntime {
         return openGlesFpsEnabled;
     }
 
+    public String starDirectionRotation() {
+        return config.applicationProfile() == ApplicationProfile.STAR
+                ? starDirectionRotation : OpenDoJaLaunchArgs.DISPLAY_ROTATION_NONE;
+    }
+
+    /** A session-local input choice; keys already held keep the code selected on press. */
+    public void setStarDirectionRotation(String rotation) {
+        if (config.applicationProfile() == ApplicationProfile.STAR) {
+            starDirectionRotation = OpenDoJaLaunchArgs.normalizeDisplayRotation(rotation);
+        }
+    }
+
     public void setOpenGlesFpsEnabled(boolean enabled) {
         if (openGlesFpsEnabled == enabled) {
             return;
@@ -739,16 +754,7 @@ public final class DoJaRuntime {
             default -> -1;
         };
         if (direction < 0) return key;
-        String rotation = OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.INPUT_STAR_DIRECTION_ROTATION, "auto")
-                .trim().toLowerCase(java.util.Locale.ROOT);
-        if (!Set.of("none", "left", "right", "upside-down").contains(rotation)) {
-            String platform = System.getProperty("microedition.platform", "").toUpperCase(java.util.Locale.ROOT);
-            // Panasonic's native landscape builds use a sideways handset D-pad (e.g. KH and Minna).
-            // A portrait canvas with a rotated back buffer already has its own logical key layout.
-            boolean sidewaysKeypad = displayWidth() > displayHeight() && platform.matches("(?:FOMA\\s+)?P[-0-9].*");
-            rotation = sidewaysKeypad ? "right" : "none";
-        }
-        int turns = switch (rotation) {
+        int turns = switch (starDirectionRotation) {
             case "right" -> 1;
             case "upside-down" -> 2;
             case "left" -> 3;
@@ -1920,6 +1926,28 @@ public final class DoJaRuntime {
             });
             menu.add(showOpenGlesFpsItem);
             menu.addSeparator();
+            if (runtime.config.applicationProfile() == ApplicationProfile.STAR) {
+                JMenu rotationMenu = new JMenu("Control rotation");
+                ButtonGroup rotations = new ButtonGroup();
+                for (String rotation : new String[]{"none", "left", "right", "upside-down"}) {
+                    String label = switch (rotation) {
+                        case "left" -> "90° left";
+                        case "right" -> "90° right";
+                        case "upside-down" -> "180°";
+                        default -> "Normal";
+                    };
+                    JRadioButtonMenuItem item = new JRadioButtonMenuItem(label,
+                            rotation.equals(runtime.starDirectionRotation()));
+                    item.addActionListener(event -> {
+                        runtime.setStarDirectionRotation(rotation);
+                        HostPanel.this.requestFocusInWindow();
+                    });
+                    rotations.add(item);
+                    rotationMenu.add(item);
+                }
+                menu.add(rotationMenu);
+                menu.addSeparator();
+            }
             ButtonGroup group = new ButtonGroup();
             for (int scale = MIN_HOST_SCALE; scale <= MAX_HOST_SCALE; scale++) {
                 int selectedScale = scale;
