@@ -18,6 +18,10 @@ import static com.nttdocomo.ui.ogl.GraphicsOGL.*;
 /** Eruption scene submission delegated to DoJa's shared GLES renderer and canvas surface. */
 public final class Graphics3D {
     public static final int MCE_CLEAR_DEPTH=1, MCE_CLEAR_COLOR=2, MCE_CAMERA_SORT=1, MCE_FRUSTUM_CULLING=2;
+    private static final int[] SOURCE_BLEND_FACTORS={GL_ZERO,GL_ONE,GL_DST_COLOR,GL_ONE_MINUS_DST_COLOR,
+            GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA,GL_DST_ALPHA,GL_ONE_MINUS_DST_ALPHA,GL_SRC_ALPHA_SATURATE};
+    private static final int[] DESTINATION_BLEND_FACTORS={GL_ZERO,GL_ONE,GL_SRC_COLOR,GL_ONE_MINUS_SRC_COLOR,
+            GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA,GL_DST_ALPHA,GL_ONE_MINUS_DST_ALPHA};
     private final GraphicsOGL defaultGl;
     private GraphicsOGL gl;
     private final List<Runnable> queue=new ArrayList<>();
@@ -146,13 +150,9 @@ public final class Graphics3D {
         enabled(GL_DEPTH_TEST,(a.properties&8)!=0);gl.glDepthFunc(GL_LEQUAL);gl.glDepthMask((a.properties&16)!=0);
         boolean color=(a.properties&4)!=0;gl.glColorMask(color,color,color,(a.properties&2)!=0);
         enabled(GL_CULL_FACE,a.cullingMode!=2);gl.glCullFace(a.cullingMode==1?GL_FRONT:GL_BACK);
-        gl.glDisable(GL_LIGHTING);enabled(GL_BLEND,a.blendMode!=4);
-        switch(a.blendMode) {
-            case 0 -> gl.glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
-            case 1 -> gl.glBlendFunc(GL_SRC_ALPHA,GL_ONE);
-            case 2 -> gl.glBlendFunc(GL_DST_COLOR,GL_ZERO);
-            case 3 -> gl.glBlendFunc(GL_DST_COLOR,GL_SRC_COLOR);
-        }
+        gl.glDisable(GL_LIGHTING);
+        enabled(GL_BLEND,a.blendSource!=Appearance.MCE_BLEND_MODE_SRC_ONE||a.blendDestination!=Appearance.MCE_BLEND_MODE_DST_ZERO);
+        gl.glBlendFunc(SOURCE_BLEND_FACTORS[a.blendSource],DESTINATION_BLEND_FACTORS[a.blendDestination]);
         enabled(GL_ALPHA_TEST,a.alphaThreshold>0);gl.glAlphaFunc(GL_GREATER,a.alphaThreshold/255f);
         boolean colors=(a.properties&64)!=0&&vertices!=null&&vertices.colorBuffer!=null;
         if(colors) { gl.glEnableClientState(GL_COLOR_ARRAY);gl.glColorPointer(4,GL_UNSIGNED_BYTE,0,vertices.colorBuffer); }

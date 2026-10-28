@@ -91,8 +91,13 @@ public final class Loader {
             // Version one stores two texture stages following the render properties.
             if(record.version!=1) throw new IOException("Unsupported Eruption appearance version: "+record.version);
             for(int material=0;material<4;material++) a.colors[material]=r.i32();
-            r.i32(); // Shininess; this app disables lighting.
-            a.blendMode=r.u8();a.cullingMode=r.u8();r.bytes(5);r.u16();a.properties=r.i32();r.bytes(12);
+            r.i32(); // Additional material colour.
+            r.u8(); // Shininess; this app disables lighting.
+            a.alphaThreshold=r.u8();
+            a.setBlendMode(r.u8(),r.u8());
+            r.u8(); // Shading mode.
+            a.setCullingMode(r.u8());
+            r.u8();r.u16();a.properties=r.i32();r.bytes(12);
             for(int unit=0;unit<2;unit++) {
                 a.textureIds[unit]=r.i32();r.i32();a.textureBlend[unit]=r.u8();r.bytes(2);
                 a.filters[unit][0]=r.u8();a.filters[unit][1]=r.u8();r.bytes(5+60);
