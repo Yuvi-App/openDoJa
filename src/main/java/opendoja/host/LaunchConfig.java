@@ -17,6 +17,7 @@ public final class LaunchConfig {
     private final String[] args;
     private final int launchType;
     private final String sourceUrl;
+    private final Path jamPath;
     private final Map<String, String> parameters;
     private final Path scratchpadRoot;
     private final Path scratchpadPackedFile;
@@ -34,6 +35,7 @@ public final class LaunchConfig {
         this.args = builder.args;
         this.launchType = builder.launchType;
         this.sourceUrl = builder.sourceUrl;
+        this.jamPath = builder.jamPath;
         this.parameters = Collections.unmodifiableMap(caseInsensitiveCopy(builder.parameters));
         this.scratchpadRoot = builder.scratchpadRoot;
         this.scratchpadPackedFile = builder.scratchpadPackedFile;
@@ -74,6 +76,11 @@ public final class LaunchConfig {
 
     public String sourceUrl() {
         return sourceUrl;
+    }
+
+    /** The local descriptor used to launch the app, or null for launches without a JAM. */
+    public Path jamPath() {
+        return jamPath;
     }
 
     public Map<String, String> parameters() {
@@ -120,6 +127,7 @@ public final class LaunchConfig {
         private String[] args;
         private int launchType = IApplication.LAUNCHED_FROM_MENU;
         private String sourceUrl = "resource:///";
+        private Path jamPath;
         private final Map<String, String> parameters = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         private Path scratchpadRoot;
         private Path scratchpadPackedFile;
@@ -157,6 +165,11 @@ public final class LaunchConfig {
 
         public Builder sourceUrl(String sourceUrl) {
             this.sourceUrl = sourceUrl;
+            return this;
+        }
+
+        public Builder jamPath(Path jamPath) {
+            this.jamPath = jamPath == null ? null : jamPath.toAbsolutePath().normalize();
             return this;
         }
 

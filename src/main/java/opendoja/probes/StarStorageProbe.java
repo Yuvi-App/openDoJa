@@ -8,6 +8,8 @@ import com.docomostar.io.FileEntity;
 import opendoja.host.*;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.UUID;
 
 /** Exercises real SD-Binding I/O and verifies that STAR preserves host access rules. */
@@ -33,6 +35,9 @@ public final class StarStorageProbe {
             expectFileStatus(FileNotAccessibleException.NOT_FOUND, () -> folder.getFile("missing.bin"));
 
             file = folder.createFile("Assets.BIN", new FileAttribute[]{new EncryptionAttribute()});
+            check(Files.isRegularFile(OpenDoJaPaths.hostDataRoot()
+                    .resolve("storage/ext0/SD_BIND/SVC0000" + name + ".jam/Assets.BIN")),
+                    "STAR should use the JAM's SVC0000 storage folder");
             File created = file;
             try (FileEntity entity = file.open(File.MODE_WRITE_ONLY)) {
                 entity.setBufferSize(256);
@@ -79,6 +84,7 @@ public final class StarStorageProbe {
 
     private static void launch(String name, boolean storage) {
         var builder = LaunchConfig.builder(ProbeApp.class).parameter("AppType", "FullApp")
+                .jamPath(Path.of(name + ".jam"))
                 .parameter("AppName", name).sourceUrl("https://star-storage-probe.invalid/");
         if (storage) builder.parameter("UseStorage", "ext0");
         DesktopLauncher.launch(builder.build());

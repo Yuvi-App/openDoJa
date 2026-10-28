@@ -67,6 +67,7 @@ public final class JamLauncher {
         int[] scratchpadSizes = parseScratchpadSizes(properties.getProperty("SPsize"));
         LaunchConfig.Builder builder = LaunchConfig.builder(applicationClass)
                 .title(properties.getProperty("AppName", applicationClass.getSimpleName()))
+                .jamPath(jamPath)
                 .sourceUrl(resolvePackageUrl(jamPath, properties.getProperty("PackageURL")))
                 .scratchpadSizes(scratchpadSizes)
                 .launchType((launchType == null ? LaunchConfig.LaunchTypeOption.NORMAL : launchType).launchType)

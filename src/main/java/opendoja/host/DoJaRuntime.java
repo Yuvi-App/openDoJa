@@ -315,6 +315,10 @@ public final class DoJaRuntime {
         return config.sourceUrl();
     }
 
+    public Path jamPath() {
+        return config.jamPath();
+    }
+
     public Map<String, String> parameters() {
         return config.parameters();
     }
