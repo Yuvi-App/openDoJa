@@ -94,6 +94,9 @@ public final class DoJaRuntime {
     private volatile Thread renderThread;
     private final Set<Integer> enabledKeypadGroups = ConcurrentHashMap.newKeySet();
     private final AtomicInteger modalDialogDepth = new AtomicInteger();
+    private final Object videoMonitor = new Object();
+    private volatile DesktopVideoPlayback videoPlayback;
+    private volatile Thread videoOwner;
     private volatile boolean keypadConfigurationLocked;
     private String previousMicroeditionPlatform;
     private String previousMicroeditionProfiles;
@@ -204,11 +207,64 @@ public final class DoJaRuntime {
         return surfaceLock;
     }
 
+    void beginVideoPlayback(DesktopVideoPlayback playback) throws IOException {
+        synchronized (videoMonitor) {
+            if (videoPlayback != null) throw new IOException("A video is already playing");
+            videoOwner = Thread.currentThread();
+            videoPlayback = playback;
+            clearVideoInput();
+        }
+        repaintWindow();
+    }
+
+    void endVideoPlayback(DesktopVideoPlayback playback) {
+        synchronized (videoMonitor) {
+            if (videoPlayback != playback) return;
+            videoPlayback = null;
+            videoOwner = null;
+            clearVideoInput();
+            videoMonitor.notifyAll();
+        }
+        repaintWindow();
+        if (!applicationCallbacks.isEmpty()) wakeApplicationCallbacks();
+    }
+
+    private void clearVideoInput() {
+        keypadStateBits = 0L;
+        selectLatchedUntilNanos = 0L;
+        synchronized (heldHostKeys) {
+            heldHostKeys.clear();
+        }
+    }
+
+    public boolean isVideoPlaying() {
+        return videoPlayback != null;
+    }
+
+    /** Cooperative pause at host API boundaries, without unsafe Thread.suspend(). */
+    public void awaitVideoPlayback() {
+        if (videoPlayback == null || SwingUtilities.isEventDispatchThread()) return;
+        synchronized (videoMonitor) {
+            while (videoPlayback != null && videoOwner != Thread.currentThread() && !shutdown.get()) {
+                try {
+                    videoMonitor.wait();
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
+    }
+
     public void postApplicationCallback(Runnable callback) {
         if (callback == null || shutdown.get()) {
             return;
         }
         applicationCallbacks.add(callback);
+        wakeApplicationCallbacks();
+    }
+
+    private void wakeApplicationCallbacks() {
         Frame frame = currentFrame;
         if (frame instanceof Canvas canvas) {
             // Once a canvas has actually presented from outside the runtime render
@@ -229,7 +285,8 @@ public final class DoJaRuntime {
     }
 
     public void drainApplicationCallbacks() {
-        if (shutdown.get() || drainingApplicationCallbacks.get()) {
+        awaitVideoPlayback();
+        if (shutdown.get() || drainingApplicationCallbacks.get() || videoPlayback != null) {
             return;
         }
         drainingApplicationCallbacks.set(true);
@@ -358,6 +415,9 @@ public final class DoJaRuntime {
             return;
         }
         closeShutdownResources();
+        synchronized (videoMonitor) {
+            videoMonitor.notifyAll();
+        }
         scheduler.shutdownNow();
         eventExecutor.shutdownNow();
         renderExecutor.shutdownNow();
@@ -432,10 +492,12 @@ public final class DoJaRuntime {
     }
 
     public void requestRepaint(Canvas canvas) {
+        awaitVideoPlayback();
         requestRender(new RepaintRequest(canvas, null), true);
     }
 
     public void requestRepaint(Canvas canvas, int x, int y, int width, int height) {
+        awaitVideoPlayback();
         requestRender(new RepaintRequest(canvas, new Rectangle(x, y, width, height)), true);
     }
 
@@ -448,6 +510,8 @@ public final class DoJaRuntime {
         Runnable paintTask = () -> {
             renderThread = Thread.currentThread();
             try {
+                awaitVideoPlayback();
+                if (shutdown.get()) return;
                 synchronized (canvas) {
                     // Drain queued callbacks immediately before application
                     // paint code so titles observe them at a normal frame
@@ -589,6 +653,7 @@ public final class DoJaRuntime {
     }
 
     public int keypadState(int group) {
+        awaitVideoPlayback();
         if (!isKeypadGroupEnabled(group)) {
             return 0;
         }
@@ -631,6 +696,7 @@ public final class DoJaRuntime {
     }
 
     public void dispatchTimerEvent(Canvas canvas, int param) {
+        awaitVideoPlayback();
         if (shutdown.get()) {
             return;
         }
@@ -642,6 +708,7 @@ public final class DoJaRuntime {
 
     /** Desktop directions are screen-relative; the shared DoJa dispatcher still receives handset keys. */
     public void dispatchHostKey(int hostKey, int eventType) {
+        if (isVideoPlaying()) return;
         synchronized (heldHostKeys) {
             int handsetKey;
             if (eventType == Display.KEY_PRESSED_EVENT) {
@@ -696,6 +763,7 @@ public final class DoJaRuntime {
     }
 
     public void dispatchSyntheticKey(int dojaKey, int eventType) {
+        if (isVideoPlaying()) return;
         if (!isKeypadGroupEnabled(keyGroup(dojaKey))) {
             return;
         }
@@ -735,6 +803,7 @@ public final class DoJaRuntime {
     }
 
     private void dispatchPointerEvent(int eventType, int x, int y) {
+        if (isVideoPlaying()) return;
         updatePointerPosition(x, y);
         if (!(currentFrame instanceof Canvas canvas)) {
             return;
@@ -751,6 +820,7 @@ public final class DoJaRuntime {
     }
 
     public void dispatchHostSoftKey(int softKey, int eventType) {
+        if (isVideoPlaying()) return;
         Frame frame = currentFrame;
         if (frame == null) {
             return;
@@ -784,6 +854,7 @@ public final class DoJaRuntime {
     }
 
     public void notifySurfaceFlush(Canvas canvas, BufferedImage frame) {
+        awaitVideoPlayback();
         if (canvas == currentFrame && Thread.currentThread() != renderThread) {
             currentCanvasPresentedByApplication = true;
         }
@@ -876,6 +947,7 @@ public final class DoJaRuntime {
         try {
             eventExecutor.execute(() -> {
                 try {
+                    if (isVideoPlaying() || shutdown.get()) return;
                     eventTask.run();
                 } catch (Throwable throwable) {
                     OpenDoJaLog.error(DoJaRuntime.class, "Unhandled UI event failure", throwable);
@@ -1894,7 +1966,9 @@ public final class DoJaRuntime {
                 Point origin = frameOriginForHostScale(runtime.hostScaleSetting(), getSize(), frameSize);
                 g2.translate(origin.x, origin.y);
                 g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-                runtime.externalFrameRenderer.paint(g2, runtime.currentFrame, runtime.presentedFrame,
+                DesktopVideoPlayback video = runtime.videoPlayback;
+                runtime.externalFrameRenderer.paint(g2, runtime.currentFrame,
+                        video == null ? runtime.presentedFrame : video.frame(),
                         runtime.displayWidth(), runtime.displayHeight(), runtime.hostScaleFactor());
             } finally {
                 g2.dispose();

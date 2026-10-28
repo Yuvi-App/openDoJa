@@ -23,6 +23,11 @@
 
   <dependencies>
     <dependency>
+      <groupId>uk.co.caprica</groupId>
+      <artifactId>vlcj</artifactId>
+      <version>4.11.0</version>
+    </dependency>
+    <dependency>
       <groupId>de.gurkenlabs</groupId>
       <artifactId>input4j</artifactId>
       <version>1.2.0</version>
