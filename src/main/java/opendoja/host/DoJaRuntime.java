@@ -25,6 +25,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.*;
@@ -88,6 +89,7 @@ public final class DoJaRuntime {
     private volatile Canvas presentedCanvas;
     private volatile BufferedImage presentedFrame;
     private volatile long keypadStateBits;
+    private final Map<Integer, Integer> heldHostKeys = new HashMap<>();
     private volatile long selectLatchedUntilNanos;
     private volatile Thread renderThread;
     private final Set<Integer> enabledKeypadGroups = ConcurrentHashMap.newKeySet();
@@ -632,6 +634,61 @@ public final class DoJaRuntime {
             OpenDoJaLog.debug(DoJaRuntime.class, () -> "timer event canvas=" + canvas.getClass().getName() + " param=" + param);
         }
         canvas.processEvent(Display.TIMER_EXPIRED_EVENT, param);
+    }
+
+    /** Desktop directions are screen-relative; the shared DoJa dispatcher still receives handset keys. */
+    public void dispatchHostKey(int hostKey, int eventType) {
+        synchronized (heldHostKeys) {
+            int handsetKey;
+            if (eventType == Display.KEY_PRESSED_EVENT) {
+                if (heldHostKeys.containsKey(hostKey)) return;
+                handsetKey = mapHostDirection(hostKey);
+                boolean alreadyHeld = heldHostKeys.containsValue(handsetKey);
+                heldHostKeys.put(hostKey, handsetKey);
+                if (alreadyHeld) return;
+            } else if (eventType == Display.KEY_RELEASED_EVENT) {
+                Integer pressedKey = heldHostKeys.remove(hostKey);
+                if (pressedKey == null || heldHostKeys.containsValue(pressedKey)) return;
+                // Release the code chosen on press, even if the layout changed during the hold.
+                handsetKey = pressedKey;
+            } else {
+                return;
+            }
+            dispatchSyntheticKey(handsetKey, eventType);
+        }
+    }
+
+    private int mapHostDirection(int key) {
+        if (config.applicationProfile() != ApplicationProfile.STAR) return key;
+        int direction = switch (key) {
+            case Display.KEY_UP -> 0;
+            case Display.KEY_RIGHT -> 1;
+            case Display.KEY_DOWN -> 2;
+            case Display.KEY_LEFT -> 3;
+            default -> -1;
+        };
+        if (direction < 0) return key;
+        String rotation = OpenDoJaLaunchArgs.get(OpenDoJaLaunchArgs.INPUT_STAR_DIRECTION_ROTATION, "auto")
+                .trim().toLowerCase(java.util.Locale.ROOT);
+        if (!Set.of("none", "left", "right", "upside-down").contains(rotation)) {
+            String platform = System.getProperty("microedition.platform", "").toUpperCase(java.util.Locale.ROOT);
+            // Panasonic's native landscape builds use a sideways handset D-pad (e.g. KH and Minna).
+            // A portrait canvas with a rotated back buffer already has its own logical key layout.
+            boolean sidewaysKeypad = displayWidth() > displayHeight() && platform.matches("(?:FOMA\\s+)?P[-0-9].*");
+            rotation = sidewaysKeypad ? "right" : "none";
+        }
+        int turns = switch (rotation) {
+            case "right" -> 1;
+            case "upside-down" -> 2;
+            case "left" -> 3;
+            default -> 0;
+        };
+        return switch ((direction + turns) & 3) {
+            case 0 -> Display.KEY_UP;
+            case 1 -> Display.KEY_RIGHT;
+            case 2 -> Display.KEY_DOWN;
+            default -> Display.KEY_LEFT;
+        };
     }
 
     public void dispatchSyntheticKey(int dojaKey, int eventType) {
@@ -1593,7 +1650,7 @@ public final class DoJaRuntime {
 
         private HostPanel(DoJaRuntime runtime) {
             this.runtime = runtime;
-            this.keyInputAdapter = new DesktopKeyInputAdapter(this::scheduleRelease, runtime::dispatchSyntheticKey,
+            this.keyInputAdapter = new DesktopKeyInputAdapter(this::scheduleRelease, runtime::dispatchHostKey,
                     KEY_REPEAT_RELEASE_DEBOUNCE_MS);
             this.softKeyInputAdapter = new DesktopKeyInputAdapter(this::scheduleRelease, runtime::dispatchHostSoftKey,
                     KEY_REPEAT_RELEASE_DEBOUNCE_MS);

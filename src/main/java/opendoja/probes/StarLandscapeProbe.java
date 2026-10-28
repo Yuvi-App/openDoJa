@@ -19,7 +19,8 @@ public final class StarLandscapeProbe {
         System.setProperty("java.awt.headless", "true");
         System.setProperty(OpenDoJaLaunchArgs.HOST_SCALE, "1");
         System.setProperty(OpenDoJaLaunchArgs.DISPLAY_ROTATION, "none");
-        DesktopLauncher.launch(LaunchConfig.builder(StarApp.class).viewport(240, 427).parameter("AppType", "FullApp").build());
+        DesktopLauncher.launch(LaunchConfig.builder(StarApp.class).viewport(240, 427).parameter("AppType", "FullApp")
+                .parameter("TargetDevice", "P01A").build());
         try {
             var runtime = DoJaRuntime.current();
             runtime.setExternalFrameEnabled(false);

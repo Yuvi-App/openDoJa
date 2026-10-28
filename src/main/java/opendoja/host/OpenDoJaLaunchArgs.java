@@ -158,6 +158,8 @@ public final class OpenDoJaLaunchArgs {
     public static final String INPUT_KEY_REPEAT_RELEASE_DEBOUNCE_MS = "opendoja.input.keyRepeatReleaseDebounceMs";
     /** Serialized host input bindings for the active launcher profile. */
     public static final String INPUT_BINDINGS = "opendoja.input.bindings";
+    /** STAR desktop directions: auto, none, left, right, or upside-down; handset keys remain unchanged. */
+    public static final String INPUT_STAR_DIRECTION_ROTATION = "opendoja.input.starDirectionRotation";
     /** Minimum select-key press duration in ms. */
     public static final String INPUT_MINIMUM_SELECT_PRESS_MS = "opendoja.input.minimumSelectPressMs";
     /** Payload returned by mock IR receive. */
@@ -347,6 +349,7 @@ public final class OpenDoJaLaunchArgs {
             USER_ID,
             INPUT_KEY_REPEAT_RELEASE_DEBOUNCE_MS,
             INPUT_BINDINGS,
+            INPUT_STAR_DIRECTION_ROTATION,
             INPUT_MINIMUM_SELECT_PRESS_MS,
             IRRECEIVER_DATA,
             KEEP_EXPLICIT_GC,
@@ -634,6 +637,7 @@ public final class OpenDoJaLaunchArgs {
         defaults.put(USER_ID, OpenDoJaIdentity::defaultUserId);
         defaults.put(INPUT_KEY_REPEAT_RELEASE_DEBOUNCE_MS, () -> "25");
         defaults.put(INPUT_BINDINGS, () -> "");
+        defaults.put(INPUT_STAR_DIRECTION_ROTATION, () -> "auto");
         defaults.put(INPUT_MINIMUM_SELECT_PRESS_MS, () -> "75");
         defaults.put(IRRECEIVER_DATA, () -> "IR-RECEIVE");
         defaults.put(KEEP_EXPLICIT_GC, () -> "false");
