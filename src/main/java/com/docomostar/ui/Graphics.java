@@ -90,6 +90,18 @@ public class Graphics implements com.docomostar.opt.ui.j3d.Graphics3D, com.docom
     public static int getColorOfName(int name) { return com.nttdocomo.ui.Graphics.getColorOfName(name); }
     public void setFont(Font font) { delegate.setFont(font == null ? null : font.delegate); }
     public Graphics copy() { return wrap(delegate.copy(), false); }
+    public void drawSpriteSet(SpriteSet sprites) {
+        try { delegate.drawSpriteSet(sprites.host()); }
+        catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
+    }
+    public void drawSpriteSet(SpriteSet sprites, int offset, int count) {
+        try { delegate.drawSpriteSet(sprites.host(), offset, count); }
+        catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
+    }
+    public void drawImageMap(ImageMap map, int x, int y) {
+        try { delegate.drawImageMap(map == null ? null : map.host(), x, y); }
+        catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
+    }
     public void drawScaledImage(Image image, int x, int y, int width, int height,
                                 int sourceX, int sourceY, int sourceWidth, int sourceHeight) {
         try { delegate.drawScaledImage(image.delegate, x, y, width, height, sourceX, sourceY, sourceWidth, sourceHeight); }
@@ -185,6 +197,10 @@ public class Graphics implements com.docomostar.opt.ui.j3d.Graphics3D, com.docom
     }
     public void setPixel(int x, int y) {
         try { delegate.setPixel(x, y); }
+        catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
+    }
+    public void setPixel(int x, int y, int color) {
+        try { delegate.setPixel(x, y, color); }
         catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
     }
     public void setRGBPixels(int x, int y, int width, int height, int[] pixels, int offset) {

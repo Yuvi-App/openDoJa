@@ -13,6 +13,12 @@ public class Display {
     public static final int MEDIA_EVENT = com.nttdocomo.ui.Display.MEDIA_EVENT;
     public static final int POINTER_MOVED_EVENT = com.nttdocomo.ui.Display.POINTER_MOVED_EVENT;
     public static final int FINGER_MOVED_EVENT = com.nttdocomo.ui.Display.FINGER_MOVED_EVENT;
+    public static final int TOUCH_PRESSED_EVENT = 67;
+    public static final int TOUCH_RELEASED_EVENT = 68;
+    public static final int TOUCH_MOVEDSTART_EVENT = 69;
+    public static final int TOUCH_MOVEDEND_EVENT = 70;
+    public static final int TOUCH_PINCHOPEN_EVENT = 71;
+    public static final int TOUCH_PINCHCLOSE_EVENT = 72;
     public static final int KEY_0 = com.nttdocomo.ui.Display.KEY_0;
     public static final int KEY_1 = com.nttdocomo.ui.Display.KEY_1;
     public static final int KEY_2 = com.nttdocomo.ui.Display.KEY_2;
