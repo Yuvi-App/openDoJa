@@ -58,6 +58,24 @@ public class OglRenderer {
         return ogl;
     }
 
+    /** Host integration: STAR carries fragment settings between canvas and image views. */
+    public record FragmentState(boolean blendEnabled, int blendSrc, int blendDst,
+                                boolean alphaTestEnabled, int alphaFunc, float alphaRef) { }
+
+    public final FragmentState captureFragmentState() {
+        return new FragmentState(ogl.blendCapEnabled, ogl.blendSrcFactor, ogl.blendDstFactor,
+                ogl.alphaTestEnabled, ogl.alphaFunc, ogl.alphaRef);
+    }
+
+    public final void applyFragmentState(FragmentState state) {
+        ogl.blendCapEnabled = state.blendEnabled();
+        ogl.blendSrcFactor = state.blendSrc();
+        ogl.blendDstFactor = state.blendDst();
+        ogl.alphaTestEnabled = state.alphaTestEnabled();
+        ogl.alphaFunc = state.alphaFunc();
+        ogl.alphaRef = state.alphaRef();
+    }
+
     int oglClearColor() {
         return oglClearColor;
     }

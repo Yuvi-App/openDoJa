@@ -1,7 +1,7 @@
 package com.docomostar.ui;
 
 /** STAR graphics view over the same host context used for canvas presentation. */
-public class Graphics implements com.docomostar.opt.ui.j3d.Graphics3D, com.docomostar.ui.graphics3d.Graphics3D {
+public class Graphics implements com.docomostar.opt.ui.j3d.Graphics3D, com.docomostar.ui.graphics3d.Graphics3D, com.docomostar.ui.ogl.GraphicsOGL {
     public static final int BLACK = com.nttdocomo.ui.Graphics.BLACK;
     public static final int BLUE = com.nttdocomo.ui.Graphics.BLUE;
     public static final int LIME = com.nttdocomo.ui.Graphics.LIME;
@@ -28,6 +28,50 @@ public class Graphics implements com.docomostar.opt.ui.j3d.Graphics3D, com.docom
     public static final int FLIP_ROTATE_RIGHT_VERTICAL = com.nttdocomo.ui.Graphics.FLIP_ROTATE_RIGHT_VERTICAL;
 
     protected final com.nttdocomo.ui.Graphics delegate;
+    private StarOglContext oglContext;
+    private long oglFragmentRevision = -1;
+
+    @Override public com.nttdocomo.ui.ogl.GraphicsOGL hostGraphicsOGL() {
+        StarOglContext current = StarOglContext.current();
+        if (oglContext != current) {
+            oglContext = current;
+            oglFragmentRevision = -1;
+        }
+        oglFragmentRevision = current.bind(delegate, oglFragmentRevision);
+        return delegate;
+    }
+
+    @Override public void glEnable(int cap) {
+        try {
+            hostGraphicsOGL().glEnable(cap);
+            if (cap == GL_BLEND || cap == GL_ALPHA_TEST) rememberOglFragments();
+        } catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
+    }
+
+    @Override public void glDisable(int cap) {
+        try {
+            hostGraphicsOGL().glDisable(cap);
+            if (cap == GL_BLEND || cap == GL_ALPHA_TEST) rememberOglFragments();
+        } catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
+    }
+
+    @Override public void glBlendFunc(int source, int destination) {
+        try {
+            hostGraphicsOGL().glBlendFunc(source, destination);
+            rememberOglFragments();
+        } catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
+    }
+
+    @Override public void glAlphaFunc(int function, float reference) {
+        try {
+            hostGraphicsOGL().glAlphaFunc(function, reference);
+            rememberOglFragments();
+        } catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
+    }
+
+    private void rememberOglFragments() {
+        oglFragmentRevision = oglContext.remember(delegate);
+    }
     protected Graphics() { this(com.nttdocomo.ui.Image.createImage(1, 1).getGraphics()); }
     Graphics(com.nttdocomo.ui.Graphics delegate) { this(delegate, true); }
     protected Graphics(com.nttdocomo.ui.Graphics delegate, boolean initializeFont) {
@@ -129,6 +173,10 @@ public class Graphics implements com.docomostar.opt.ui.j3d.Graphics3D, com.docom
     }
     public int getRGBPixel(int x, int y) {
         try { return delegate.getRGBPixel(x, y); }
+        catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
+    }
+    public int[] getPixels(int x, int y, int width, int height, int[] pixels, int offset) {
+        try { return delegate.getPixels(x, y, width, height, pixels, offset); }
         catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
     }
     public int[] getRGBPixels(int x, int y, int width, int height, int[] pixels, int offset) {

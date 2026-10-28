@@ -270,6 +270,15 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
         }
     }
 
+    /** Host integration for the STAR adapter; ordinary DoJa views retain independent GL state. */
+    public final OglRenderer.FragmentState captureOglFragmentState() {
+        return oglRenderer.captureFragmentState();
+    }
+
+    public final void applyOglFragmentState(OglRenderer.FragmentState state) {
+        oglRenderer.applyFragmentState(state);
+    }
+
     @Override
     public void glClearColor(float red, float green, float blue, float alpha) {
         oglRenderer.glClearColor(red, green, blue, alpha);
