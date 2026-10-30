@@ -168,6 +168,8 @@ public final class OpenDoJaLaunchArgs {
     public static final String KEEP_EXPLICIT_GC = "opendoja.keepExplicitGc";
     /** Marks that launch compatibility tweaks were applied. */
     public static final String LAUNCH_COMPAT_APPLIED = "opendoja.launchCompatApplied";
+    /** Internal file carrying parameters for an i-appli linked launch. */
+    public static final String LINKED_LAUNCH_REQUEST = "opendoja.linkedLaunchRequest";
     /** Marks that the one-time VerifyError fallback re-exec was applied. */
     public static final String VERIFY_FALLBACK_APPLIED = "opendoja.verifyFallbackApplied";
     /** Minimum OpenDoJa log level. */
@@ -408,6 +410,7 @@ public final class OpenDoJaLaunchArgs {
             TRACE_FAILURES,
             UI_FIGURE_VERTEX_SCALE,
             LAUNCH_COMPAT_APPLIED,
+            LINKED_LAUNCH_REQUEST,
             VERIFY_FALLBACK_APPLIED);
 
     private static final Map<String, Supplier<String>> DEFAULTS = buildDefaults();
@@ -642,6 +645,7 @@ public final class OpenDoJaLaunchArgs {
         defaults.put(IRRECEIVER_DATA, () -> "IR-RECEIVE");
         defaults.put(KEEP_EXPLICIT_GC, () -> "false");
         defaults.put(LAUNCH_COMPAT_APPLIED, () -> "false");
+        defaults.put(LINKED_LAUNCH_REQUEST, () -> "");
         defaults.put(VERIFY_FALLBACK_APPLIED, () -> "false");
         defaults.put(LOG_LEVEL, () -> OpenDoJaLog.Level.OFF.name());
         defaults.put(VISUAL_PLAYER_FALLBACK_DELAY_MS, () -> "2000");
