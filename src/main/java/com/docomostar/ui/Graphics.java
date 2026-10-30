@@ -331,6 +331,16 @@ public class Graphics implements com.docomostar.opt.ui.j3d.Graphics3D, com.docom
         try { delegate.flush(); }
         catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
     }
+    public void drawFigure(com.docomostar.opt.ui.j3d.Figure figure) {
+        try { delegate.drawFigure(figure); }
+        catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
+    }
+    public void renderFigure(com.docomostar.opt.ui.j3d.Figure figure) {
+        try { delegate.renderFigure(figure); }
+        catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }
+    }
+    public void enableSphereMap(boolean enabled) { delegate.enableSphereMap(enabled); }
+    public void setSphereTexture(com.docomostar.opt.ui.j3d.Texture texture) { delegate.setSphereTexture(texture); }
     public void setClipRect3D(int x, int y, int width, int height) {
         try { delegate.setClipRect3D(x, y, width, height); }
         catch (com.nttdocomo.ui.UIException failure) { throw UIException.from(failure); }

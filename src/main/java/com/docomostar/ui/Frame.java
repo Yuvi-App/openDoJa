@@ -2,6 +2,8 @@ package com.docomostar.ui;
 
 /** STAR frame hierarchy, backed by a host frame for presentation and input. */
 public abstract class Frame {
+    /** Host integration: recover the STAR identity of a displayed backend frame. */
+    public interface Host { Frame starFrame(); }
     public static final int SOFT_KEY_1 = 0;
     public static final int SOFT_KEY_2 = 1;
     public static final int SOFT_KEY_3 = 2;

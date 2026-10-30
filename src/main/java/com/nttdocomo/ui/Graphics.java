@@ -1301,14 +1301,22 @@ public class Graphics implements com.nttdocomo.ui.graphics3d.Graphics3D, com.ntt
      */
     public void setRGBPixels(int x, int y, int width, int height, int[] pixels, int offset) {
         int length = checkedRgbPixelLength(pixels, offset, width, height);
+        int drawX = originX + x, drawY = originY + y;
+        Rectangle visible = new Rectangle(drawX, drawY, width, height)
+                .intersection(new Rectangle(0, 0, surface.width(), surface.height()));
+        Rectangle clip = delegate.getClipBounds();
+        if (clip != null) visible = visible.intersection(clip);
+        if (visible.isEmpty()) return;
+        int sourceOffset = (visible.y - drawY) * width + visible.x - drawX;
         prepareSoftwareSurfaceMutation();
         if (hasNonOpaqueRgbPixels(pixels, offset, length)) {
-            surface.image().setRGB(originX + x, originY + y, width, height,
-                    opaqueRgbPixels(pixels, offset, length), 0, width);
+            surface.image().setRGB(visible.x, visible.y, visible.width, visible.height,
+                    opaqueRgbPixels(pixels, offset, length), sourceOffset, width);
         } else {
-            surface.image().setRGB(originX + x, originY + y, width, height, pixels, offset, width);
+            surface.image().setRGB(visible.x, visible.y, visible.width, visible.height,
+                    pixels, offset + sourceOffset, width);
         }
-        flushSurfacePresentation();
+        flushSurfacePresentation(visible);
     }
 
     private static int checkedRgbPixelLength(int[] pixels, int offset, int width, int height) {

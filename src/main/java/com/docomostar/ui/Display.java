@@ -81,6 +81,6 @@ public class Display {
 
     public static Frame getCurrent() {
         com.nttdocomo.ui.Frame frame = com.nttdocomo.ui.Display.getCurrent();
-        return frame instanceof Canvas.HostCanvas canvas ? canvas.owner() : null;
+        return frame instanceof Frame.Host host ? host.starFrame() : null;
     }
 }

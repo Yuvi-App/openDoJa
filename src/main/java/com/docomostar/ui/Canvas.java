@@ -28,7 +28,8 @@ public abstract class Canvas extends Frame {
         host.imeOn(text, displayMode, inputMode, inputSize);
     }
 
-    final class HostCanvas extends com.nttdocomo.ui.Canvas {
+    final class HostCanvas extends com.nttdocomo.ui.Canvas implements Frame.Host {
+        @Override public Frame starFrame() { return Canvas.this; }
         Canvas owner() { return Canvas.this; }
 
         @Override public void paint(com.nttdocomo.ui.Graphics graphics) {

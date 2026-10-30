@@ -65,6 +65,10 @@ public interface Graphics3D {
     void setPerspective(int near, int far, int width);
     void setPerspective(int near, int far, int width, int height);
     void flush();
+    void drawFigure(Figure figure);
+    void renderFigure(Figure figure);
+    void enableSphereMap(boolean enabled);
+    void setSphereTexture(Texture texture);
     void setPrimitiveTextureArray(Texture texture);
     void setPrimitiveTextureArray(Texture[] textures);
     void setPrimitiveTexture(int index);
