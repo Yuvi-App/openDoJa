@@ -82,7 +82,8 @@ public final class DoJaRuntime {
     private volatile IApplication application;
     private JFrame frameWindow;
     private GraphicsDevice fullScreenDevice;
-    private Frame currentFrame;
+    private volatile Frame currentFrame;
+    private volatile Canvas currentCanvas;
     // `presentedCanvas` / `presentedFrame` only tell us what is currently visible. We still need
     // one explicit bit to remember whether the active canvas has already presented from the
     // application-owned direct graphics path, because only that fact suppresses extra host paints.
@@ -268,8 +269,8 @@ public final class DoJaRuntime {
     }
 
     private void wakeApplicationCallbacks() {
-        Frame frame = currentFrame;
-        if (frame instanceof Canvas canvas) {
+        Canvas canvas = currentCanvas;
+        if (canvas != null) {
             // Once a canvas has actually presented from outside the runtime render
             // worker, queued callbacks can ride that app-owned lock/unlock path.
             // Forcing requestRender(canvas) after that would inject an extra host
@@ -280,7 +281,8 @@ public final class DoJaRuntime {
             // Non-direct canvas titles still need a render wakeup so the
             // callback is drained on the canvas/application path instead of
             // on an unrelated host thread.
-            requestRender(canvas);
+            if (currentFrame instanceof com.nttdocomo.ui.Panel) requestWidgetRepaint(canvas);
+            else requestRender(canvas);
             return;
         }
         // Non-canvas frames still need a host-side wakeup to service the queue.
@@ -468,10 +470,12 @@ public final class DoJaRuntime {
         if (frame != null) {
             keypadConfigurationLocked = true;
         }
-        Frame previousFrame = this.currentFrame;
+        Canvas previousCanvas = this.currentCanvas;
         this.currentFrame = frame;
-        if (frame instanceof Canvas canvas) {
-            if (previousFrame != canvas) {
+        Canvas canvas = _PanelHost.canvasFor(frame);
+        this.currentCanvas = canvas;
+        if (canvas != null) {
+            if (previousCanvas != canvas) {
                 currentCanvasPresentedByApplication = false;
             }
             ensureCanvasSurface(canvas);
@@ -480,7 +484,7 @@ public final class DoJaRuntime {
                 presentedFrame = snapshotCanvasImage(canvas);
             }
             presentedCanvas = canvas;
-            requestRender(canvas);
+            requestWidgetRepaint(canvas);
         } else {
             updatePresentationRotation(null);
             currentCanvasPresentedByApplication = false;
@@ -508,7 +512,16 @@ public final class DoJaRuntime {
         requestRender(new RepaintRequest(canvas, null), false);
     }
 
+    /** Widget setters must coalesce updates without waiting while an application monitor is held. */
+    public void requestWidgetRepaint(Canvas canvas) {
+        requestRender(new RepaintRequest(canvas, null), true, false);
+    }
+
     private void requestRender(RepaintRequest repaint, boolean repaintRequest) {
+        requestRender(repaint, repaintRequest, true);
+    }
+
+    private void requestRender(RepaintRequest repaint, boolean repaintRequest, boolean allowBackpressure) {
         Canvas canvas = repaint.canvas();
         Runnable paintTask = () -> {
             renderThread = Thread.currentThread();
@@ -558,7 +571,7 @@ public final class DoJaRuntime {
                 return;
             }
         } else if (repaintRequest) {
-            waitForBackpressure = rememberPendingRepaint(repaint) && shouldWaitForRepaintBackpressure(canvas);
+            waitForBackpressure = rememberPendingRepaint(repaint) && allowBackpressure && shouldWaitForRepaintBackpressure(canvas);
         }
         if (waitForBackpressure) {
             awaitRenderSlotAvailable();
@@ -789,7 +802,8 @@ public final class DoJaRuntime {
         } else if (eventType == Display.KEY_RELEASED_EVENT) {
             keypadStateBits &= ~mask;
         }
-        if (!(currentFrame instanceof Canvas canvas)) {
+        Canvas canvas = currentCanvas;
+        if (canvas == null) {
             return;
         }
         dispatchCanvasUiEvent(canvas, () -> {
@@ -811,7 +825,8 @@ public final class DoJaRuntime {
     private void dispatchPointerEvent(int eventType, int x, int y) {
         if (isVideoPlaying()) return;
         updatePointerPosition(x, y);
-        if (!(currentFrame instanceof Canvas canvas)) {
+        Canvas canvas = currentCanvas;
+        if (canvas == null) {
             return;
         }
         dispatchCanvasUiEvent(canvas, () -> {
@@ -838,8 +853,8 @@ public final class DoJaRuntime {
             }
             frame.processSoftKeyEvent(eventType, softKey);
             repaintWindow();
-            if (frame == currentFrame && frame instanceof Canvas canvas && !currentCanvasPresentedByApplication) {
-                requestRender(canvas);
+            if (frame == currentFrame && currentCanvas != null && !currentCanvasPresentedByApplication) {
+                requestRender(currentCanvas);
             }
         });
     }
@@ -861,7 +876,7 @@ public final class DoJaRuntime {
 
     public void notifySurfaceFlush(Canvas canvas, BufferedImage frame) {
         awaitVideoPlayback();
-        if (canvas == currentFrame && Thread.currentThread() != renderThread) {
+        if (canvas == currentCanvas && Thread.currentThread() != renderThread) {
             currentCanvasPresentedByApplication = true;
         }
         if (openGlesFpsEnabled) {
@@ -870,7 +885,7 @@ public final class DoJaRuntime {
         // Some games start a render thread from the Canvas constructor and flush direct-draw frames
         // before Display.setCurrent(canvas) runs. Preserve that latest frame so it is still visible
         // once the Canvas becomes current, instead of dropping it as "not current yet".
-        if (canvas == currentFrame || currentFrame == null) {
+        if (canvas == currentCanvas || currentFrame == null) {
             updatePresentationRotation(canvas);
             presentedCanvas = canvas;
             presentedFrame = frame == null ? snapshotCanvasImage(canvas) : frame;
@@ -899,7 +914,7 @@ public final class DoJaRuntime {
     }
 
     private boolean rememberPendingRepaint(RepaintRequest repaint) {
-        if (shutdown.get() || currentFrame != repaint.canvas()) {
+        if (shutdown.get() || currentCanvas != repaint.canvas()) {
             return false;
         }
         pendingRepaint.accumulateAndGet(repaint, RepaintRequest::merge);
@@ -911,14 +926,14 @@ public final class DoJaRuntime {
         if (repaint == null) {
             return;
         }
-        if (!shutdown.get() && currentFrame == repaint.canvas()) {
+        if (!shutdown.get() && currentCanvas == repaint.canvas()) {
             requestRender(repaint, false);
         }
     }
 
     private boolean shouldWaitForRepaintBackpressure(Canvas canvas) {
         // Only public repaint calls are backpressured; host render wakeups stay async.
-        return currentFrame == canvas
+        return currentCanvas == canvas
                 && !shutdown.get()
                 && Thread.currentThread() != renderThread
                 && !Thread.holdsLock(canvas)
@@ -931,7 +946,7 @@ public final class DoJaRuntime {
             if (!shouldWakeCanvasAfterUiEvent(eventType)) {
                 return;
             }
-            if (canvas == currentFrame && !currentCanvasPresentedByApplication) {
+            if (canvas == currentCanvas && !currentCanvasPresentedByApplication) {
                 requestRender(canvas);
             }
         });
