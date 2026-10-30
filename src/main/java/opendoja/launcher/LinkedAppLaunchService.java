@@ -66,6 +66,7 @@ public final class LinkedAppLaunchService {
     }
 
     Path resolveJam(DoJaRuntime runtime, String targetUrl) throws IOException {
+        syncPreferences();
         Path sourceJam = runtime.jamPath().toAbsolutePath().normalize();
         String remembered = preferences.get(keyFor(targetUrl), null);
         if (remembered != null) {
@@ -110,6 +111,25 @@ public final class LinkedAppLaunchService {
             preferences.flush();
         } catch (BackingStoreException | RuntimeException exception) {
             OpenDoJaLog.warn(LinkedAppLaunchService.class, "Could not remember linked JAM selection", exception);
+        }
+    }
+
+    public void clearRememberedSelections() throws IOException {
+        try {
+            preferences.sync();
+            preferences.clear();
+            preferences.flush();
+        } catch (BackingStoreException exception) {
+            throw new IOException("Could not clear remembered linked JAM selections", exception);
+        }
+    }
+
+    private void syncPreferences() throws IOException {
+        try {
+            // A separate launcher JVM may have cleared the selections while this game was running.
+            preferences.sync();
+        } catch (BackingStoreException exception) {
+            throw new IOException("Could not read remembered linked JAM selections", exception);
         }
     }
 
